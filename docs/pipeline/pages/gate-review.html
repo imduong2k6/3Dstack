@@ -1,0 +1,341 @@
+<title>Gate Review Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a review desk. Vertical gate timeline on the left, the selected gate's numbers, captures and decision on the right. */
+:root {
+  --paper: #F2F4F3; --panel: #FFFFFF; --ink: #16201C; --muted: #56645E; --line: #D2DAD6; --grid: #E3E8E5;
+  --accent: #1E52C4; --accent-ink: #FFFFFF; --gate: #B07400; --keep: #2A7A4B; --add: #B8382B;
+  --tint-accent: #E6ECFA; --tint-keep: #E2F0E7; --tint-gate: #F6EBD3; --tint-add: #F6E1DE;
+  --f-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #111614; --panel: #19201D; --ink: #E4EBE7; --muted: #98A6A0; --line: #2D3833; --grid: #1D2522;
+  --accent: #86A8FF; --accent-ink: #0E1630; --gate: #E2AA3E; --keep: #62C48E; --add: #F0867A;
+  --tint-accent: #1C2640; --tint-keep: #15301F; --tint-gate: #33290F; --tint-add: #3A1E1A; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #111614; --panel: #19201D; --ink: #E4EBE7; --muted: #98A6A0; --line: #2D3833; --grid: #1D2522;
+  --accent: #86A8FF; --accent-ink: #0E1630; --gate: #E2AA3E; --keep: #62C48E; --add: #F0867A;
+  --tint-accent: #1C2640; --tint-keep: #15301F; --tint-gate: #33290F; --tint-add: #3A1E1A; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+header.top { margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 20px;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 40px 40px; border-bottom: 1px solid var(--line); }
+header.top .wrap { display: grid; gap: 10px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; line-height: 1.1; text-wrap: balance; }
+h1 { font-size: clamp(38px, 6vw, 56px); font-weight: 700; }
+h2 { font-size: 30px; font-weight: 600; }
+h3 { font-size: 20px; font-weight: 600; }
+p { margin: 0; }
+.lede { max-width: 64ch; }
+.status { font-size: 14px; color: var(--muted); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+select, textarea { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; max-width: 100%; }
+textarea { width: 100%; min-height: 90px; resize: vertical; }
+button.btn { font: inherit; font-weight: 600; font-size: 14.5px; border-radius: 4px; padding: 7px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.btn:disabled { opacity: .5; cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; padding-top: 24px; align-items: start; }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+nav.timeline { position: relative; display: grid; gap: 0; }
+nav.timeline ol { list-style: none; margin: 0; padding: 0; position: relative; }
+nav.timeline ol::before { content: ""; position: absolute; left: 11px; top: 14px; bottom: 14px; width: 2px; background: var(--line); }
+nav.timeline li { position: relative; }
+nav.timeline button { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; align-items: start; width: 100%; padding: 8px 8px 8px 0; cursor: pointer; border-radius: 4px; }
+nav.timeline button:focus-visible { outline: 2px solid var(--accent); }
+nav.timeline button[aria-current="true"] .gt { color: var(--accent); }
+nav.timeline button[aria-current="true"] { background: var(--tint-accent); }
+.dot { width: 24px; height: 24px; display: grid; place-items: center; position: relative; z-index: 1; }
+.dot i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--muted); background: var(--paper); }
+.dot.gate i { transform: rotate(45deg); border-radius: 2px; }
+.s-awaiting_review .dot i { border-color: var(--gate); background: var(--gate); }
+.s-approved .dot i, .s-approved_with_notes .dot i { border-color: var(--keep); background: var(--keep); }
+.s-changes_requested .dot i { border-color: var(--add); background: var(--add); }
+.gt { font-weight: 600; font-size: 15px; line-height: 1.3; }
+.gs { font-size: 12.5px; color: var(--muted); font-family: var(--f-mono); }
+.phase-sep { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 14px 0 4px 34px; }
+
+.detail { display: grid; gap: 18px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px; display: grid; gap: 12px; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; }
+.pill { font-family: var(--f-mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--grid); color: var(--muted); white-space: nowrap; }
+.pill.awaiting_review { background: var(--tint-gate); color: var(--gate); }
+.pill.approved, .pill.approved_with_notes, .pill.ok, .pill.pass, .pill.ready { background: var(--tint-keep); color: var(--keep); }
+.pill.changes_requested, .pill.over, .pill.blocker, .pill.blocked, .pill.fix { background: var(--tint-add); color: var(--add); }
+.pill.warn, .pill.major, .pill.assumptions { background: var(--tint-gate); color: var(--gate); }
+.pill.example { background: var(--tint-accent); color: var(--accent); }
+ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; display: grid; gap: 2px; background: var(--paper); min-width: 0; }
+.stat .l { font-size: 13px; color: var(--muted); }
+.stat .v { font-family: var(--f-display); font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat .t { font-size: 12.5px; color: var(--muted); font-family: var(--f-mono); }
+.meter { height: 4px; background: var(--grid); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+.meter b { display: block; height: 100%; background: var(--keep); }
+.stat.warn .meter b { background: var(--gate); } .stat.over .meter b { background: var(--add); }
+.bars { display: grid; gap: 6px; }
+.barrow { display: grid; grid-template-columns: 180px minmax(0, 1fr) 48px; gap: 10px; align-items: center; font-size: 14px; }
+.barrow .track { height: 12px; background: var(--grid); border-radius: 2px; overflow: hidden; }
+.barrow .track b { display: block; height: 100%; box-shadow: inset 0 0 0 1px rgba(128,128,128,.55); }
+@media (max-width: 520px) { .barrow { grid-template-columns: 120px minmax(0, 1fr) 40px; } }
+.barrow .n { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--f-mono); font-size: 13px; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; border: 1px solid rgba(128,128,128,.55); vertical-align: -1px; margin-right: 6px; }
+
+.caps { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.cap { margin: 0; display: grid; gap: 4px; }
+.cap .frame { aspect-ratio: 16 / 9; max-width: 100%; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: repeating-linear-gradient(45deg, var(--grid) 0 10px, var(--paper) 10px 20px); display: grid; place-items: center; color: var(--muted); font-family: var(--f-mono); font-size: 12px; }
+.cap img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+.cap figcaption { font-size: 13px; color: var(--muted); }
+.pal { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.swatch { border: 1px solid var(--line); border-radius: 4px; overflow: hidden; display: grid; }
+.swatch .c { height: 56px; position: relative; }
+.swatch .c span { position: absolute; right: 6px; bottom: 4px; font-family: var(--f-mono); font-size: 11px; padding: 0 4px; border-radius: 2px; background: var(--panel); color: var(--ink); }
+.swatch .m { padding: 6px 8px; font-size: 13px; display: grid; }
+.swatch .m small { color: var(--muted); font-family: var(--f-mono); font-size: 11px; }
+.items { display: grid; gap: 8px; }
+.item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; border-top: 1px solid var(--line); padding-top: 8px; }
+.item:first-child { border-top: 0; padding-top: 0; }
+.item .ids { font-family: var(--f-mono); font-size: 12px; color: var(--muted); word-break: break-all; }
+.item a { word-break: break-word; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg span { display: inline-block; padding: 3px 10px; font-size: 13px; cursor: pointer; border-left: 1px solid var(--line); }
+.seg label:first-child span { border-left: 0; }
+.seg input:checked + span { background: var(--tint-accent); color: var(--ink); font-weight: 600; }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
+.q { display: grid; gap: 6px; }
+.q .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.decision { display: flex; flex-wrap: wrap; gap: 8px; }
+.decision label { position: relative; }
+.decision input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.decision span { display: inline-block; border: 1px solid var(--line); border-radius: 4px; padding: 7px 14px; font-weight: 600; font-size: 14.5px; cursor: pointer; background: var(--paper); }
+.decision input:checked + span { border-color: var(--accent); background: var(--tint-accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.decision input:focus-visible + span { outline: 2px solid var(--accent); }
+.note { font-size: 13.5px; color: var(--muted); }
+.empty { padding: 28px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; }
+dialog { border: 1px solid var(--line); border-radius: 6px; padding: 0; background: var(--panel); color: var(--ink); max-width: min(96vw, 1400px); }
+dialog img { display: block; max-width: 100%; max-height: 86vh; }
+dialog::backdrop { background: rgba(0,0,0,.7); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">Pipeline output · one entry per gate and phase</div>
+    <h1>Gate Review Board</h1>
+    <p class="lede">The pipeline posts each gate here with its numbers, captures, supervisor findings and art direction notes. You read it, answer the questions, and send back a decision the agents pick up on their next step.</p>
+    <div class="toolbar">
+      <label for="proj" class="note">Project</label>
+      <select id="proj"></select>
+      <button class="btn" type="button" id="clearEx" hidden>Remove example data</button>
+      <span class="status" id="status">Connecting…</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="layout">
+    <nav class="timeline" aria-label="Gates and phases"><ol id="tl"></ol></nav>
+    <div class="detail" id="detail"><div class="empty">Nothing posted yet. The pipeline adds a gate here when it reaches one.</div></div>
+  </div>
+</main>
+<dialog id="zoom"><img id="zoomImg" alt=""></dialog>
+
+<script>
+const ORDER = ["G0", "G1", "G2", "K", "P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "T", "L1", "L2", "L3", "G3"];
+const STAGE = { G0: "Plan", G1: "Plan", G2: "Build", K: "Assets", P0: "Build", P1: "Build", P2: "Build", P3: "Build", P4: "Build", P5: "Build", P6: "Build", P7: "Build", P8: "Build", P9: "Build", T: "Transfer", L1: "Light", L2: "Light", L3: "Light", G3: "Sign-off" };
+const LEGEND = { white: ["#FFFFFF", "Modular architecture"], red: ["#E5484D", "Animated or interactive"], grey: ["#8A918E", "Terrain and ground"], yellow: ["#F5C400", "Hero or focal"], orange: ["#F08C2E", "Dressing clusters"], purple: ["#8E5BD9", "Procedural, repetitive"], green: ["#3BA55C", "Foliage"], blue: ["#3E8EDE", "Water and glass"], cyan: ["#35C4D6", "Light sources"], black: ["#1B1B1B", "Blockers"] };
+const SOURCE = { build: ["var(--accent)", "Built"], library: ["var(--keep)", "Library"], generate: ["var(--gate)", "Generated"] };
+const STATUS_TEXT = { awaiting_review: "Waiting for you", approved: "Approved", approved_with_notes: "Approved with notes", changes_requested: "Changes requested" };
+const $ = id => document.getElementById(id);
+let db = null, gates = [], feedback = {}, project = null, selected = null, canWrite = true, isOwner = false;
+const drafts = {};
+
+function el(tag, attrs = {}, kids = []) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "text") n.textContent = v; else if (k === "style") n.style.cssText = v; else if (v !== undefined && v !== null && v !== false) n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of [].concat(kids)) if (c !== null && c !== undefined && c !== false) n.append(c);
+  return n;
+}
+const safeUrl = u => typeof u === "string" && (/^https:\/\//.test(u) || /^\/(?!\/)/.test(u)) ? u : null;
+const fmt = v => typeof v === "number" ? v.toLocaleString() : String(v ?? "–");
+const withUnit = (v, u) => fmt(v) + (u ? (/^[:%]/.test(u) ? "" : " ") + u : "");
+const ord = g => { const i = ORDER.indexOf(g.gate); return (i < 0 ? 99 : i) * 100 + (g.round || 1); };
+
+function projects() {
+  const m = new Map();
+  for (const g of gates) if (!m.has(g.project)) m.set(g.project, { id: g.project, name: g.projectName || g.project, example: !!g.example, latest: g.createdAt || "" });
+  for (const g of gates) { const p = m.get(g.project); if ((g.createdAt || "") > p.latest) p.latest = g.createdAt; }
+  return [...m.values()].sort((a, b) => (a.example - b.example) || (b.latest > a.latest ? 1 : -1));
+}
+function renderProjects() {
+  const sel = $("proj"); const ps = projects(); sel.textContent = "";
+  if (!ps.length) { sel.append(el("option", { text: "No projects yet" })); sel.disabled = true; return; }
+  sel.disabled = false;
+  if (!project || !ps.find(p => p.id === project)) project = ps[0].id;
+  for (const p of ps) sel.append(el("option", { value: p.id, text: p.name + (p.example ? " (example)" : "") }));
+  sel.value = project;
+  $("clearEx").hidden = !(isOwner && gates.some(g => g.example));
+}
+function renderTimeline() {
+  const ol = $("tl"); ol.textContent = "";
+  const list = gates.filter(g => g.project === project).sort((a, b) => ord(a) - ord(b));
+  if (!list.length) return;
+  if (!selected || !list.find(g => g.id === selected)) selected = (list.find(g => g.status === "awaiting_review") || list[list.length - 1]).id;
+  let stage = null;
+  for (const g of list) {
+    const st = STAGE[g.gate] || "Other";
+    if (st !== stage) { ol.append(el("li", { class: "phase-sep", text: st, "aria-hidden": "true" })); stage = st; }
+    const isGate = /^G|^L/.test(g.gate);
+    const b = el("button", { type: "button", "aria-current": String(g.id === selected) }, [
+      el("span", { class: "dot" + (isGate ? " gate" : "") }, el("i")),
+      el("span", {}, [el("div", { class: "gt", text: g.title || g.gate }), el("div", { class: "gs", text: g.gate + " · round " + (g.round || 1) + " · " + (STATUS_TEXT[g.status] || g.status || "") })])
+    ]);
+    b.onclick = () => { selected = g.id; renderTimeline(); renderDetail(); };
+    ol.append(el("li", { class: "s-" + (g.status || "") }, b));
+  }
+}
+
+function section(title, kids, note) { return el("section", { class: "card" }, [el("h3", { text: title }), note ? el("p", { class: "note", text: note }) : null].concat(kids)); }
+
+function renderDetail() {
+  const box = $("detail"); box.textContent = "";
+  const g = gates.find(x => x.id === selected);
+  if (!g) { box.append(el("div", { class: "empty", text: "Nothing posted yet. The pipeline adds a gate here when it reaches one." })); return; }
+  const fb = feedback[g.id];
+  // Header
+  box.append(el("section", { class: "card" }, [
+    el("div", { class: "head" }, [el("span", { class: "eyebrow", text: g.gate + " · round " + (g.round || 1) + (g.createdAt ? " · posted " + new Date(g.createdAt).toLocaleString() : "") }), g.example ? el("span", { class: "pill example", text: "Example data" }) : null, el("span", { class: "pill " + (g.status || ""), text: STATUS_TEXT[g.status] || g.status || "" })]),
+    el("h2", { text: g.title || g.gate }),
+    g.summary ? el("p", { text: g.summary }) : null,
+    Array.isArray(g.changes) && g.changes.length ? el("div", {}, [el("p", { class: "note", text: "Changed since last round" }), el("ul", { class: "plain" }, g.changes.map(c => el("li", { text: c })))]) : null
+  ]));
+  // Free sections: the plan at G0, improvement suggestions at G3
+  if (Array.isArray(g.sections)) for (const sec of g.sections) {
+    if (!sec || !sec.title) continue;
+    const items = Array.isArray(sec.items) ? sec.items : [];
+    box.append(section(sec.title, [sec.text ? el("p", { text: sec.text }) : null, items.length ? el("ul", { class: "plain" }, items.map(t => el("li", { text: String(t) }))) : null], sec.note));
+  }
+  // Readiness (input review)
+  if (Array.isArray(g.readiness) && g.readiness.length) {
+    box.append(section("Readiness", [el("div", { class: "items" }, g.readiness.map(r => el("div", { class: "item" }, [el("span", { class: "pill " + (r.state || ""), text: r.state === "assumptions" ? "assumptions" : (r.state || "") }), el("div", {}, [el("b", { text: r.area || "" }), r.note ? el("div", { class: "note", text: r.note }) : null])])))]));
+  }
+  if (Array.isArray(g.requests) && g.requests.length) box.append(section("Images the agents are asking for", [el("ul", { class: "plain" }, g.requests.map(r => el("li", { text: r })))], "Add them to your reference folder, then approve or request changes below."));
+  // Numbers
+  const numKids = [];
+  if (Array.isArray(g.stats) && g.stats.length) {
+    numKids.push(el("div", { class: "stats" }, g.stats.map(s => {
+      const pct = typeof s.value === "number" && typeof s.target === "number" && s.target > 0 ? Math.min(100, s.value / s.target * 100) : null;
+      return el("div", { class: "stat " + (s.status || "") }, [el("span", { class: "l", text: (s.group ? s.group + " · " : "") + (s.label || "") }), el("span", { class: "v", text: withUnit(s.value, s.unit) }), s.target !== undefined && s.target !== null ? el("span", { class: "t", text: "target " + withUnit(s.target, s.unit) }) : null, pct !== null ? el("div", { class: "meter", "aria-hidden": "true" }, el("b", { style: "width:" + pct + "%" })) : null]);
+    })));
+  }
+  const barsFrom = (obj, map, title) => {
+    const entries = Object.entries(obj || {}).filter(([, n]) => typeof n === "number");
+    if (!entries.length) return null;
+    const max = Math.max(...entries.map(([, n]) => n), 1);
+    return el("div", { class: "bars" }, [el("p", { class: "note", text: title })].concat(entries.map(([k, n]) => el("div", { class: "barrow" }, [el("span", {}, [el("i", { class: "sw", style: "background:" + (map[k] ? map[k][0] : "var(--muted)") }), (map[k] ? map[k][1] : k)]), el("span", { class: "track", "aria-hidden": "true" }, el("b", { style: "width:" + (n / max * 100) + "%;background:" + (map[k] ? map[k][0] : "var(--muted)") })), el("span", { class: "n", text: fmt(n) })]))));
+  };
+  const lb = barsFrom(g.legendCounts, LEGEND, "Placed assets by map colour"); if (lb) numKids.push(lb);
+  const sb = barsFrom(g.sourceCounts, SOURCE, "Unique assets by source"); if (sb) numKids.push(sb);
+  if (numKids.length) box.append(section("Numbers", numKids));
+  // Captures
+  if (Array.isArray(g.captures) && g.captures.length) {
+    box.append(section("Captures", [el("div", { class: "caps" }, g.captures.map(c => {
+      const u = safeUrl(c.url);
+      const frame = el("div", { class: "frame" });
+      if (u) { const img = el("img", { src: u, alt: c.label || "Capture", loading: "lazy" }); img.onclick = () => { $("zoomImg").src = u; $("zoomImg").alt = c.label || ""; try { $("zoom").showModal(); } catch (e) {} }; frame.append(img); }
+      else frame.append(document.createTextNode(c.label || "capture"));
+      return el("figure", { class: "cap" }, [frame, el("figcaption", { text: (c.label || "") + (c.note ? " · " + c.note : "") })]);
+    }))], "Same camera set every round, so you can compare rounds side by side."));
+  }
+  // Palette
+  if (Array.isArray(g.palette) && g.palette.length) {
+    box.append(section(g.gate === "L3" ? "Hue palette" : "Value palette", [el("div", { class: "pal" }, g.palette.map(p => el("div", { class: "swatch" }, [el("div", { class: "c", style: "background:" + (/^#[0-9a-fA-F]{6}$/.test(p.hex || "") ? p.hex : "transparent") }, el("span", { text: String(p.n ?? "") })), el("div", { class: "m" }, [el("span", { text: p.group || "" }), el("small", { text: (p.hex || "") + (typeof p.srgb === "number" ? " · sRGB " + p.srgb : "") })])])))], g.gate === "L3" ? "Each colour keeps the value its group had in the value pass. This becomes your texturing brief." : "Non-metal values should stay between about sRGB 60 and 240."));
+  }
+  // Supervisor
+  const sup = g.supervisor;
+  if (sup && Array.isArray(sup.issues)) {
+    box.append(section("Supervisor", [el("div", { class: "head" }, [el("span", { class: "pill " + (sup.verdict || ""), text: sup.verdict === "pass" ? "pass" : "fix needed" })]), sup.issues.length ? el("div", { class: "items" }, sup.issues.map(i => el("div", { class: "item" }, [el("span", { class: "pill " + (i.severity || ""), text: i.severity || "" }), el("div", {}, [el("span", { text: (i.id ? i.id + " · " : "") + (i.text || "") }), Array.isArray(i.objects) && i.objects.length ? el("div", { class: "ids", text: i.objects.join(", ") }) : null])]))) : el("p", { class: "note", text: "No issues found." })], "Correctness: scale, overlaps, clearance, specs, references. Blockers must be fixed before the next gate."));
+  }
+  // Art director
+  const ad = g.artDirector; const d = drafts[g.id] || (drafts[g.id] = { decision: fb ? fb.decision : "", notes: fb ? fb.notes || "" : "", answers: Object.assign({}, fb && fb.answers), ad: Object.assign({}, fb && fb.adDecisions) });
+  if (ad && Array.isArray(ad.notes) && ad.notes.length) {
+    box.append(section("Art Director", [ad.summary ? el("p", { text: ad.summary }) : null, el("div", { class: "items" }, ad.notes.map(n => {
+      const nm = "ad-" + g.id + "-" + n.id;
+      const seg = el("div", { class: "seg", role: "radiogroup", "aria-label": "Decision for " + n.id }, [["accept", "Do it"], ["later", "Later"], ["skip", "Skip"]].map(([v, t]) => { const inp = el("input", { type: "radio", name: nm, value: v }); inp.checked = d.ad[n.id] === v; inp.onchange = () => { d.ad[n.id] = v; }; return el("label", {}, [inp, el("span", { text: t })]); }));
+      return el("div", { class: "item" }, [el("span", { class: "pill", text: n.id || "" }), el("div", {}, [el("div", { text: n.text || "" }), Array.isArray(n.refs) && n.refs.length ? el("div", { class: "note" }, n.refs.map((r, i) => { const u = safeUrl(r.url); return el("span", {}, [i ? " · " : "", u ? el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: r.title || u }) : el("span", { text: r.title || "" })]); })) : null, seg])]);
+    }))], "Look and detail suggestions with reference links. Optional: pick what the workers should act on."));
+  }
+  // Questions
+  if (Array.isArray(g.questions) && g.questions.length) {
+    box.append(section("Questions", g.questions.map(q => {
+      const nm = "q-" + g.id + "-" + q.id;
+      const opts = (q.options || []).map(o => { const inp = el("input", { type: "radio", name: nm, value: o }); inp.checked = (d.answers[q.id] ?? q.default) === o; if (inp.checked) d.answers[q.id] = o; inp.onchange = () => { d.answers[q.id] = o; }; return el("label", {}, [inp, el("span", { text: o + (o === q.default ? " (default)" : "") })]); });
+      return el("div", { class: "q" }, [el("b", { text: (q.id ? q.id + ". " : "") + (q.text || "") }), el("div", { class: "opts decision", role: "radiogroup", "aria-label": q.text || q.id }, opts)]);
+    }), "Skipped questions use the default shown."));
+  }
+  // Decision
+  const decisionBox = el("div", { class: "decision", role: "radiogroup", "aria-label": "Your decision" }, [["approved", "Approve"], ["approved_with_notes", "Approve with notes"], ["changes_requested", "Request changes"]].map(([v, t]) => { const inp = el("input", { type: "radio", name: "dec-" + g.id, value: v }); inp.checked = d.decision === v; inp.onchange = () => { d.decision = v; }; return el("label", {}, [inp, el("span", { text: t })]); }));
+  const ta = el("textarea", { id: "notes-" + g.id, placeholder: "What to change, what to keep, anything the agents missed." }); ta.value = d.notes; ta.oninput = () => { d.notes = ta.value; };
+  const msg = el("p", { class: "note", text: fb ? "Sent " + new Date(fb.submittedAt).toLocaleString() + ". You can change it until the agents pick it up." : "Nothing sent yet." });
+  const send = el("button", { class: "btn primary", type: "button", text: fb ? "Update decision" : "Send decision" });
+  send.disabled = !db || !canWrite;
+  send.onclick = async () => {
+    if (!d.decision) { msg.textContent = "Pick Approve, Approve with notes or Request changes first."; msg.style.color = "var(--add)"; return; }
+    if (d.decision !== "approved" && !d.notes.trim()) { msg.textContent = "Add a note so the agents know what to change."; msg.style.color = "var(--add)"; ta.focus(); return; }
+    send.disabled = true; msg.style.color = "";
+    try {
+      await db.collection("feedback").doc(g.id).set({ gateId: g.id, project: g.project, gate: g.gate, round: g.round || 1, decision: d.decision, notes: d.notes.trim(), answers: d.answers, adDecisions: d.ad, submittedAt: new Date().toISOString(), pickedUp: false });
+      await db.collection("gates").doc(g.id).update({ status: d.decision });
+      msg.textContent = "Sent. The agents read this on their next step.";
+    } catch (e) {
+      if (e && (e.code === "invalid_argument" || e.code === "not_granted")) { canWrite = false; msg.textContent = "This view can read the board but can't send decisions."; }
+      else msg.textContent = "Couldn't send just now. Try again in a moment.";
+      msg.style.color = "var(--add)";
+    } finally { send.disabled = !canWrite; }
+  };
+  box.append(section("Your decision", [decisionBox, el("label", { for: "notes-" + g.id, class: "note", text: "Notes for the agents" }), ta, el("div", { class: "toolbar" }, [send, msg])]));
+}
+
+$("proj").onchange = e => { project = e.target.value; selected = null; renderTimeline(); renderDetail(); };
+$("zoom").onclick = () => $("zoom").close();
+$("clearEx").onclick = async () => {
+  const btn = $("clearEx");
+  if (btn.dataset.confirm !== "1") { btn.dataset.confirm = "1"; btn.textContent = "Click again to remove examples"; return; }
+  btn.disabled = true;
+  try { for (const g of gates.filter(x => x.example)) { await db.collection("feedback").doc(g.id).delete(); await db.collection("gates").doc(g.id).delete(); } }
+  catch (e) { $("status").textContent = "Couldn't remove all examples. Try again."; }
+  btn.disabled = false; btn.dataset.confirm = ""; btn.textContent = "Remove example data";
+};
+
+renderProjects();
+(async () => {
+  if (!window.claude || !window.claude.use) { $("status").textContent = "The board only loads inside Claude."; return; }
+  db = await window.claude.use("db");
+  if (!db) { $("status").textContent = "The board can't load data in this view."; return; }
+  try { const user = await window.claude.use("user"); if (user) { isOwner = await user.isOwner(); if ((await user.can("data.write")) === false) canWrite = false; } } catch (e) {}
+  db.collection("gates").orderBy("createdAt", "desc").limit(500).onSnapshot(snap => {
+    gates = snap.docs.map(x => Object.assign({ id: x.id }, x.data()));
+    const waiting = gates.filter(g => g.status === "awaiting_review" && !g.example).length;
+    $("status").textContent = gates.length ? (waiting ? waiting + " gate" + (waiting === 1 ? "" : "s") + " waiting for you." : "Nothing waiting for you right now.") : "No gates posted yet.";
+    renderProjects(); renderTimeline(); renderDetail();
+  }, () => { $("status").textContent = "Lost the connection. Reload the page to reconnect."; });
+  db.collection("feedback").limit(500).onSnapshot(snap => {
+    feedback = {}; for (const x of snap.docs) feedback[x.id] = x.data();
+    if (selected) renderDetail();
+  }, () => {});
+})();
+</script>

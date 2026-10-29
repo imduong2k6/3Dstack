@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Run Blender headless for one asset file, so several Modelers can work at once
+# without touching the Blender session the Blender worker drives.
+# Usage: bash bin/blender-bg [file.blend] --python <script.py> -- <script args>
+# Binary: $BLENDER_BIN, then $BLENDER_PATH, then blender on PATH, then the default
+# Windows install of Blender 5.2.
+set -euo pipefail
+
+bin="${BLENDER_BIN:-${BLENDER_PATH:-}}"
+if [ -z "$bin" ]; then
+  if command -v blender >/dev/null 2>&1; then
+    bin="blender"
+  elif [ -x "/c/Program Files/Blender Foundation/Blender 5.2/blender.exe" ]; then
+    bin="/c/Program Files/Blender Foundation/Blender 5.2/blender.exe"
+  else
+    echo "blender-bg: set BLENDER_BIN to your blender.exe (see docs/setup-windows.md)" >&2
+    exit 127
+  fi
+fi
+
+# Factory settings keep headless builds reproducible: no user startup file or add-ons.
+exec "$bin" --background --factory-startup "$@"

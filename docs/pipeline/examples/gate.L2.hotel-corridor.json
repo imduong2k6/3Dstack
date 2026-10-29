@@ -1,0 +1,221 @@
+{
+  "schema": 1,
+  "project": "example-hotel-corridor",
+  "projectName": "Example: hotel corridor",
+  "example": true,
+  "gate": "L2",
+  "kind": "gate",
+  "title": "Value pass",
+  "round": 1,
+  "status": "awaiting_review",
+  "createdAt": "2026-10-28T13:30:00Z",
+  "summary": "Nine gray values, one per material group, relit. Ceiling and trim lightest, carpet darkest so the floor leads the eye to the window.",
+  "changes": [
+    "Wainscot and doors split into separate groups",
+    "Sconce intensity down 20% after the value change"
+  ],
+  "stats": [
+    {
+      "group": "Materials",
+      "label": "Material groups",
+      "value": 9,
+      "target": 10,
+      "status": "ok"
+    },
+    {
+      "group": "Materials",
+      "label": "Material instances",
+      "value": 31
+    },
+    {
+      "group": "Materials",
+      "label": "Values outside sRGB 60 to 240",
+      "value": 1,
+      "target": 0,
+      "status": "over"
+    },
+    {
+      "group": "Textures",
+      "label": "Texture sets you will author",
+      "value": 18
+    },
+    {
+      "group": "Assets",
+      "label": "Unique meshes",
+      "value": 46
+    },
+    {
+      "group": "Assets",
+      "label": "Placed instances",
+      "value": 388
+    },
+    {
+      "group": "Budget",
+      "label": "Triangles",
+      "value": 1.42,
+      "unit": "M",
+      "target": 2,
+      "status": "ok"
+    },
+    {
+      "group": "Light",
+      "label": "Lights",
+      "value": 23
+    }
+  ],
+  "legendCounts": {
+    "white": 162,
+    "red": 18,
+    "yellow": 6,
+    "orange": 121,
+    "purple": 31,
+    "cyan": 23,
+    "blue": 4,
+    "black": 0
+  },
+  "sourceCounts": {
+    "build": 31,
+    "library": 11,
+    "generate": 4
+  },
+  "captures": [
+    {
+      "label": "CAM_01 value"
+    },
+    {
+      "label": "CAM_02 value"
+    },
+    {
+      "label": "CAM_03 value"
+    },
+    {
+      "label": "Squint check",
+      "note": "8 px blur"
+    },
+    {
+      "label": "Luminance histogram"
+    }
+  ],
+  "palette": [
+    {
+      "n": 1,
+      "group": "Ceiling",
+      "srgb": 200,
+      "hex": "#C8C8C8"
+    },
+    {
+      "n": 2,
+      "group": "Trim",
+      "srgb": 215,
+      "hex": "#D7D7D7"
+    },
+    {
+      "n": 3,
+      "group": "Upper wall",
+      "srgb": 170,
+      "hex": "#AAAAAA"
+    },
+    {
+      "n": 4,
+      "group": "Door frames",
+      "srgb": 150,
+      "hex": "#969696"
+    },
+    {
+      "n": 5,
+      "group": "Wainscot",
+      "srgb": 120,
+      "hex": "#787878"
+    },
+    {
+      "n": 6,
+      "group": "Furniture",
+      "srgb": 105,
+      "hex": "#696969"
+    },
+    {
+      "n": 7,
+      "group": "Doors",
+      "srgb": 90,
+      "hex": "#5A5A5A"
+    },
+    {
+      "n": 8,
+      "group": "Metal fixtures",
+      "srgb": 140,
+      "hex": "#8C8C8C"
+    },
+    {
+      "n": 9,
+      "group": "Carpet",
+      "srgb": 46,
+      "hex": "#2E2E2E"
+    }
+  ],
+  "supervisor": {
+    "verdict": "fix",
+    "issues": [
+      {
+        "id": "S1",
+        "severity": "major",
+        "objects": [
+          "MI_Carpet_Runner"
+        ],
+        "text": "Carpet at sRGB 46 is below the 60 floor for non-metals. It reads as a hole in CAM_02. Proposed fix: 64."
+      },
+      {
+        "id": "S2",
+        "severity": "minor",
+        "objects": [
+          "MI_Trim",
+          "MI_Ceiling"
+        ],
+        "text": "Trim and ceiling are only 15 apart and merge past 10 m in CAM_03."
+      }
+    ]
+  },
+  "artDirector": {
+    "summary": "Values read well. Two refinements from real references.",
+    "notes": [
+      {
+        "id": "AD1",
+        "text": "In period hotel photos the wainscot is clearly darker than the upper wall. Push wainscot to 105 so the doors get a darker frame.",
+        "refs": [
+          {
+            "title": "GDC 2014: Lighting of The Last of Us",
+            "url": "https://gdcvault.com/play/1020475"
+          },
+          {
+            "title": "Magnific stock search: 1970s hotel hallway wainscot"
+          }
+        ]
+      },
+      {
+        "id": "AD2",
+        "text": "Room number plates are the only small bright accents in most references. Keep them in the trim group so they catch the sconces.",
+        "refs": []
+      }
+    ]
+  },
+  "questions": [
+    {
+      "id": "Q1",
+      "text": "Sconce colour temperature for the hue pass?",
+      "options": [
+        "2700 K",
+        "3000 K",
+        "3500 K"
+      ],
+      "default": "2700 K"
+    },
+    {
+      "id": "Q2",
+      "text": "Keep the far window as the focal point?",
+      "options": [
+        "Yes",
+        "Move focus to the elevator"
+      ],
+      "default": "Yes"
+    }
+  ]
+}

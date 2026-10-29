@@ -1,0 +1,454 @@
+<title>Scene Brief Intake</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single-column intake form on a 1 m grid motif. Moded sections switch between quick options and a describe box with images. Saved briefs above, sticky action bar below. */
+:root {
+  --paper: #F2F4F3; --panel: #FFFFFF; --ink: #16201C; --muted: #56645E; --line: #D2DAD6; --grid: #E3E8E5;
+  --accent: #1E52C4; --accent-ink: #FFFFFF; --gate: #B07400; --keep: #2A7A4B; --add: #B8382B;
+  --tint-accent: #E6ECFA; --tint-keep: #E2F0E7; --tint-gate: #F6EBD3; --tint-add: #F6E1DE;
+  --f-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #111614; --panel: #19201D; --ink: #E4EBE7; --muted: #98A6A0; --line: #2D3833; --grid: #1D2522;
+  --accent: #86A8FF; --accent-ink: #0E1630; --gate: #E2AA3E; --keep: #62C48E; --add: #F0867A;
+  --tint-accent: #1C2640; --tint-keep: #15301F; --tint-gate: #33290F; --tint-add: #3A1E1A; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #111614; --panel: #19201D; --ink: #E4EBE7; --muted: #98A6A0; --line: #2D3833; --grid: #1D2522;
+  --accent: #86A8FF; --accent-ink: #0E1630; --gate: #E2AA3E; --keep: #62C48E; --add: #F0867A;
+  --tint-accent: #1C2640; --tint-keep: #15301F; --tint-gate: #33290F; --tint-add: #3A1E1A; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 120px; }
+.wrap { max-width: 860px; margin: 0 auto; }
+header.top { margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 36px 24px;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 40px 40px; border-bottom: 1px solid var(--line); }
+header.top .wrap { display: grid; gap: 10px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1, h2 { font-family: var(--f-display); margin: 0; line-height: 1.1; text-wrap: balance; }
+h1 { font-size: clamp(38px, 6vw, 56px); font-weight: 700; }
+h2 { font-size: 24px; font-weight: 600; }
+p { margin: 0; }
+.lede { max-width: 62ch; }
+.status { font-size: 14px; color: var(--muted); }
+.status.err { color: var(--add); }
+.briefs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 4px; }
+.chip { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 4px 12px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; max-width: 100%; }
+.chip[aria-pressed="true"] { border-color: var(--accent); background: var(--tint-accent); }
+.chip .st { font-family: var(--f-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.chip.new { border-style: dashed; color: var(--accent); }
+form { display: grid; gap: 18px; padding-top: 24px; }
+fieldset { margin: 0; border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 18px 20px 20px; display: grid; gap: 16px; min-width: 0; }
+legend { padding: 0 6px; margin-left: -6px; font-family: var(--f-display); font-size: 22px; font-weight: 600; }
+.sec-help { color: var(--muted); font-size: 14.5px; margin-top: -8px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field.wide { grid-column: 1 / -1; }
+.field > label, .field > .lbl { font-weight: 600; font-size: 15px; }
+.req { color: var(--add); font-weight: 700; margin-left: 2px; }
+.help { font-size: 13.5px; color: var(--muted); }
+input[type=text], input[type=number], input[type=date], textarea {
+  font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; width: 100%; min-width: 0; }
+textarea { min-height: 84px; resize: vertical; }
+input.mono { font-family: var(--f-mono); font-size: 13.5px; }
+input:focus-visible, textarea:focus-visible, button:focus-visible, .opt input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+.invalid { border-color: var(--add) !important; }
+.opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.opt { position: relative; }
+.opt input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.opt span { display: inline-block; border: 1px solid var(--line); border-radius: 4px; padding: 6px 12px; font-size: 14.5px; background: var(--paper); cursor: pointer; }
+.opt input:checked + span { border-color: var(--accent); background: var(--tint-accent); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
+.toggle { display: flex; gap: 12px; align-items: flex-start; }
+.toggle input { width: 18px; height: 18px; margin-top: 3px; accent-color: var(--accent); flex: none; }
+.toggle .t { display: grid; gap: 2px; }
+.toggle .t b { font-weight: 600; font-size: 15px; }
+.bar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 5; }
+.bar .wrap { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.bar .msg { flex: 1 1 200px; font-size: 14px; color: var(--muted); min-width: 0; }
+button.btn { font: inherit; font-weight: 600; font-size: 15px; border-radius: 4px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.btn:disabled { opacity: .5; cursor: not-allowed; }
+pre.yaml { margin: 0; font-family: var(--f-mono); font-size: 12.5px; background: var(--paper); border: 1px solid var(--line); border-radius: 4px; padding: 12px; overflow-x: auto; max-height: 360px; }
+details summary { cursor: pointer; font-weight: 600; }
+.pill { font-family: var(--f-mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--grid); color: var(--muted); }
+.pill.submitted { background: var(--tint-gate); color: var(--gate); }
+.pill.approved { background: var(--tint-keep); color: var(--keep); }
+.pill.in_review { background: var(--tint-accent); color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+[hidden] { display: none !important; }
+.mode { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -4px; }
+.mode .opt span { font-size: 13.5px; padding: 4px 10px; }
+.describe { display: grid; gap: 8px; }
+.describe .lbl { font-weight: 600; font-size: 15px; }
+.drop { border: 1.5px dashed var(--line); border-radius: 6px; padding: 12px; display: grid; gap: 10px; }
+.drop.over { border-color: var(--accent); background: var(--tint-accent); }
+.drop-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+label.btn { display: inline-block; font-weight: 600; font-size: 14.5px; border: 1px solid var(--line); border-radius: 4px; padding: 6px 14px; background: var(--panel); color: var(--ink); cursor: pointer; }
+.sr { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.sr:focus-visible + .drop label.btn { outline: 2px solid var(--accent); outline-offset: 1px; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.thumbs:empty { display: none; }
+.thumb { position: relative; margin: 0; aspect-ratio: 1; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--grid); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb .rm { position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(0,0,0,.65); color: #fff; cursor: pointer; font-size: 17px; line-height: 1; }
+.chip .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 36ch; }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">Pipeline input · optional</div>
+    <h1>Scene Brief Intake</h1>
+    <p class="lede">You can skip this and describe the job in the chat. The agents send you this form only when something is missing. Each section can be filled with quick options, or described in your own words with images.</p>
+    <p class="status" id="status">Connecting to saved briefs…</p>
+    <div class="briefs" id="briefs" aria-label="Saved briefs"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <form id="form" novalidate></form>
+  <section style="padding-top:18px">
+    <details>
+      <summary>Show this brief as YAML</summary>
+      <p class="help" style="margin:8px 0">The pipeline reads the saved brief directly. Copy this if you want to paste it into the chat or into <code>brief.yaml</code>.</p>
+      <pre class="yaml" id="yaml"></pre>
+    </details>
+  </section>
+</main>
+
+<div class="bar">
+  <div class="wrap">
+    <p class="msg" id="msg">New brief.</p>
+    <button class="btn" type="button" id="dup" hidden>Duplicate</button>
+    <button class="btn" type="button" id="copy">Copy YAML</button>
+    <button class="btn" type="button" id="save">Save draft</button>
+    <button class="btn primary" type="button" id="submit">Submit</button>
+  </div>
+</div>
+
+<script>
+const SECTIONS = [
+  { id: "project", title: "Project", modes: true, describePh: "What you're making, whether it's for a game or CG, and where you want to build it. Mixed cases are fine, e.g. \"model the props in Blender, assemble and light in Unreal, but also need two Cycles stills\".", fields: [
+    { k: "subject", label: "Making", type: "choice", def: "scene", opts: [["scene", "Scene"], ["object", "Object"]] },
+    { k: "target", label: "For", type: "choice", def: "game", opts: [["game", "Game"], ["cg", "CG"], ["unsure", "Not sure"]] },
+    { k: "route", label: "Built in", type: "choice", wide: true, def: "unreal", help: "Blender only is the usual route for CG. Blender, then Unreal means modelling and assembly in Blender with the finished scene exported to Unreal.", opts: [["unreal", "Unreal"], ["blender_unreal", "Blender, then Unreal"], ["blender", "Blender only"]] }
+  ]},
+  { id: "context", title: "Context", modes: true, describePh: "Who used this place, what happened here, where and when it is, how close to the references to stay, the mood, and anything that must or must not be in it.", fields: [
+    { k: "context", label: "Context and story", type: "textarea", wide: true, ph: "Who used this place, what happened here, what the viewer should feel." },
+    { k: "location", label: "Location", type: "text", ph: "Pittsburgh, USA · or fictional" },
+    { k: "era", label: "Era", type: "text", ph: "1970s · present day · 2040" },
+    { k: "real_place", label: "Real place?", type: "choice", def: "based", opts: [["yes", "Real place"], ["based", "Real type of place"], ["no", "Fictional"]] },
+    { k: "fidelity", label: "Follow references", type: "choice", def: "faithful", help: "Replica matches the real place. Faithful keeps layout and proportions. Inspired keeps the mood. AI images are never used for measurements.", opts: [["replica", "Replica"], ["faithful", "Faithful"], ["inspired", "Inspired"]] },
+    { k: "mood", label: "Mood words", type: "text", wide: true, ph: "abandoned, damp, quiet, late afternoon" },
+    { k: "must_have", label: "Must have", type: "textarea", ph: "One per line" },
+    { k: "must_avoid", label: "Must avoid", type: "textarea", ph: "One per line" }
+  ]},
+  { id: "lighting", title: "Lighting", modes: true, help: "Used for the rough light at blockout and for the gray, value and hue passes.", describePh: "Time of day, weather, where the main light comes from, practical lights, the feeling you want. Drop in film stills or photos.", fields: [
+    { k: "time_of_day", label: "Time of day", type: "choice", wide: true, def: "golden", opts: [["dawn", "Dawn"], ["day", "Midday"], ["golden", "Golden hour"], ["dusk", "Dusk"], ["night", "Night"], ["interior", "No daylight"]] },
+    { k: "weather", label: "Weather or air", type: "text", ph: "clear · overcast · rain · dusty" },
+    { k: "key_light", label: "Main light source", type: "text", ph: "sun through west windows" },
+    { k: "light_refs", label: "Lighting references", type: "textarea", wide: true, ph: "Paths or links, one per line" }
+  ]},
+  { id: "targets", title: "Targets", fields: [
+    { k: "platform", label: "Platform and frame rate", type: "text", ph: "PC, 60 fps", show: ["game", "unsure"] },
+    { k: "player_height", label: "Player height (m)", type: "number", def: 1.8, step: 0.01, show: ["game", "unsure"] },
+    { k: "camera", label: "Player camera", type: "choice", wide: true, def: "third", show: ["game", "unsure"], opts: [["first", "First person"], ["third", "Third person"], ["top", "Top-down"]] },
+    { k: "hero_shots", label: "Hero shots", type: "textarea", wide: true, ph: "Shot 1: low angle down the corridor, 24 mm", show: ["cg", "unsure"] },
+    { k: "resolution", label: "Render resolution", type: "text", ph: "3840 x 2160", show: ["cg", "unsure"] }
+  ]},
+  { id: "refs", title: "References", help: "Paths on your Windows machine. Subfolders named by role (measure, form, material, mood, composition, placement, ai) let the input review tag images for you.", fields: [
+    { k: "ref_folder", label: "Reference folder", type: "text", wide: true, mono: true, ph: "D:\\Refs\\hotel" },
+    { k: "pureref", label: "PureRef board", type: "text", mono: true, ph: "D:\\Refs\\hotel\\board.pur" },
+    { k: "ai_folder", label: "AI-generated images", type: "text", mono: true, ph: "D:\\Refs\\hotel\\ai" },
+    { k: "plans", label: "Plans, maps or blueprints", type: "text", wide: true, mono: true, ph: "Path, or leave empty" },
+    { k: "ref_notes", label: "Notes on specific images", type: "textarea", wide: true, ph: "corridor_03.jpg: wainscot height is right in this one" }
+  ]},
+  { id: "assets", title: "Extra assets", fields: [
+    { k: "extra_assets", label: "Assets to reuse", type: "textarea", ph: "Fab packs, Megascans, your own kits. One per line." },
+    { k: "plugins", label: "Plugins or add-ons to prefer", type: "textarea", ph: "Leave empty and the toolbox scan lists what you have." }
+  ]},
+  { id: "pipeline", title: "Pipeline options", fields: [
+    { k: "model_routing", label: "Automatic model choice", type: "toggle", def: false, help: "Picks Haiku, Sonnet or Opus per task and moves a task up a tier after two failed reviews. Workers stay on Opus." },
+    { k: "lighting_passes", label: "Run the gray, value and hue passes", type: "toggle", def: true, help: "After the modular kit and set dressing are in. Stops at the hue pass." },
+    { k: "gen_magnific_3d", label: "Magnific 3D for generated props", type: "toggle", def: true },
+    { k: "gen_tripo", label: "Tripo3D, with your own workflow", type: "toggle", def: false, help: "Detailed props for a full CG scene or a detailed blockout (tripo-props skill). When on, Tripo is tried first and Magnific takes over when credits run out." },
+    { k: "gen_images", label: "Magnific image generation", type: "toggle", def: true, help: "Missing views, look tests, signage and decal art." },
+    { k: "auto_commit", label: "Commit and push at every save point", type: "toggle", def: true },
+    { k: "parallel_modelers", label: "Modelers at once (1 to 4)", type: "number", def: 3, step: 1, help: "After the pilots are approved. Drop to 2 if the PC slows down with Unreal open." },
+    { k: "parallel_asset_tech", label: "Asset Techs at once (1 or 2)", type: "number", def: 1, step: 1 },
+    { k: "work_dir", label: "Work folder for .blend and FBX files", type: "text", wide: true, mono: true, ph: "D:\\Projects\\SkillTest\\PipelineWork", help: "Outside the repo. Leave empty for a PipelineWork folder next to the Unreal project." },
+    { k: "max_rounds", label: "Fix rounds before the agents ask you", type: "number", def: 3, step: 1 },
+    { k: "agent_notes", label: "Anything else the agents should know", type: "textarea", wide: true }
+  ]}
+];
+const ALL = SECTIONS.flatMap(s => s.fields);
+const MODED = SECTIONS.filter(s => s.modes);
+const MAX_IMAGES = 12;
+const $ = id => document.getElementById(id);
+const form = $("form");
+let db = null, assets = null, currentId = null, currentStatus = "draft", briefs = [], readOnly = false;
+let modes = {}, images = {};
+
+function el(tag, attrs = {}, kids = []) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "text") n.textContent = v; else if (v !== undefined && v !== null && v !== false) n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of [].concat(kids)) if (c) n.append(c);
+  return n;
+}
+
+function fieldNode(f) {
+  const id = "f-" + f.k;
+  const wrap = el("div", { class: "field" + (f.wide || f.type === "toggle" ? " wide" : ""), "data-key": f.k });
+  if (f.type === "toggle") {
+    const lab = el("label", { class: "toggle", for: id });
+    lab.append(el("input", { type: "checkbox", id, name: f.k }), el("span", { class: "t" }, [el("b", { text: f.label }), f.help ? el("span", { class: "help", text: f.help }) : null]));
+    wrap.append(lab);
+  } else if (f.type === "choice") {
+    const gid = id + "-lbl";
+    wrap.append(el("span", { class: "lbl", id: gid, text: f.label }));
+    const opts = el("div", { class: "opts", role: "radiogroup", "aria-labelledby": gid });
+    f.opts.forEach(([v, t]) => {
+      const oid = id + "-" + v;
+      opts.append(el("label", { class: "opt", for: oid }, [el("input", { type: "radio", id: oid, name: f.k, value: v }), el("span", { text: t })]));
+    });
+    wrap.append(opts);
+    if (f.help) wrap.append(el("span", { class: "help", text: f.help }));
+  } else {
+    wrap.append(el("label", { for: id, text: f.label }));
+    const attrs = { id, name: f.k, placeholder: f.ph, class: f.mono ? "mono" : undefined };
+    if (f.type === "textarea") wrap.append(el("textarea", attrs));
+    else wrap.append(el("input", Object.assign(attrs, { type: f.type, step: f.step })));
+    if (f.help) wrap.append(el("span", { class: "help", text: f.help }));
+  }
+  return wrap;
+}
+
+function renderForm() {
+  for (const s of SECTIONS) {
+    const fs = el("fieldset", { id: "sec-" + s.id });
+    fs.append(el("legend", { text: s.title }));
+    if (s.modes) {
+      const seg = el("div", { class: "mode", role: "radiogroup", "aria-label": s.title + " input mode" });
+      [["options", "Quick options"], ["describe", "Describe with images"]].forEach(([v, t]) => {
+        const oid = "m-" + s.id + "-" + v;
+        const inp = el("input", { type: "radio", id: oid, name: "mode-" + s.id, value: v });
+        inp.onchange = () => { modes[s.id] = v; applyModes(); onChange(); if (v === "describe") $("p-" + s.id).focus(); };
+        seg.append(el("label", { class: "opt", for: oid }, [inp, el("span", { text: t })]));
+      });
+      fs.append(seg);
+    }
+    if (s.help) fs.append(el("p", { class: "sec-help", text: s.help }));
+    const grid = el("div", { class: "grid2", id: "o-" + s.id });
+    for (const f of s.fields) grid.append(fieldNode(f));
+    fs.append(grid);
+    if (s.modes) fs.append(describeNode(s));
+    form.append(fs);
+  }
+  form.addEventListener("input", onChange);
+  form.addEventListener("change", onChange);
+}
+
+function describeNode(s) {
+  const box = el("div", { class: "describe", id: "d-" + s.id, hidden: true });
+  const tid = "p-" + s.id;
+  box.append(el("label", { for: tid, class: "lbl", text: "In your own words" }));
+  const ta = el("textarea", { id: tid, name: s.id + "_prompt", placeholder: s.describePh, rows: "6" });
+  ta.addEventListener("paste", e => { const files = [...(e.clipboardData ? e.clipboardData.files : [])].filter(f => f.type.startsWith("image/")); if (files.length) { e.preventDefault(); addImages(s.id, files); } });
+  box.append(ta);
+  const fileIn = el("input", { type: "file", accept: "image/*", multiple: true, id: "fi-" + s.id, class: "sr" });
+  fileIn.onchange = () => { addImages(s.id, [...fileIn.files]); fileIn.value = ""; };
+  const drop = el("div", { class: "drop", id: "dz-" + s.id }, [
+    el("div", { class: "thumbs", id: "th-" + s.id }),
+    el("div", { class: "drop-row" }, [el("label", { class: "btn", for: "fi-" + s.id, text: "Add images" }), el("span", { class: "help", id: "dh-" + s.id, text: "or drop or paste them here" })])
+  ]);
+  drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); addImages(s.id, [...e.dataTransfer.files].filter(f => f.type.startsWith("image/"))); });
+  box.append(fileIn, drop);
+  return box;
+}
+
+function renderThumbs(sid) {
+  const th = $("th-" + sid); th.textContent = "";
+  for (const img of images[sid] || []) {
+    const rm = el("button", { type: "button", class: "rm", "aria-label": "Remove " + (img.name || "image"), text: "×" });
+    rm.onclick = () => { images[sid] = images[sid].filter(x => x.id !== img.id); renderThumbs(sid); onChange(); };
+    th.append(el("figure", { class: "thumb" }, [el("img", { src: "/_blob/" + img.id, alt: img.name || "Reference image", loading: "lazy" }), rm]));
+  }
+  const n = (images[sid] || []).length;
+  $("dh-" + sid).textContent = !assets ? "Image upload isn't available in this view. Paste paths or links in the text instead." : n ? n + " of " + MAX_IMAGES + " images" : "or drop or paste them here";
+}
+
+async function addImages(sid, files) {
+  if (!files.length) return;
+  if (!assets) { setMsg("Image upload isn't available in this view. Paste paths or links in the text instead.", true); return; }
+  images[sid] = images[sid] || [];
+  const room = MAX_IMAGES - images[sid].length;
+  if (room <= 0) { setMsg("That section already has " + MAX_IMAGES + " images.", true); return; }
+  const batch = files.slice(0, room);
+  setMsg("Uploading " + batch.length + " image" + (batch.length === 1 ? "" : "s") + "…");
+  let ok = 0, failed = 0;
+  for (const f of batch) {
+    try { const r = await assets.upload(f); images[sid].push({ id: r.id, name: f.name || "pasted image" }); ok++; renderThumbs(sid); }
+    catch (e) { failed++; if (e && (e.code === "too_large" || e.code === "payload_too_large")) setMsg(f.name + " is over 20 MB.", true); }
+  }
+  onChange();
+  if (failed) setMsg(ok + " uploaded, " + failed + " couldn't be uploaded. Images must be under 20 MB.", true);
+  else setMsg(ok + " image" + (ok === 1 ? "" : "s") + " added. Save to keep them with this brief.");
+  if (files.length > room) setMsg("Only the first " + room + " were added. Each section holds " + MAX_IMAGES + " images.", true);
+}
+
+function applyModes() {
+  for (const s of MODED) {
+    const m = modes[s.id] || "options";
+    form.querySelectorAll(`input[name="mode-${s.id}"]`).forEach(r => r.checked = r.value === m);
+    $("o-" + s.id).hidden = m === "describe";
+    $("d-" + s.id).hidden = m !== "describe";
+    renderThumbs(s.id);
+  }
+  applyShow();
+}
+function applyShow() {
+  const t = modes.project === "describe" ? null : (form.querySelector('input[name="target"]:checked') || {}).value || "game";
+  for (const f of ALL) if (f.show) form.querySelector(`[data-key="${f.k}"]`).hidden = t !== null && !f.show.includes(t);
+}
+
+function readValues() {
+  const v = {};
+  for (const f of ALL) {
+    if (f.type === "toggle") v[f.k] = $("f-" + f.k).checked;
+    else if (f.type === "choice") { const c = form.querySelector(`input[name="${f.k}"]:checked`); v[f.k] = c ? c.value : null; }
+    else if (f.type === "number") { const raw = $("f-" + f.k).value; v[f.k] = raw === "" ? null : Number(raw); }
+    else v[f.k] = $("f-" + f.k).value.trim();
+  }
+  for (const s of MODED) { v[s.id + "_prompt"] = $("p-" + s.id).value.trim(); v[s.id + "_images"] = (images[s.id] || []).slice(); }
+  return v;
+}
+function writeValues(v, m) {
+  for (const f of ALL) {
+    const val = v && f.k in v ? v[f.k] : f.def;
+    if (f.type === "toggle") $("f-" + f.k).checked = !!val;
+    else if (f.type === "choice") form.querySelectorAll(`input[name="${f.k}"]`).forEach(r => r.checked = r.value === val);
+    else $("f-" + f.k).value = val === undefined || val === null ? "" : val;
+  }
+  if (v && !v.route && v.destination) form.querySelectorAll('input[name="route"]').forEach(r => r.checked = r.value === v.destination);
+  modes = Object.assign({}, m || {});
+  images = {};
+  for (const s of MODED) { $("p-" + s.id).value = (v && v[s.id + "_prompt"]) || ""; images[s.id] = Array.isArray(v && v[s.id + "_images"]) ? v[s.id + "_images"].filter(x => x && typeof x.id === "string" && /^[0-9a-f]{32}$/.test(x.id)) : []; }
+  applyModes(); renderYaml();
+}
+function onChange(e) { applyShow(); renderYaml(); if (e && e.target && e.target.classList) e.target.classList.remove("invalid"); setMsg(currentId ? "Unsaved changes." : "New brief, not saved yet."); }
+
+function titleOf(v) {
+  const src = [v.project_prompt, v.context_prompt, v.context, v.mood].find(x => x && x.trim());
+  if (!src) return "Untitled brief";
+  const line = src.trim().split("\n")[0];
+  return line.length > 48 ? line.slice(0, 46).trimEnd() + "…" : line;
+}
+function yamlStr(s) {
+  if (s === null || s === undefined || s === "") return '""';
+  if (typeof s === "boolean" || typeof s === "number") return String(s);
+  if (s.includes("\n")) return "|\n" + s.split("\n").map(l => "    " + l).join("\n");
+  return JSON.stringify(s);
+}
+function toYaml(v) {
+  const lines = ["# Scene brief · Scene Brief Intake, schema 2", "id: " + yamlStr(currentId || "(not saved yet)"), "title: " + yamlStr(titleOf(v)), "status: " + currentStatus];
+  for (const s of SECTIONS) {
+    lines.push(s.id + ":");
+    if (s.modes && modes[s.id] === "describe") {
+      lines.push("  mode: describe", "  prompt: " + yamlStr(v[s.id + "_prompt"]));
+      const imgs = v[s.id + "_images"];
+      lines.push("  images:" + (imgs.length ? "" : " []"));
+      for (const i of imgs) lines.push("    - {asset: " + i.id + ", name: " + JSON.stringify(i.name || "") + "}");
+      continue;
+    }
+    if (s.modes) lines.push("  mode: options");
+    for (const f of s.fields) {
+      if (f.show && modes.project !== "describe" && !f.show.includes(v.target)) continue;
+      lines.push("  " + f.k + ": " + yamlStr(v[f.k]));
+    }
+  }
+  return lines.join("\n");
+}
+function renderYaml() { $("yaml").textContent = toYaml(readValues()); }
+function setMsg(t, err) { const m = $("msg"); m.textContent = t; m.style.color = err ? "var(--add)" : ""; }
+
+function validate() {
+  const v = readValues();
+  const described = [v.project_prompt, v.context_prompt, v.context].some(x => x) || (v.context_images || []).length || (v.project_images || []).length;
+  if (!described) {
+    const target = modes.context === "describe" ? $("p-context") : $("f-context");
+    target.classList.add("invalid"); target.focus();
+    setMsg("Say what the scene is first: fill Context, or describe it in Project.", true);
+    return false;
+  }
+  return true;
+}
+
+async function persist(status) {
+  if (!db) { setMsg("Saving isn't available in this view. Use Copy YAML and paste it into the chat.", true); return; }
+  if (readOnly) { setMsg("You can view briefs here but not change them.", true); return; }
+  const v = readValues();
+  if (!currentId) currentId = "brief-" + new Date().toISOString().slice(0, 10) + "-" + Math.random().toString(36).slice(2, 7);
+  const body = { title: titleOf(v), status, updatedAt: new Date().toISOString(), modes: Object.assign({}, modes), fields: v, schema: 2 };
+  ["save", "submit", "dup"].forEach(i => $(i).disabled = true);
+  try {
+    await db.collection("briefs").doc(currentId).set(body);
+    currentStatus = status;
+    setMsg(status === "submitted" ? "Submitted. Tell the pipeline to start, or it picks this up on its next run." : "Draft saved.");
+    renderYaml(); renderBriefs();
+  } catch (e) {
+    if (e && (e.code === "invalid_argument" || e.code === "not_granted")) { readOnly = true; setMsg("This view can't save briefs. Use Copy YAML instead.", true); }
+    else if (e && e.code === "quota_exceeded") setMsg("The brief store is full. Delete old briefs before saving new ones.", true);
+    else setMsg("Couldn't save just now. Try again in a moment.", true);
+  } finally { ["save", "submit"].forEach(i => $(i).disabled = readOnly); $("dup").disabled = false; $("dup").hidden = !currentId; }
+}
+
+function renderBriefs() {
+  const box = $("briefs"); box.textContent = "";
+  const nb = el("button", { class: "chip new", type: "button", "aria-pressed": String(!currentId), text: "+ New brief" });
+  nb.onclick = () => { currentId = null; currentStatus = "draft"; writeValues(null, null); $("dup").hidden = true; setMsg("New brief."); renderBriefs(); };
+  box.append(nb);
+  for (const b of briefs) {
+    const name = b.title || b.name || "Untitled brief";
+    const c = el("button", { class: "chip", type: "button", "aria-pressed": String(b.id === currentId) }, [el("span", { class: "nm", text: name }), el("span", { class: "pill " + (b.status || "draft"), text: (b.status || "draft").replace("_", " ") })]);
+    c.onclick = () => { currentId = b.id; currentStatus = b.status || "draft"; writeValues(b.fields || {}, b.modes); $("dup").hidden = false; setMsg("Loaded “" + name + "”, last saved " + new Date(b.updatedAt).toLocaleString() + "."); renderBriefs(); };
+    box.append(c);
+  }
+}
+
+$("save").onclick = () => persist(currentStatus === "submitted" ? "submitted" : "draft");
+$("submit").onclick = () => { if (validate()) persist("submitted"); };
+$("dup").onclick = () => { const v = readValues(); currentId = null; currentStatus = "draft"; writeValues(v, modes); $("dup").hidden = true; renderBriefs(); setMsg("Copy made. Change what's different for the new project, then save."); };
+$("copy").onclick = () => {
+  const text = toYaml(readValues());
+  const fallback = () => { $("yaml").closest("details").open = true; const r = document.createRange(); r.selectNodeContents($("yaml")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); setMsg("Copying is blocked here, so the YAML is selected below. Press Ctrl+C."); };
+  try { navigator.clipboard.writeText(text).then(() => setMsg("YAML copied."), fallback); } catch (e) { fallback(); }
+};
+
+renderForm(); writeValues(null, null); renderBriefs();
+
+(async () => {
+  if (!window.claude || !window.claude.use) { $("status").textContent = "Saved briefs aren't available outside Claude. Copy YAML still works."; return; }
+  const [d, a] = await Promise.all([window.claude.use("db"), window.claude.use("assets")]);
+  db = d; assets = a; applyModes();
+  if (!db) { $("status").textContent = "Saved briefs aren't available in this view. Copy YAML still works."; return; }
+  try {
+    const user = await window.claude.use("user");
+    if (user && (await user.can("data.write")) === false) { readOnly = true; ["save", "submit"].forEach(i => $(i).disabled = true); }
+  } catch (e) {}
+  db.collection("briefs").orderBy("updatedAt", "desc").limit(50).onSnapshot(snap => {
+    briefs = snap.docs.map(x => Object.assign({ id: x.id }, x.data()));
+    $("status").textContent = briefs.length ? briefs.length + " saved brief" + (briefs.length === 1 ? "" : "s") + ". Pick one to edit or duplicate for a new project." : "No saved briefs yet.";
+    const cur = briefs.find(b => b.id === currentId); if (cur) currentStatus = cur.status || currentStatus;
+    renderBriefs();
+  }, () => { $("status").textContent = "Lost the connection to saved briefs. Reload the page to reconnect."; $("status").classList.add("err"); });
+})();
+</script>

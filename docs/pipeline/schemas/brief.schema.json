@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brief.schema.json",
+  "title": "Scene brief",
+  "description": "What the Scene Brief form stores in briefs/{id} (schema 2), and what the manager writes to projects/<slug>/brief.yaml. Schema 1 briefs had name, deadline and destination; destination maps to route.",
+  "type": "object",
+  "required": [
+    "status",
+    "schema",
+    "fields"
+  ],
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "First line of the project or context text; shown in the brief list"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted"
+      ]
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "modes": {
+      "type": "object",
+      "description": "Input mode per section",
+      "properties": {
+        "project": {
+          "enum": [
+            "options",
+            "describe"
+          ]
+        },
+        "context": {
+          "enum": [
+            "options",
+            "describe"
+          ]
+        },
+        "lighting": {
+          "enum": [
+            "options",
+            "describe"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "schema": {
+      "const": 2
+    },
+    "fields": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "subject": {
+          "type": "string",
+          "enum": [
+            "scene",
+            "object"
+          ]
+        },
+        "target": {
+          "type": "string",
+          "enum": [
+            "game",
+            "cg",
+            "unsure"
+          ]
+        },
+        "route": {
+          "type": "string",
+          "enum": [
+            "unreal",
+            "blender_unreal",
+            "blender"
+          ],
+          "description": "Where the scene is built. blender_unreal: modelled and assembled in Blender, exported to Unreal for lighting. blender: CG, Blender only."
+        },
+        "context": {
+          "type": "string",
+          "description": "Context and story"
+        },
+        "location": {
+          "type": "string"
+        },
+        "era": {
+          "type": "string"
+        },
+        "real_place": {
+          "type": "string",
+          "enum": [
+            "yes",
+            "based",
+            "no"
+          ]
+        },
+        "fidelity": {
+          "type": "string",
+          "enum": [
+            "replica",
+            "faithful",
+            "inspired"
+          ]
+        },
+        "mood": {
+          "type": "string"
+        },
+        "must_have": {
+          "type": "string",
+          "description": "One per line"
+        },
+        "must_avoid": {
+          "type": "string",
+          "description": "One per line"
+        },
+        "time_of_day": {
+          "type": "string",
+          "enum": [
+            "dawn",
+            "day",
+            "golden",
+            "dusk",
+            "night",
+            "interior"
+          ]
+        },
+        "weather": {
+          "type": "string"
+        },
+        "key_light": {
+          "type": "string"
+        },
+        "light_refs": {
+          "type": "string",
+          "description": "A path or link per line"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "player_height": {
+          "type": "number",
+          "default": 1.8
+        },
+        "camera": {
+          "type": "string",
+          "enum": [
+            "first",
+            "third",
+            "top"
+          ]
+        },
+        "hero_shots": {
+          "type": "string"
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "ref_folder": {
+          "type": "string",
+          "description": "Windows path"
+        },
+        "pureref": {
+          "type": "string"
+        },
+        "ai_folder": {
+          "type": "string"
+        },
+        "plans": {
+          "type": "string"
+        },
+        "ref_notes": {
+          "type": "string"
+        },
+        "extra_assets": {
+          "type": "string"
+        },
+        "plugins": {
+          "type": "string"
+        },
+        "model_routing": {
+          "type": "boolean",
+          "default": false
+        },
+        "lighting_passes": {
+          "type": "boolean",
+          "default": true
+        },
+        "gen_tripo": {
+          "type": "boolean",
+          "default": false,
+          "description": "v6. Tripo for detailed props (the tripo-props skill). Used only in full_cg or when the user asks for a detailed blockout; G0 asks the credit budget"
+        },
+        "gen_magnific_3d": {
+          "type": "boolean",
+          "default": false,
+          "description": "v6. Magnific 3D generation, under the same rule as gen_tripo"
+        },
+        "gen_images": {
+          "type": "boolean",
+          "default": true
+        },
+        "auto_commit": {
+          "type": "boolean",
+          "default": true
+        },
+        "max_rounds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3
+        },
+        "agent_notes": {
+          "type": "string"
+        },
+        "project_prompt": {
+          "type": "string",
+          "description": "What it is, game or CG, and where it is built, in your own words"
+        },
+        "project_images": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$",
+                "description": "Asset id in the form artifact's asset store, served at /_blob/<id>"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "context_prompt": {
+          "type": "string",
+          "description": "Context, place, era, fidelity, mood, must-haves and must-avoids in your own words"
+        },
+        "context_images": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$",
+                "description": "Asset id in the form artifact's asset store, served at /_blob/<id>"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "lighting_prompt": {
+          "type": "string",
+          "description": "Time of day, weather, key light and practicals in your own words"
+        },
+        "lighting_images": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$",
+                "description": "Asset id in the form artifact's asset store, served at /_blob/<id>"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "parallel_modelers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "default": 3,
+          "description": "v5. Modelers that work at once in the asset lane after gate K"
+        },
+        "parallel_asset_tech": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2,
+          "default": 1,
+          "description": "v5. Asset Techs that work at once"
+        },
+        "generation_services": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "magnific",
+              "tripo"
+            ]
+          },
+          "default": [
+            "magnific"
+          ],
+          "description": "Order in which generation services are tried; Tripo first when gen_tripo is on"
+        },
+        "work_dir": {
+          "type": "string",
+          "description": "v5. Folder outside git for .blend and FBX files and reference photos; default PipelineWork/<slug> next to the Unreal project"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "blockout",
+            "camera_match",
+            "full_cg"
+          ],
+          "default": "blockout",
+          "description": "v6. blockout: a detailed, accurate blockout from the references, light and colour free to follow the mood. camera_match: the same, matched to a photo's camera, with landmark fit checks. full_cg: a finished CG scene with measured light and real-world values. Set by the user's prompt; ask at G0 if missing."
+        },
+        "tier": {
+          "type": "string",
+          "enum": [
+            "S",
+            "M",
+            "L"
+          ],
+          "description": "v6. Set by the user in the prompt (ask at G0 if missing). Sets research depth, reviews and gates: see scene-pipeline."
+        },
+        "autopilot": {
+          "type": "boolean",
+          "default": false,
+          "description": "v6. On only when the prompt asks. Gates are posted for the record and the defaults taken without waiting; the manager still stops for credits beyond the budget, deletions, and scope or route changes."
+        },
+        "budgets": {
+          "type": "object",
+          "description": "v6. Asked at G0, never assumed. A missing key or null means no cap.",
+          "properties": {
+            "hours": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "tokens_m": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "credits_tripo": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "credits_magnific": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "triangles": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "lights": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "texture_sets": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "cables": {
+          "type": "string",
+          "enum": [
+            "rig",
+            "guides"
+          ],
+          "default": "rig",
+          "description": "v6. rig: finished cables from the cable generator in the toolbox, each run ending at a real object or past the frame edge. guides: one curve per run with marked end points, for the user's own cable tool."
+        },
+        "knowledge_local": {
+          "type": "string",
+          "description": "v6. Private solved-problems folder outside git (notes with photos or client details). Default: knowledge/ in the work root, next to the project work_dirs."
+        }
+      },
+      "description": "Either the quick-option fields or the section's prompt and images can be filled. At least one of project_prompt, context_prompt, context or context_images is needed to submit."
+    }
+  }
+}

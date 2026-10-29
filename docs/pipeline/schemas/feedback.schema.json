@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "feedback.schema.json",
+  "title": "Your decision on a gate",
+  "description": "Collection feedback, same document id as the gate. Written by the board, read by the manager, which sets pickedUp to true and copies it to reviews/<gate>-r<n>/feedback.json.",
+  "type": "object",
+  "required": [
+    "gateId",
+    "project",
+    "gate",
+    "round",
+    "decision",
+    "submittedAt",
+    "pickedUp"
+  ],
+  "properties": {
+    "gateId": {
+      "type": "string"
+    },
+    "project": {
+      "type": "string"
+    },
+    "gate": {
+      "type": "string",
+      "enum": [
+        "G0",
+        "G1",
+        "G2",
+        "P0",
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5",
+        "P6",
+        "P7",
+        "P8",
+        "P9",
+        "L1",
+        "L2",
+        "L3",
+        "G3"
+      ]
+    },
+    "round": {
+      "type": "integer"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "approved_with_notes",
+        "changes_requested"
+      ]
+    },
+    "notes": {
+      "type": "string",
+      "description": "Required unless decision is approved"
+    },
+    "answers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Question id to chosen option"
+    },
+    "adDecisions": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "accept",
+          "later",
+          "skip"
+        ]
+      },
+      "description": "Art Director note id to your choice"
+    },
+    "submittedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pickedUp": {
+      "type": "boolean"
+    }
+  }
+}

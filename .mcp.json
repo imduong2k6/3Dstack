@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "unreal-mcp": {
+      "type": "http",
+      "url": "http://127.0.0.1:${UE_MCP_PORT:-8000}/mcp"
+    },
+    "blender": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://projects.blender.org/lab/blender_mcp.git@2cea8d566dde07fbac28a61d698909d69724e853#subdirectory=mcp",
+        "blender-mcp"
+      ],
+      "env": {
+        "BLENDER_PATH": "${BLENDER_PATH:-blender}",
+        "BLENDER_MCP_HOST": "${BLENDER_MCP_HOST:-localhost}",
+        "BLENDER_MCP_PORT": "${BLENDER_MCP_PORT:-9876}"
+      }
+    }
+  }
+}

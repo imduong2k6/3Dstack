@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "pass": "hue",
+  "tolerance_srgb": 5,
+  "groups": [
+    {
+      "n": 1,
+      "id": "ceiling",
+      "label": "Ceiling",
+      "value_srgb": 200,
+      "value_linear": 0.5776,
+      "hue_hex": "#CEC7BA",
+      "roughness": 0.85,
+      "metallic": 0.0,
+      "instance": "/Game/Env/Materials/MI_Ceiling"
+    },
+    {
+      "n": 2,
+      "id": "trim",
+      "label": "Trim",
+      "value_srgb": 215,
+      "value_linear": 0.6795,
+      "hue_hex": "#E1D7B8",
+      "roughness": 0.5,
+      "metallic": 0.0,
+      "instance": "/Game/Env/Materials/MI_Trim"
+    },
+    {
+      "n": 3,
+      "id": "upper_wall",
+      "label": "Upper wall",
+      "value_srgb": 170,
+      "value_linear": 0.402,
+      "hue_hex": "#A2AF8F",
+      "roughness": 0.8,
+      "metallic": 0.0,
+      "instance": "/Game/Env/Materials/MI_UpperWall"
+    },
+    {
+      "n": 4,
+      "id": "door_frames",
+      "label": "Door frames",
+      "value_srgb": 150,
+      "value_linear": 0.305,
+      "hue_hex": "#A79378",
+      "roughness": 0.6,
+      "metallic": 0.0,
+      "instance": "/Game/Env/Materials/MI_DoorFrames"
+    },
+    {
+      "n": 5,
+      "id": "wainscot",
+      "label": "Wainscot",
+      "value_srgb": 120,
+      "value_linear": 0.1878,
+      "hue_hex": "#977053",
+      "roughness": 0.55,
+      "metallic": 0.0,
+      "instance": "/Game/Env/Materials/MI_Wainscot"
+    },
+    {
+      "n": 6,
+      "id": "furniture",
+      "label": "Furniture",
+      "value_srgb": 105,
+      "value_linear": 0.1413,
+      "hue_hex": "#856150",
+      "roughness": 0.5,
+      "metallic": 0.0,
+      "instance": "/Game/Env/Materials/MI_Furniture"
+    },
+    {
+      "n": 7,
+      "id": "doors",
+      "label": "Doors",
+      "value_srgb": 90,
+      "value_linear": 0.1022,
+      "hue_hex": "#804D40",
+      "roughness": 0.45,
+      "metallic": 0.0,
+      "instance": "/Game/Env/Materials/MI_Doors"
+    },
+    {
+      "n": 8,
+      "id": "metal",
+      "label": "Metal fixtures",
+      "value_srgb": 140,
+      "value_linear": 0.2623,
+      "hue_hex": "#9E8B4F",
+      "roughness": 0.35,
+      "metallic": 1.0,
+      "instance": "/Game/Env/Materials/MI_MetalFixtures"
+    },
+    {
+      "n": 9,
+      "id": "carpet",
+      "label": "Carpet",
+      "value_srgb": 64,
+      "value_linear": 0.0513,
+      "hue_hex": "#6C2B30",
+      "roughness": 0.95,
+      "metallic": 0.0,
+      "instance": "/Game/Env/Materials/MI_Carpet"
+    }
+  ]
+}

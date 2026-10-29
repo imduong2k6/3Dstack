@@ -1,0 +1,14 @@
+{
+  "gateId": "example-G2-r1",
+  "project": "example-hotel-corridor",
+  "gate": "G2",
+  "round": 1,
+  "decision": "approved_with_notes",
+  "notes": "Add the fire door at 20 m. Keep the lobby a little darker than the corridor.",
+  "answers": {},
+  "adDecisions": {
+    "AD1": "accept"
+  },
+  "submittedAt": "2026-10-27T16:05:00Z",
+  "pickedUp": true
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "toolbox-manifest.schema.json",
+  "title": "Toolbox manifest",
+  "description": "toolbox/manifest.<machine>.json, written by .claude/skills/toolbox-scan/scripts/scan_toolbox.py. A tool is researched again only when its signature changes or it has no doc_file.",
+  "type": "object",
+  "required": [
+    "machine",
+    "scanned_at",
+    "tools"
+  ],
+  "properties": {
+    "machine": {
+      "type": "string"
+    },
+    "scanned_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tools": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^(ue|bl|blx|mcp|cli|lib)\\.[a-z0-9_.-]+$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "signature",
+          "status"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "unreal_plugin",
+              "blender_addon",
+              "blender_extension",
+              "mcp_server",
+              "cli",
+              "asset_library"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string",
+            "description": "Hash of the tool's descriptor file; changes when the tool is updated"
+          },
+          "status": {
+            "enum": [
+              "present",
+              "missing"
+            ]
+          },
+          "doc_file": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "toolbox/tools/<id>.md once researched"
+          },
+          "researched": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "first_seen": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

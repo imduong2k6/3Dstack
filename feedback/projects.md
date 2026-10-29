@@ -1,0 +1,1 @@
+| corridor-pilot | Blender route, 1 photo | rounds: G2 2, K 2-3, P1+P2 1, P3+P4 2, P5-P7 2, P8 4, L1 2, L2 3, L3 3 | about 9h48 active, 18h28 elapsed (7h44 overnight wait at G2) | credits 0 | output 4.66M tokens, 2,875 API calls, 3,876 tool calls |

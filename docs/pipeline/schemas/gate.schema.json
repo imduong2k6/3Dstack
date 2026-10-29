@@ -1,0 +1,360 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "gate.schema.json",
+  "title": "Gate entry on the Gate Review Board",
+  "description": "Collection gates, document id <project>-<gate>-r<round>. Written by the manager (gate-board skill), read by the board.",
+  "type": "object",
+  "required": [
+    "schema",
+    "project",
+    "gate",
+    "round",
+    "title",
+    "status",
+    "createdAt"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "project": {
+      "type": "string",
+      "description": "Project slug"
+    },
+    "projectName": {
+      "type": "string"
+    },
+    "example": {
+      "type": "boolean"
+    },
+    "gate": {
+      "type": "string",
+      "enum": [
+        "G0",
+        "G1",
+        "G2",
+        "K",
+        "P0",
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5",
+        "P6",
+        "P7",
+        "P8",
+        "P9",
+        "T",
+        "L1",
+        "L2",
+        "L3",
+        "G3"
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "gate",
+        "phase"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "awaiting_review",
+        "approved",
+        "approved_with_notes",
+        "changes_requested"
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "What changed since the last round"
+    },
+    "stats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "label",
+          "value"
+        ],
+        "properties": {
+          "group": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "target": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "warn",
+              "over"
+            ]
+          }
+        }
+      }
+    },
+    "legendCounts": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "white",
+          "red",
+          "grey",
+          "yellow",
+          "orange",
+          "purple",
+          "green",
+          "blue",
+          "cyan",
+          "black"
+        ]
+      },
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "sourceCounts": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "build",
+          "library",
+          "generate"
+        ]
+      },
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "captures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "https:// or a relative /_blob/<asset id> path from an artifact asset upload"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "palette": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "n": {
+            "type": "integer"
+          },
+          "group": {
+            "type": "string"
+          },
+          "srgb": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "hex": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        }
+      }
+    },
+    "supervisor": {
+      "type": "object",
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fix"
+          ]
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "blocker",
+                  "major",
+                  "minor"
+                ]
+              },
+              "objects": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "artDirector": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "refs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "default": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "readiness": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "area": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "assumptions",
+              "blocked"
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "requests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Images the agents ask you to add"
+    },
+    "sections": {
+      "type": "array",
+      "description": "Free sections shown on the board: the plan at G0, improvement suggestions at G3",
+      "items": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

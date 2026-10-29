@@ -1,0 +1,16 @@
+toolbox/scans/
+__pycache__/
+
+# Third-party reference photos stay in the work folder (public repo)
+projects/*/refs/**/*.jpg
+projects/*/refs/**/*.jpeg
+projects/*/refs/**/*.png
+projects/*/refs/**/*.webp
+projects/*/refs/**/*.tif
+projects/*/refs/**/*.tiff
+# Engine binaries
+*.blend
+*.blend1
+*.fbx
+*.uasset
+*.umap

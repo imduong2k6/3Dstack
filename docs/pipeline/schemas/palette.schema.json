@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "palette.schema.json",
+  "title": "Value and hue palette",
+  "description": "projects/<slug>/light/palette.json. Drives the pass switch in L2 and L3 and becomes the texturing brief.",
+  "type": "object",
+  "required": [
+    "schema",
+    "pass",
+    "groups"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "pass": {
+      "type": "string",
+      "enum": [
+        "value",
+        "hue"
+      ]
+    },
+    "tolerance_srgb": {
+      "type": "integer",
+      "default": 5,
+      "description": "How far a hue colour's luminance may drift from its value"
+    },
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "n",
+          "id",
+          "label",
+          "value_srgb"
+        ],
+        "properties": {
+          "n": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value_srgb": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255,
+            "description": "Non-metals should stay in about 60 to 240"
+          },
+          "value_linear": {
+            "type": "number"
+          },
+          "hue_hex": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "roughness": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "metallic": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "instance": {
+            "type": "string",
+            "description": "Unreal parent material instance, e.g. /Game/Env/Materials/MI_Wainscot"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
