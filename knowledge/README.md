@@ -28,3 +28,4 @@ This folder ships with the repo, so it holds no reference photos, client names o
 | [measuring-renders.md](measuring-renders.md) | Value and hue checks that disagree with what the eye sees |
 | [blender-shared-mesh-slots.md](blender-shared-mesh-slots.md) | A face-slot colour change spreads to every instance |
 | [stats-count-what-renders.md](stats-count-what-renders.md) | Stats that count hidden cutters and retired objects |
+| [pureref-and-broken-images.md](pureref-and-broken-images.md) | Reference images the API refuses, and PureRef boards |

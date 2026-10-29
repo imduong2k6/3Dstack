@@ -9,6 +9,7 @@ Run by the input reviewer agent (Opus). The output feeds the manager's interview
 
 ## Steps
 
+0. **Prepare the images before viewing any.** Run `scripts/prep_refs.py <refs folder>` (`uv run --no-project --with pillow python -I ...`). It rejects files that won't decode, which the API refuses with "Could not process image", and writes clean copies with a 1568 px long edge plus labelled contact sheets of 9 to `_view/`. Look at the sheets first and open single copies only for detail. Report rejected files to the manager; don't retry them.
 1. **Tag each reference** in `refs/index.yaml` with one or more roles: `measure` (usable for sizes), `form`, `material`, `mood`, `composition`, `placement`. Mark AI images `ai: true`; they are never `measure`. Mark photos for projection `photo_proj` when the route is `blender`.
 2. **Coverage matrix.** For each major element (room, facade, hero prop, ground, ceiling), list which views exist: front, side, top, detail, context. Note the gaps.
 3. **Scale anchors.** For each space, find a known size such as a door, a person, a step, a brick course or a car. No anchor means the area is `usable with assumptions` at best.

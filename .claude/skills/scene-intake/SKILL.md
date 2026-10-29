@@ -17,7 +17,7 @@ Chat first. Most projects start with a message such as "a 1970s hotel corridor, 
    time_of_day: {value: golden, from: default}
    ```
 
-3. **Images.** Copy chat images and form uploads into `refs/inbox/`. Form uploads are artifact assets: fetch each id with `Artifact read` (`path` = the asset id). Record them in `refs/index.yaml` with `from: chat | form`, and leave role tags for the input reviewer.
+3. **Images.** Copy chat images and form uploads into `refs/inbox/`. Form uploads are artifact assets: fetch each id with `Artifact read` (`path` = the asset id). Record them in `refs/index.yaml` with `from: chat | form`, and leave role tags for the input reviewer. For a PureRef `.pur` board, ask the user to export its images to a folder, one subfolder per group; don't extract from the `.pur` (see `knowledge/pureref-and-broken-images.md`).
 4. **Required fields:** subject, target, route, context (or a context prompt or images), and at least one reference source. The deadline, if any, comes from the prompt text.
 5. **Mode, tier, autopilot and budgets from the prompt.** "Full CG" or "finished scene" sets `mode: full_cg`; "match the camera" or "match the photo" sets `camera_match`; otherwise `blockout`, from `default`. "Tier S/M/L" (or "small", "medium", "large" job) sets `tier`; leave it empty for G0 if the prompt doesn't say. "Autopilot" or "don't wait for me" sets `autopilot: true`. Any cap the prompt names goes into `budgets`; never fill one in.
 6. **Form or interview?**
