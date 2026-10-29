@@ -34,6 +34,8 @@ The worker's capture set (review cameras, a top view, a close-up of what changed
 
 ## Verdict (`reviews/<gate>-r<n>/review.md`)
 
+When the manager gives you one aspect, check only that aspect, but across the whole scene, and write `review-<aspect>.md` in the format below. The manager merges the aspect files into `review.md`.
+
 ```markdown
 ## Review: P3 r1
 **Result:** PASS | FIX

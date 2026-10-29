@@ -7,7 +7,7 @@ New in v5. The short answer to "should more agents work at once?" is yes, but on
 | Lane | Agents | Runs alongside | Why they don't collide |
 | --- | --- | --- | --- |
 | Research (Stage 1) | 2 or 3 researchers, one topic each, plus the toolbox scanner | Each other | Separate output files |
-| Reviews (every gate) | Supervisor and Art Director | Each other | Both read-only |
+| Reviews (every review point) | Up to 4 supervisors, one aspect each (scale and walkability; construction logic; light and values; naming, stats and budgets), and the Art Director (look and mood) | Each other | All read-only, one review file each, on the same captures |
 | Asset lane (Stage 4) | Generator, up to 4 Modelers (default 3), 1 or 2 Asset Techs | The level lane | One asset per `.blend`, headless Blender, never the live session |
 | Level lane (Stage 5) | Unreal worker, or the Blender worker on the Blender routes | The asset lane | The only writer in the live editor |
 
@@ -60,7 +60,7 @@ work_dir: "D:/.../PipelineWork/<slug>"   # .blend and FBX files, outside git
 
 - **A separate set dresser or level artist.** It would share the live editor with the worker.
 - **A separate lighting agent.** The passes run in order, and one owner keeps the rig consistent.
-- **More supervisors.** Reviews are cheap next to builds, and one supervisor keeps the bar the same for every asset.
+- **Supervisors split by asset.** One supervisor per aspect keeps the bar the same for every asset. Splitting by aspect does the same job, since each aspect has one owner across the whole scene and every round. One supervisor on a 1,200-object scene reviewed it too thinly (user, 29 Oct 2026).
 - **Agent teams mode.** Live messaging between agents is experimental and costs more tokens. File hand-offs and the manager's merged fix list do the same job here. The user chose subagents for now (29 Oct 2026) and will revisit Agent Teams when the feature is out of experimental: the likely first uses are Modelers splitting a batch and the supervisor and Art Director settling a disagreement directly.
 
 ## Sources

@@ -54,7 +54,7 @@ Reviews that aren't a user gate stay in `reviews/`, and their captures and verdi
 
 - **Chat first.** A prompt in chat is enough to start. Send the form only when `scene-intake` finds required gaps that are faster to fill in a form, or when the user asks for it.
 - **Interview before planning.** Stage 0 ends with a plan the user approves, not with assumptions.
-- **Review at the tier's points.** At the end of each review group the worker captures; the supervisor (and the Art Director where the tier says) review the same contact sheet; then you post it with `gate-board`.
+- **Review at the tier's points.** At the end of each review group the worker captures. Several supervisors then review the same contact sheet in parallel, one aspect each: scale and walkability; construction logic (overlaps, floating, supports, paired elements, where pipes and cables go); light and values; naming, stats and budgets. The Art Director reviews where the tier says. Then you merge their files into `review.md` and post it with `gate-board`. Keep the same aspect split for every round of a project.
 - **One fix list per round.** Merge the supervisor's issues, the Art Director notes the user marked Do it, and the user's own notes into one numbered list, with duplicates removed and conflicts settled (render both and ask the user if two notes conflict).
 - **Rounds.** Resume the same worker with SendMessage, passing the fix list and the Art Director notes the user accepted. After `max_rounds` without a pass, stop and ask the user.
 - **Research on trouble.** When a step fails review twice for the same reason, or a worker reports a blocker, run `workflow-research` in problem mode before the next round.
