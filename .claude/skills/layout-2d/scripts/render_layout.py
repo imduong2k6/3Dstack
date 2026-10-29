@@ -83,7 +83,7 @@ def main(src, out):
     lay = json.load(open(src, encoding="utf-8"))
     bpy.ops.wm.read_factory_settings(use_empty=True)
     pts = [v for s in lay.get("shapes", []) for v in s.get("poly_m", [s.get("point_m")]) if v]
-    pts += [c["pos_m"][:2] for c in lay.get("cameras", [])]
+    pts += [c["pos_m"][:2] for c in lay.get("cameras", [])] + lay.get("path", [])
     x0, x1 = min(p[0] for p in pts), max(p[0] for p in pts)
     y0, y1 = min(p[1] for p in pts), max(p[1] for p in pts)
     u = max(x1 - x0, y1 - y0) / 40  # one text unit, so labels scale with the map
@@ -108,6 +108,17 @@ def main(src, out):
         wedge = [(px, py)] + [(px + d * math.cos(yaw + k * half), py + d * math.sin(yaw + k * half)) for k in (-1, 1)]
         add(c["id"], wedge, [[0, 1, 2]], INK, 1.5, outline=True, edge=u * 0.08)
         label(c["id"], px, py - u * 1.2, 2.0, u * 0.75)
+    path = lay.get("path", [])
+    for k, (a, b) in enumerate(zip(path, path[1:])):  # player path: a thin ink strip, S and E at its ends
+        d = math.hypot(b[0] - a[0], b[1] - a[1]) or 1
+        nx, ny = -(b[1] - a[1]) / d * u * 0.1, (b[0] - a[0]) / d * u * 0.1
+        add(f"path{k}", [(a[0] + nx, a[1] + ny), (b[0] + nx, b[1] + ny), (b[0] - nx, b[1] - ny), (a[0] - nx, a[1] - ny)],
+            [[0, 1, 2, 3]], INK, 1.6)
+    for tag, p in (("S", path[:1]), ("E", path[-1:])):
+        for px, py in p:
+            circle("path" + tag, px, py, u * 0.5, INK, 1.7)
+            label(tag, px, py, 1.75, u * 0.6, (1, 1, 1))
+    path_len = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(path, path[1:]))
     for c in lay.get("callouts", []):
         cx, cy = c["at_m"]
         circle(f"CO{c['n']}", cx, cy, u * 0.65, CALLOUT, 1.8)
@@ -137,14 +148,15 @@ def main(src, out):
 
     # key box to the right of the grid: zone categories in use, then the callout texts
     kx, ky = gx1 + u * 2, gy1
-    rows = [(LEGEND[k], KEY[k]) for k in used] + [(None, "")] + [(CALLOUT, f"{c['n']}  {c['text']}") for c in lay.get("callouts", [])]
+    rows = [(LEGEND[k], KEY[k]) for k in used] + ([(INK, f"Player path, {path_len:.0f} m")] if path else [])
+    rows += [(None, "")] + [(CALLOUT, f"{c['n']}  {c['text']}") for c in lay.get("callouts", [])]
     kw = u * 16
     rect("key_bg", kx - u * 0.6, ky - u * (len(rows) + 2.2), kx + kw, ky + u * 0.6, (0.97, 0.97, 0.95), 0.5)
     label("KEY", kx, ky - u * 0.4, 2.0, u * 0.8, align="LEFT")
     for r, (col, text) in enumerate(rows):
         yy = ky - u * (r + 1.8)
         if col:
-            rect(f"key{r}", kx, yy - u * 0.3, kx + u * 0.9, yy + u * 0.3, tint(col) if col != CALLOUT else col, 1.0, u * 0.08)
+            rect(f"key{r}", kx, yy - u * 0.3, kx + u * 0.9, yy + u * 0.3, col if col in (CALLOUT, INK) else tint(col), 1.0, u * 0.08)
         label(text, kx + u * 1.4, yy, 2.0, u * 0.6, align="LEFT")
     if lay.get("title"):
         label(lay["title"], gx0, gy1 + u * 1.5, 2.0, u * 1.1, align="LEFT")

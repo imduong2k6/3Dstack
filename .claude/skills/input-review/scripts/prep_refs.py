@@ -32,7 +32,9 @@ def prep(src: Path, out: Path, per_sheet: int = 9) -> dict:
             continue
         size = im.size
         im.thumbnail((LONG_EDGE, LONG_EDGE))
-        name = '__'.join(f.relative_to(src).with_suffix('.jpg').parts)
+        name = '__'.join(f.relative_to(src).parts)
+        if f.suffix.lower() != '.jpg':
+            name += '.jpg'  # keep the old extension so a.png and a.jpeg don't collide
         im.save(out / name, quality=88)
         kept.append({'file': str(f.relative_to(src)), 'view': name, 'size': size})
     cols = math.ceil(math.sqrt(per_sheet))
@@ -64,8 +66,9 @@ def selftest():
         Image.new('RGB', (3000, 2000), (90, 120, 160)).save(src / 'alleys' / 'good.jpg')
         data = (src / 'alleys' / 'good.jpg').read_bytes()
         (src / 'bad.jpg').write_bytes(data[:len(data) // 3])  # truncated
+        Image.new('RGB', (64, 64)).save(src / 'alleys' / 'good.png')
         r = prep(src, src / '_view')
-        assert [k['view'] for k in r['kept']] == ['alleys__good.jpg'], r
+        assert [k['view'] for k in r['kept']] == ['alleys__good.jpg', 'alleys__good.png.jpg'], r
         assert [b['file'] for b in r['rejected']] == ['bad.jpg'], r
         with Image.open(src / '_view' / 'alleys__good.jpg') as im:
             assert max(im.size) == LONG_EDGE, im.size
