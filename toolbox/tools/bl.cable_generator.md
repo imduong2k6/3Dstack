@@ -28,8 +28,10 @@ routes: [blender, blender_unreal]
 ## How to call it
 1. Append `Cablez`, `Move Me` and the material once (`bpy.ops.wm.append` or `bpy.data.libraries.load`).
 2. Per run: duplicate the rig, rename it `CBL_<run id>` with `CBL_<run id>_Start` and `_End`, and move Start and End onto the end points. Set Seed (different per run), Cables (the run's count), Messiness, Spread and Thickness.
-3. Bake the cloth cache and keep the scene on a fixed frame, or switch on Curve and give the rig a guide curve when the simulation is unreliable. Never leave a scene that depends on an unbaked simulation.
-4. Give the cable material a `material_group` (for example `cables`) so the palette passes reach it.
+3. **Curve mode is the default** (corridor pilot, FIX-r1): one guide curve object per run with the rig's `GG.Cables` modifier, Curve on, Beams off. The sag is in the curve and the ends sit exactly where you put them, with nothing frame-dependent. Use the cloth only when the scene has colliders set up and you can bake every run's cache; without colliders the cables hang through furniture. Never leave a scene that depends on an unbaked simulation.
+4. The rig is built at metre scale. For wire-sized cables, scale each run object (0.25 gave 1–2 cm wires), then offset the guide curve to cancel the drift the rig adds up and sideways. Embed each end about 1.5 cm into its anchor so no gap shows.
+5. Render with the pipeline's own cable material in an object-linked slot. `GG.Cablez` has subsurface 1.0 at a 0.5 m scale and a texture-driven roughness, so it read as pink, translucent wire at real scale. Give whichever material renders a `material_group` (for example `cables`) so the palette passes reach it.
+6. Check every end against its anchor (the pilot checked 90 ends) and that the cables touch nothing else.
 
 ## Gotchas
 - In Blender 5.2, `modifier.keys()` on a geometry-nodes modifier raised a TypeError. Read and set inputs through `modifier.node_group.interface.items_tree` and the socket identifiers.
