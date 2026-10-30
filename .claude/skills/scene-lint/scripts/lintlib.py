@@ -33,7 +33,7 @@ DEFAULT_RULES = {
     "penetration_tol_m": 0.02,      # smallest overlap of two solids' boxes (a depth proxy) that counts as interpenetration
     "origin_tol_m": 0.005, "origin_radius_m": 0.5, "origin_max_size_m": 4.0,   # larger objects are structure, authored around the origin
     "cable_anchor_tol_m": 0.05, "cable_entry_tol_m": 0.02, "cable_sag_max_ratio": 0.2,
-    "conduit_end_tol_m": 0.02, "cap_max_m": 0.4,
+    "conduit_end_tol_m": 0.02, "cap_max_m": 0.4, "vent_pocket_min_m": 0.05,
     "door_min_width_m": 0.91, "door_min_height_m": 2.0,   # same limits as layout-2d/check_layout.py
     "passage_min_width_m": 0.91, "head_min_m": 2.1, "capsule_radius_m": 0.35, "capsule_height_m": 1.8, "eye_height_m": 1.6,
     "size_tol_m": 0.005, "riser_max_m": 0.178, "riser_uneven_max_m": 0.01, "tread_min_m": 0.279, "stair_flight_gap_m": 0.5,
@@ -47,7 +47,7 @@ DEFAULT_RULES = {
     "tokens": {                     # a name (or its collection's name) split at _ . - space and camelCase; any token hits
         "cable": ["cable", "cables", "cbl", "wire", "wires"],
         "conduit": ["conduit", "conduits", "elbow", "coupling", "tee", "fitting", "fittings"],   # add pipe or duct in the rules file if they need the same check
-        "anchor": ["box", "meter", "board", "junction", "jb", "bracket", "conduit", "elbow", "coupling", "tee", "fitting", "sleeve",
+        "anchor": ["box", "saddle", "clip", "strap", "clamp", "meter", "board", "junction", "jb", "bracket", "conduit", "elbow", "coupling", "tee", "fitting", "sleeve",
                    "gland", "lamp", "light", "fixture", "tray", "trunking", "coil", "pole", "hanger", "insulator", "socket", "switch",
                    "panel", "ac", "aircon", "sign", "cage", "connector", "plug", "intercom", "riser", "cleat", "hook", "antenna",
                    "bulb", "holder", "batten", "pipe", "duct"],
@@ -65,7 +65,9 @@ DEFAULT_RULES = {
     },
     "exclude_tokens": {"cable": ["tray", "trunking", "duct", "box", "conduit", "bracket", "clip", "hanger", "reel", "label", "tag",
                                  "cover", "gland", "sleeve", "junction", "spool", "coil", "stand"],
-                       "conduit": ["cable", "cables", "cbl", "wire", "wires"],
+                       "conduit": ["cable", "cables", "cbl", "wire", "wires",   # boxes, saddles and clips are anchors a conduit ends at, not pieces with ends
+                                   "box", "boxes", "saddle", "saddles", "clip", "clips", "strap", "straps", "clamp", "clamps", "bracket",
+                                   "meter", "board", "junction", "jb"],
                        "door": ["hasp", "padlock", "lock", "handle", "knob", "hinge", "bolt", "latch", "sign", "plate", "bell", "mat", "stop",
                                 "seal", "number", "peephole", "closer", "frame", "box", "light", "lamp", "step", "sill", "paper", "mailbox", "letterbox",
                                 "poster", "sticker", "notice", "label"],
@@ -173,11 +175,12 @@ def kinds_of(ob, rules):
     k = ob.get("kind")
     if k:
         return {x.strip().lower() for x in str(k).split(",") if x.strip()}
-    toks = tokens(ob.name)
+    own = tokens(ob.name)  # exclusions read the object's own name, so a collection called Boxes cannot hide its conduits
+    toks = set(own)
     for c in ob.users_collection:
         toks |= tokens(c.name)
     return {kind for kind, words in rules["tokens"].items()
-            if toks & set(words) and not toks & set(rules["exclude_tokens"].get(kind, ()))}
+            if toks & set(words) and not own & set(rules["exclude_tokens"].get(kind, ()))}
 
 
 def render_off_collections(scene):

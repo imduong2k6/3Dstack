@@ -16,6 +16,7 @@ import sys
 
 import bmesh
 import bpy
+from types import SimpleNamespace
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -127,6 +128,9 @@ multibox("SM_Wall_A", [((-4, 3, 0), (0.1, 3.2, 3)), ((0.5, 3, 0), (4, 3.2, 3)), 
 box("SM_Wall_B", (-4, -3.2, 0), (4, -3, 3), "COL_P1_Structure")
 box("SM_Vent_Good", (0.11, 2.9, 1.51), (0.49, 3.3, 1.89), "COL_P3_Services")            # inside the cut opening
 box("SM_Vent_Bad", (0.1, -3.3, 1.5), (0.5, -2.9, 1.9), "COL_P3_Services")              # through a solid wall
+multibox("SM_Wall_P", [((4.2, -3.2, 0), (5.2, -3.12, 3)), ((4.2, -3.12, 0), (4.5, -3.0, 3)), ((4.9, -3.12, 0), (5.2, -3.0, 3)),
+                       ((4.5, -3.12, 0), (4.9, -3.0, 1.5)), ((4.5, -3.12, 1.9), (4.9, -3.0, 3))], "COL_P1_Structure")
+box("SM_Vent_Pocket", (4.52, -3.12, 1.52), (4.88, -2.95, 1.88), "COL_P3_Services")      # in a 0.12 m blind pocket: a minor note
 box("SM_Door_Ok", (2.0, -1.05, 0), (2.92, -1.0, 2.1))
 box("SM_Door_Narrow", (3.2, -1.05, 0), (3.9, -1.0, 2.1))
 for i, top in enumerate((0.17, 0.34, 0.51, 0.73)):                                       # the last riser is 0.22 m
@@ -285,6 +289,10 @@ pen = flagged(rep, "interpenetration")
 check("Prop_Overlap_A x Prop_Overlap_B" in pen or "Prop_Overlap_B x Prop_Overlap_A" in pen, f"interpenetration missed the 5 cm overlap: {sorted(pen)}")
 check(not any("Prop_Touch" in p for p in pen), f"interpenetration flagged a 5 mm overlap: {sorted(pen)}")
 has(rep, "through_wall_openings", "SM_Vent_Bad", absent=("SM_Vent_Good",))
+tw = {it["object"]: it for it in C["through_wall_openings"]["items"]}
+check(tw["SM_Vent_Bad"]["class"] == "major", f"vent on solid wall must be major: {tw['SM_Vent_Bad']}")
+check(tw.get("SM_Vent_Pocket", {}).get("class") == "minor" and abs(tw["SM_Vent_Pocket"]["pocket_m"] - 0.12) < 0.01,
+      f"vent in a 0.12 m blind pocket must be a minor note: {tw.get('SM_Vent_Pocket')}")
 has(rep, "door_sizes", "SM_Door_Narrow", absent=("SM_Door_Ok",))
 check(any(it["object"] == "SM_Stair_Step" and it.get("riser_max_m") == 0.22 for it in C["stair_risers"]["items"]), f"stair riser: {C['stair_risers']['items']}")
 check(not any("tread" in it["what"] for it in C["stair_risers"]["items"]), "tread depth 0.3 m must pass")
@@ -304,6 +312,28 @@ check(t["dead_end"] == 6 and t["terminated"] == 1 and t["attached"] == 9, f"end 
 check(C["cable_ends"]["checked"] == 8, "all eight cables are checked, not zero")
 has(rep, "cable_sag", "Cable_Droop", absent=("Cable_Ok",))
 has(rep, "conduit_open_ends", "Conduit_Open", absent=("Conduit_Ok",))
+check(C["conduit_open_ends"]["status"] == "fail" and C["conduit_open_ends"]["unresolved"] == 0, f"conduit: {C['conduit_open_ends']}")
+
+# fittings: a coupling shorter than it is wide, with two screw heads merged in, reads exactly its two ends;
+# saddles and boxes named after the conduit are anchors, not pieces with ends
+cpl = tube("Conduit_Coupling_T", path((4.5, -5.0, 1.0), (4.53, -5.0, 1.0), n=1), radius=0.02, k=16)
+bm = bmesh.new()
+bm.from_mesh(cpl.data)
+for x in (4.505, 4.525):
+    r_ = bmesh.ops.create_cube(bm, size=0.006)
+    bmesh.ops.translate(bm, vec=Vector((x, -5.0, 1.023)), verts=r_["verts"])
+bm.to_mesh(cpl.data)
+bm.free()
+dg = bpy.context.evaluated_depsgraph_get()
+ends, _ = lint.object_ends(SimpleNamespace(ob=cpl), dg, 0.4, strict=True)
+check(len(ends) == 2 and sorted(round(p.x, 2) for p, _ in ends) == [4.5, 4.53], f"coupling ends: {[tuple(p) for p, _ in ends]}")
+for n, conduit in (("SM_Conduit_Saddle_01", False), ("SM_ConduitBox_Round_1", False), ("SM_Conduit_Straight_01", True), ("SM_Conduit_Elbow_02", True)):
+    ob = bpy.data.objects.new(n, None)
+    link(ob, "COL_P3_Services")
+    k = lib.kinds_of(ob, lib.load_rules())
+    check(("conduit" in k) == conduit and "anchor" in k, f"{n}: kinds {sorted(k)}")
+    bpy.data.objects.remove(ob)
+bpy.data.objects.remove(cpl)
 
 # rules file: a project threshold and a severity change take effect
 open(os.path.join(proj, "plan", "lint_rules.yaml"), "w").write("# test\nriser_max_m: 0.25\nseverity:\n  names_tags: minor\ndisable: [wear_geometry]\noverlap_allow:\n  - [a, b]\n")

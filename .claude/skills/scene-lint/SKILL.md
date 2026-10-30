@@ -28,7 +28,7 @@ Exit 0: no blocker. Exit 2: a blocker (`lint.json` is still written). Exit 1: th
 
 ## Reading `lint.json`
 
-`summary` has the counts, `blockers`, and three lists that are never a pass: `skipped` (an input file was missing), `no_subjects` (the check found nothing to check, for example no object is named or tagged a cable) and `errors` (a check crashed). Each check has `status`, `checked` (how many things it looked at), `count`, `counts` by class, and `items` (the first 100; `count` is exact). A zero with `checked: 0` means nothing was looked at. It is not a clean result.
+`summary` has the counts, `blockers`, and three lists that are never a pass: `skipped` (an input file was missing), `no_subjects` (the check found nothing to check, for example no object is named or tagged a cable) and `errors` (a check crashed). Each check has `status` (`pass`, `fail` when it has a blocker or major, `warn` when it has only minors, `skipped`, `no_subjects`, `error`), `checked` (how many things it looked at), `count`, `counts` by class, and `items` (the first 100; `count` is exact). A zero with `checked: 0` means nothing was looked at. It is not a clean result.
 
 | Check (field) | Class | Finds |
 | --- | --- | --- |
@@ -45,14 +45,14 @@ Exit 0: no blocker. Exit 2: a blocker (`lint.json` is still written). Exit 1: th
 | `floating` | major | no chain of touching objects (within 2 cm) reaches the ground |
 | `interpenetration` | major | two solids cross deeper than 2 cm (depth from the crossing triangles) |
 | `cable_ends`, `cable_sag` | major, minor | every cable end classed attached, terminated (enters a surface head-on, or buried) or dead end (a tail along a surface, or in the air); sag over 20 % of span |
-| `conduit_open_ends` | major | a conduit or fitting end that meets no conduit, fitting, box, meter, fixture or wall |
-| `through_wall_openings` | major | a vent, louvre, fan or AC unit inside a wall slab with no opening cut |
+| `conduit_open_ends` | major | a conduit or fitting end that meets no conduit, fitting, box, meter, fixture or wall. Boxes, saddles, clips and straps are anchors, not pieces with ends, even when their name says conduit |
+| `through_wall_openings` | major | a vent, louvre, fan or AC unit on solid wall: probed from the face it sits on, a cut-through passes, a blind pocket at least `vent_pocket_min_m` (0.05 m) deep is a minor note, less is a major |
 | `door_sizes`, `stair_risers` | major | door width or height under the thresholds; risers over, treads under (uneven risers are minor) |
 | `path_clearance` | major | along `walk.json`: no floor, something in the 1.8 m capsule or at knee height, clear width or headroom under the thresholds |
 
-How a check knows what an object is: the custom property `kind` (`cable`, `conduit`, `door`, `stair`, `wall`, `through_wall`, `anchor`) if set, else words in the object's or its collection's name (`Cable_Hook`, `SM_Door_Frame`). Wrong guess? Set `kind`. Other overrides: `origin_ok`, `float_ok`, `overlap_ok`, `ends_ok` (a cable that leaves the frame), `wear_ok`, `clear_width_m`, `stair_id`.
+How a check knows what an object is: the custom property `kind` (`cable`, `conduit`, `door`, `stair`, `wall`, `through_wall`, `anchor`) if set, else words in the object's or its collection's name (`Cable_Hook`, `SM_Door_Frame`); the words that rule a kind out (a box is not a conduit) are read from the object's own name only. Wrong guess? Set `kind`. Other overrides: `origin_ok`, `float_ok`, `overlap_ok`, `ends_ok` (a cable that leaves the frame), `wear_ok`, `clear_width_m`, `stair_id`.
 
-Cable ends come from the mesh structure (end caps, open loops, spline ends, wire ends), never from vertex extremes, and a joint to another cable counts only when that cable is itself anchored. A hooked run whose corners sat on anchors while its real end hung in the air once reported "0 floating" and 13 floated; `selftest_lint.py` plants that case. A mesh whose ends cannot be read (generated or merged fittings; more than 4 ends on a conduit piece) is a minor `unresolved`, never a pass. Keep one cable or conduit piece per object where you can.
+Cable ends come from the mesh structure (end caps, open loops, spline ends, wire ends), never from vertex extremes, and a joint to another cable counts only when that cable is itself anchored. A hooked run whose corners sat on anchors while its real end hung in the air once reported "0 floating" and 13 floated; `selftest_lint.py` plants that case. Conduit ends are read strictly: screws, nuts and tabs (islands under 30 % of the largest) are ignored, an open loop needs 6 vertices, and a capped end must be round, however short the piece. A mesh whose ends still cannot be read (a generated elbow with no clean ends; more than 16 ends) is a minor `unresolved`, never a pass; the straights that meet it still check their own ends against it. Keep one cable or conduit piece per object where you can.
 
 ## Per-project rules
 

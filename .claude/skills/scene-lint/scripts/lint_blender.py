@@ -72,7 +72,7 @@ class Ctx:
         for it in items:
             it.setdefault("class", self.sev(check, cls))
         counts = {c: sum(1 for it in items if it["class"] == c) for c in CLASSES}
-        status = status or ("fail" if items else ("pass" if checked else "no_subjects"))
+        status = status or ("fail" if counts["blocker"] or counts["major"] else "warn" if items else ("pass" if checked else "no_subjects"))
         cap = self.rules["max_items"]
         self.checks[check] = {"status": status, "class": self.sev(check, cls), "checked": checked, "count": len(items),
                               "counts": counts, "items": items[:cap], **({"items_truncated": len(items) - cap} if len(items) > cap else {}),
@@ -336,9 +336,33 @@ def check_steps(c):
 
 # ---- geometric checks (scoped to the visible set) ------------------------------------------------------------
 
-def object_ends(s, dg, cap_max):
+def _big_islands(bm, W, share=0.3):
+    """Vertex indices of the mesh islands whose box diagonal is at least `share` of the largest one's (drops screws, nuts, tabs)."""
+    seen, isl = set(), []
+    for v in bm.verts:
+        if v.index in seen:
+            continue
+        stack, idx = [v], []
+        seen.add(v.index)
+        while stack:
+            x = stack.pop()
+            idx.append(x.index)
+            for e in x.link_edges:
+                o = e.other_vert(x)
+                if o.index not in seen:
+                    seen.add(o.index)
+                    stack.append(o)
+        pts = np.array([tuple(W(bm.verts[i])) for i in idx])
+        isl.append((float(np.linalg.norm(np.ptp(pts, axis=0))), idx))
+    top = max(d for d, _ in isl)
+    return {i for d, idx in isl if d >= share * top for i in idx}
+
+
+def object_ends(s, dg, cap_max, strict=False):
     """Real ends of a cable or conduit object, from its structure: spline end points, open boundary loops, planar end caps, or
-    wire end vertices. Never from vertex extremes (those pick corners of a bent run). Returns [(point, outward unit vector)], method."""
+    wire end vertices. Never from vertex extremes (those pick corners of a bent run). Returns [(point, outward unit vector)], method.
+    strict (conduit fittings): ignore small hardware islands (screws, nuts, tabs), open loops under 6 vertices (holes, not tube
+    ends) and caps that are not round; a round cap may be as wide as the piece (couplings, short stubs)."""
     ob, mw = s.ob, s.ob.matrix_world
     if ob.type == "CURVE":
         ends = []
@@ -367,6 +391,7 @@ def object_ends(s, dg, cap_max):
         return ends, "wire"
     centre = sum((W(v) for v in bm.verts), Vector()) / len(bm.verts)
     diag = max(1e-6, (np.ptp([tuple(W(v)) for v in bm.verts], axis=0)).max())
+    big = _big_islands(bm, W) if strict else None
     # open tube ends: loops of boundary edges
     bnd = [e for e in bm.edges if len(e.link_faces) == 1]
     seen = set()
@@ -383,6 +408,8 @@ def object_ends(s, dg, cap_max):
             for v in e.verts:
                 stack += [x for x in v.link_edges if len(x.link_faces) == 1 and x.index not in seen]
         vs = {v for e in loop for v in e.verts}
+        if strict and (len(vs) < 6 or any(v.index not in big for v in vs)):
+            continue
         p = sum((W(v) for v in vs), Vector()) / len(vs)
         inner = [W(o) for v in vs for e in v.link_edges for o in [e.other_vert(v)] if o not in vs]
         back = sum(inner, Vector()) / len(inner) if inner else centre
@@ -409,9 +436,13 @@ def object_ends(s, dg, cap_max):
         bv = {v for e in edges for v in e.verts}
         pts = [W(v) for v in bv]
         ext = max((a - b).length for a in pts for b in pts)
-        if ext > cap_max or ext > 0.6 * diag:
-            continue
         p = sum(pts, Vector()) / len(pts)
+        if strict:
+            rs = [(q - p).length for q in pts]
+            if ext > cap_max or len(bv) < 8 or max(rs) - min(rs) > 0.2 * max(rs) or any(v.index not in big for v in bv):
+                continue
+        elif ext > cap_max or ext > 0.6 * diag:
+            continue
         nw = (mw.to_3x3() @ n0).normalized()
         radial = 0  # at a tube's end the faces beyond the boundary point radially outward from the cap's centre
         for e in edges:
@@ -530,8 +561,8 @@ def check_conduit_ends(c):
         return c.skip("conduit_open_ends", "no object is a conduit or fitting (tag kind=conduit or name one)")
     items, ends_n, unresolved = [], 0, 0
     for s in conduits:
-        ends, _ = object_ends(s, c.dg, r["cap_max_m"])
-        if not 1 <= len(ends) <= 4:  # one piece has 1 to 4 ends; more means a generated or merged mesh whose ends cannot be read
+        ends, _ = object_ends(s, c.dg, r["cap_max_m"], strict=True)
+        if not 1 <= len(ends) <= 16:  # a piece or a merged run; more means a generated or damaged mesh whose ends cannot be read
             items.append({"object": s.name, "class": "minor", "what": f"found {len(ends)} ends in the mesh, so none could be classified: check it by eye (a pass would be a guess)"})
             unresolved += 1
             continue
@@ -632,7 +663,7 @@ def check_float_and_overlap(c):
 
 
 def check_through_wall(c):
-    g = c.geo
+    g, r = c.geo, c.rules
     things = [s for s in g.of_kind("through_wall") if c.scoped(s.name) and len(s.tris)]
     walls = [s for s in g.of_kind("wall") if len(s.tris)]
     if not things:
@@ -660,17 +691,25 @@ def check_through_wall(c):
         t1 /= np.linalg.norm(t1)
         t2 = np.cross(n, t1)
         ctr = (it.lo + it.hi) / 2
+        if abs(ctr @ n - b) < abs(ctr @ n - a):  # probe from the face the item sits on
+            n, a, b = -n, -b, -a
         ext = [np.ptp(it.verts @ t1), np.ptp(it.verts @ t2)]
         offs = [(0, 0), (.3, 0), (-.3, 0), (0, .3), (0, -.3), (.2, .2), (.2, -.2), (-.2, .2), (-.2, -.2)]  # the middle of the footprint, so a round hole passes
-        blocked = 0
+        depths = []  # free depth into the wall behind each probe, None when the ray gets through
         for ox, oy in offs:
             q = ctr + t1 * ox * ext[0] + t2 * oy * ext[1]
             q = q - n * (q @ n) + n * (a - 0.05)
-            if w.bvh.ray_cast(Vector(q), Vector(n), (b - a) + 0.1)[0] is not None:
-                blocked += 1
-        if blocked / len(offs) > 0.5:
-            items.append({"object": it.name, "wall": w.name, "at": v3(ctr), "blocked_probes": f"{blocked}/{len(offs)}",
-                          "what": f"passes through {w.name} with no opening cut ({blocked} of {len(offs)} probe rays hit solid wall); cut the opening with an applied boolean"})
+            hit = w.bvh.ray_cast(Vector(q), Vector(n), (b - a) + 0.1)
+            depths.append(None if hit[0] is None else max(0.0, hit[3] - 0.05))
+        solid = sorted(d for d in depths if d is not None)
+        if len(solid) <= len(offs) // 2:
+            continue  # cut through
+        pocket = solid[len(solid) // 2]
+        where = {"object": it.name, "wall": w.name, "at": v3(ctr), "through_probes": f"{len(offs) - len(solid)}/{len(offs)}", "pocket_m": round(pocket, 3)}
+        if pocket >= r["vent_pocket_min_m"]:
+            items.append({**where, "class": "minor", "what": f"sits in a blind pocket {pocket:.2f} m deep in {w.name}, not cut through: fine while the far side is never seen"})
+        else:
+            items.append({**where, "what": f"sits on solid {w.name}: {pocket:.3f} m of free depth behind it; cut the opening with an applied boolean, or a pocket at least {r['vent_pocket_min_m']} m deep"})
     c.add("through_wall_openings", "major", len(things), items)
 
 

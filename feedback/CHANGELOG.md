@@ -75,3 +75,16 @@ Approved by pika on the Skill Audit page, 30 Oct 2026: 49 items, with notes on s
 Checked against the research: making projects local for every project changes the old commit rule (now in `data-and-commits.md`); project text files have no off-machine copy unless the user backs up the work folder. The neutral-light rule widens `lighting.md`'s "placeholder lights only for practicals that drive the composition" to every emitting model. Two read-only reviews (approved items landed; cross-skill consistency) found 28 gaps, all fixed. Not built: the Unreal lint, lookdev and capture fixes (the Unreal MCP was unreachable).
 
 Tests: `selftest_lint.py`, `selftest_adapter.py`, `selftest_validate_mesh.py`, `check_palette.py`, `selftest_check_layout.py`, `check_spec` and `kit_joint_test` self-tests, `selftest_integrate.py`, `selftest_inventory.py`, `selftest_pairs.py`, `check_tripo_cleanup.py` and `selftest_pipeline_patch.py` pass with Blender 5.2.3.
+
+## 2026-10-30: scene-lint reads conduit fittings and vent pockets
+
+Found on an earlier project's G2 r3 lint: 154 conduits reported as unreadable, and 4 vents as solid wall. `conduit_open_ends` read every flat face of a screw, nut or saddle tab as a tube end, missed the caps of fittings shorter than they are wide, and counted boxes and saddles as conduit pieces because their names held "Conduit". `through_wall_openings` always probed from one side, so a vent in a blind pocket read as solid wall. A check with only minors also reported `fail`, so 154 minors read as majors.
+
+| Change | Files |
+| --- | --- |
+| Strict end reading for conduit: hardware islands ignored, open loops of 6 or more vertices, round caps at any length, up to 16 ends (merged runs) | `lint_blender.py` |
+| Boxes, saddles, clips, straps, clamps, brackets, meters and boards are anchors, never conduit subjects; kind exclusions read the object's own name only | `lintlib.py` |
+| Vents probed from the face they sit on; a blind pocket of at least `vent_pocket_min_m` (0.05 m) is a minor note | `lint_blender.py`, `lintlib.py` |
+| `status: warn` for a check with only minors | `lint_blender.py`, `scene-lint` |
+
+On the same gate copy: unreadable conduits 154 to 18 (generated elbows), the 4 vents become minor notes (pockets 0.17 to 0.20 m deep), and 3 merged runs that were unreadable now show 7 real open ends, 2.5 to 9 cm short of the wall or roof. Majors 199 to 198, minors 200 to 68; nothing else changed. `selftest_lint.py` gains a short coupling with screw heads, saddle and box names, and a vent in a blind pocket.
