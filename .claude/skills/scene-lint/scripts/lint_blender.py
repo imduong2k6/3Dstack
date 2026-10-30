@@ -142,6 +142,7 @@ def check_cameras(c):
         q = ob.matrix_world.to_quaternion()
         if row.get("rot_deg"):
             ang = math.degrees(q.rotation_difference(Euler([math.radians(x) for x in row["rot_deg"]], "XYZ").to_quaternion()).angle)
+            ang = min(ang, 360 - ang)  # q and -q are one rotation, and rotation_difference can read that pair as 360
         elif row.get("aim_m") and row.get("pos_m"):
             want = (Vector(row["aim_m"]) - Vector(row["pos_m"])).normalized()
             ang = math.degrees((q @ Vector((0, 0, -1))).angle(want))
