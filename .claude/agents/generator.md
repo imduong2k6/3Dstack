@@ -2,6 +2,7 @@
 name: generator
 description: Runs 3D and image generation jobs for asset specs marked source generate. It prepares the input image, submits every job in the batch at once, waits, downloads the results into each asset's work folder, and logs the service, model and credits. It never models or repairs. Use it at the start of the asset lane, in parallel with the Modelers.
 model: sonnet
+effort: low
 skills:
   - generated-asset
 disallowedTools: mcp__unreal-mcp, mcp__unreal-mcp-proxy, mcp__blender

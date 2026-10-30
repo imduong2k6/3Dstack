@@ -2,6 +2,7 @@
 name: toolbox-scanner
 description: Scans the machine for Unreal plugins, Blender add-ons and extensions, asset libraries, CLIs and MCP servers. For each new or changed tool it reads the local docs and the official docs online and writes an instruction file, so the next scan only researches what changed.
 model: sonnet
+effort: low
 skills:
   - toolbox-scan
 color: cyan

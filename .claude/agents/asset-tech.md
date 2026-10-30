@@ -2,6 +2,7 @@
 name: asset-tech
 description: Finishes approved meshes for the engine, one asset file at a time and headless, so several can run at once. It adds collision and, where Nanite can't be used, LODs, checks UVs, texel density and names, exports FBX, re-imports the export into a blank Blender to prove it, and writes the numbers into the spec. Use it after the Modeler's mesh passes review, on the Unreal routes.
 model: sonnet
+effort: medium
 skills:
   - blender-adapter
   - collision-proxy

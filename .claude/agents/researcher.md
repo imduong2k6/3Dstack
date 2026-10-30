@@ -2,6 +2,7 @@
 name: researcher
 description: Researches a scene's real-world facts (place, era, construction, object dimensions, fixtures and light), and how professionals build this kind of scene, including workflows, tricks and how they handle specific problems. Writes sourced notes the other agents use, and at the end of a project collects improvement suggestions.
 model: sonnet
+effort: medium
 skills:
   - reference-research
   - workflow-research
