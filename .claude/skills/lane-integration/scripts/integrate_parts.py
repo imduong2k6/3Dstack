@@ -304,7 +304,7 @@ def replay_patches(path, lanes, objs, linked=()):
             return fn
         return deco
     ns["patch"] = patch
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         exec(compile(f.read(), path, "exec"), ns)
     ids = [p["id"] for p in patches]
     for p in [p for p in patches if lanes is None or p["lane"] is None or p["lane"] in lanes]:

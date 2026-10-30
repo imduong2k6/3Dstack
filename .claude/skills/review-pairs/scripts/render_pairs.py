@@ -103,7 +103,8 @@ def main():
         t = dict(c, **c["before"]) if a.side == "before" and c.get("before") else c
         W, H = (max(16, round(v * a.scale)) for v in c.get("res_px") or spec["res_px"])
         cd = bpy.data.cameras.new("FIXCAM_" + c["id"])
-        cd.sensor_width, cd.sensor_fit = 36.0, t["sensor_fit"]
+        cd.sensor_width = cd.sensor_height = 36.0  # a VERTICAL fit reads the height (cameras.json sensor_mm)
+        cd.sensor_fit = t["sensor_fit"]
         cd.shift_x, cd.shift_y = t["shift"]
         cd.clip_start, cd.clip_end = t.get("clip_m") or (0.05, 300)  # a plan or review camera's clip sets its cut plane
         if t.get("ortho_scale"):
