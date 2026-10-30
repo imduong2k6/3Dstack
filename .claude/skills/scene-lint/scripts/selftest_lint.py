@@ -16,8 +16,9 @@ import sys
 
 import bmesh
 import bpy
+import numpy as np
 from types import SimpleNamespace
-from mathutils import Vector
+from mathutils import Euler, Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 out = sys.argv[sys.argv.index("--") + 1] if "--" in sys.argv else os.path.join(os.getcwd(), "selftest_out")
@@ -349,6 +350,36 @@ for n, conduit in (("SM_Conduit_Saddle_01", False), ("SM_ConduitBox_Round_1", Fa
     check(("conduit" in k) == conduit and "anchor" in k, f"{n}: kinds {sorted(k)}")
     bpy.data.objects.remove(ob)
 bpy.data.objects.remove(cpl)
+
+# the same mesh reads the same ends to the last bit, capped or open: a float sum over a set of BMesh elements follows memory addresses
+capped = tube("Conduit_Repeat_T", path((12.345, -7.891, 3.217), (12.911, -7.433, 3.871), n=1), radius=0.0173, k=32)
+opened = tube("Conduit_RepeatOpen_T", path((12.345, -6.891, 3.217), (12.911, -6.433, 3.871), n=1), radius=0.0173, k=32)
+bm = bmesh.new()
+bm.from_mesh(opened.data)
+bmesh.ops.delete(bm, geom=[f for f in bm.faces if len(f.verts) == 3], context="FACES")
+bm.to_mesh(opened.data)
+bm.free()
+dg = bpy.context.evaluated_depsgraph_get()
+for ob in (capped, opened):
+    reads, keep = set(), []
+    for _ in range(12):
+        ends, _m = lint.object_ends(SimpleNamespace(ob=ob), dg, 0.4)
+        reads.add(tuple(tuple(p) + tuple(d) for p, d in ends))
+        keep.append(bmesh.new())   # holds memory, so the next read's elements land at other addresses
+        keep[-1].from_mesh(ob.data)
+    check(len(ends) == 2 and len(reads) == 1, f"{ob.name}: {len(ends)} ends, {len(reads)} different reads of the same mesh")
+    for b in keep:
+        b.free()
+    bpy.data.objects.remove(ob)
+
+# a point on a face is not inside, whatever the rotation: ray parity there is rounding noise
+rot = Euler((0.4, 0.7, 0.2)).to_matrix()
+cube = lib.Solid("T", None, np.array([rot @ Vector((x, y, z)) for x in (0, 1) for y in (0, 1) for z in (0, 1)]), np.array(
+    [t for a, b, c, d in ((0, 1, 3, 2), (4, 5, 7, 6), (0, 1, 5, 4), (2, 3, 7, 6), (0, 2, 6, 4), (1, 3, 7, 5)) for t in ((a, b, c), (a, c, d))]), set())
+on_face = [rot @ Vector((x, 0.03 + i * 0.047, 0.03 + j * 0.047)) for x in (0, 1) for i in range(20) for j in range(20)]
+n_in = sum(cube.inside(p) for p in on_face)
+check(n_in == 0, f"{n_in} of {len(on_face)} points on a face read as inside")
+check(cube.inside(rot @ Vector((0.998, 0.5, 0.5))) and not cube.inside(rot @ Vector((1.002, 0.5, 0.5))), "2 mm under a face is inside, 2 mm over it is not")
 
 # rules file: a project threshold and a severity change take effect
 open(os.path.join(proj, "plan", "lint_rules.yaml"), "w").write("# test\nriser_max_m: 0.25\nvent_pocket_min_m: 0.1\nseverity:\n  names_tags: minor\ndisable: [wear_geometry]\noverlap_allow:\n  - [a, b]\n")

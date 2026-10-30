@@ -257,10 +257,13 @@ class Solid:
         return self._bvh
 
     def inside(self, p):
-        """Ray parity along three axes, majority vote (a back-facing nearest face on an open mesh is not 'inside')."""
+        """Ray parity along three axes, majority vote (a back-facing nearest face on an open mesh is not 'inside'). A point within
+        0.1 mm of a face is not inside either: parity there is rounding noise."""
         if self.bvh is None:
             return False
         from mathutils import Vector
+        if self.bvh.find_nearest(Vector(p), 1e-4)[0] is not None:
+            return False
         odd = 0
         for dv in (Vector((0, 0, 1)), Vector((1, 0, 0)), Vector((0, 1, 0))):
             n, q = 0, Vector(p)

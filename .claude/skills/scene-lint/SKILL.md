@@ -46,7 +46,7 @@ Exit 0: no blocker. Exit 2: a blocker (`lint.json` is still written). Exit 1: th
 | `step_backup` | major | a step in `plan/steps.json` whose backup is not on disk, or an unreadable ledger |
 | `floating` | major | no chain of touching objects (within 2 cm) reaches the ground |
 | `interpenetration` | major | two solids cross deeper than 2 cm (depth from the crossing triangles) |
-| `cable_ends`, `cable_sag` | major, minor | every cable end classed attached, terminated (enters a surface head-on, or buried) or dead end (a tail along a surface, or in the air); sag over 20 % of span |
+| `cable_ends`, `cable_sag` | major, minor | every cable end classed attached, terminated (enters a surface head-on, or buried; an end lying on a face is not buried) or dead end (a tail along a surface, or in the air); sag over 20 % of span |
 | `conduit_open_ends` | major | a conduit or fitting end that meets no conduit, fitting, box, meter, fixture or wall. Boxes, saddles, clips and straps are anchors, not pieces with ends, even when their name says conduit |
 | `through_wall_openings` | major | a vent, louvre, fan or AC unit on solid wall: probed from the face it sits on, a cut-through passes, a blind pocket at least `vent_pocket_min_m` (0.15 m) deep is a minor note (fine only while the far side is never seen), less is a major |
 | `door_sizes`, `stair_risers` | major | door width or height under the thresholds; risers over, treads under (uneven risers are minor) |

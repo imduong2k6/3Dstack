@@ -131,3 +131,19 @@ Found by the reviewers of an earlier project's third blockout round while using 
 
 Same copy and inputs, old code against new: 192 majors to 179, 68 minors unchanged, no blocker. The false alarms went (8 door items, a sign and a hood, 2 stair-edge signs, a ceiling edge); the real low cables stayed, now as `head` at 2.07 and 2.08 m. Still open: `cable_ends` is not repeatable, one cable changes between runs of the same code on the same inputs.
 
+## 2026-10-30: scene-lint `cable_ends` is repeatable
+
+Closes the item left open above. On a copy of an earlier project's file, one cable's end changed class in 2 of 8 runs of the same code on the same inputs, and 358 of 360 cables differed at full precision.
+
+- **Cause.** `object_ends` added up vertices in the order of a Python `set`. BMesh elements hash by memory address, so that order changes with every run, and single-precision sums change with it: up to 6e-6 m in position and 1.3e-3 in direction. An end lying exactly on a face then fell either side of the ray parity in `Solid.inside`, so it read as buried in one run and as a tail in the next.
+- **Order.** The sums now follow element index, so the same mesh reads the same ends to the last bit.
+- **On a face.** A point within 0.1 mm of a face is no longer inside, because parity there is rounding noise. An end lying on a face at a shallow angle is always a tail, and a lint pass no longer rests on a coin flip. A head-on end still counts as terminated.
+
+| Change | Files |
+| --- | --- |
+| Sums over BMesh sets follow element index | `lint_blender.py` |
+| `Solid.inside` is false within 0.1 mm of a face | `lintlib.py`, `scene-lint` |
+| The same mesh reads the same ends, capped or open; points on a tilted face are not inside (both failed before the fix) | `selftest_lint.py` |
+
+Eight runs on the copy: all 360 cables identical to the last bit. Old code against new on the same inputs: the same 71 majors and 68 minors. One cable lying nearly along a wall gained its second dead end (terminated 199 to 198, dead ends 48 to 49), and the cable that used to flip now stays a dead end. Nudging every end by that noise changed the class of 3 of 1154 ends before and 1 after: an end at a frame's edge, where a different nearest face changes the reading. It is stable from run to run on the same file.
+

@@ -358,6 +358,11 @@ def _big_islands(bm, W, share=0.3):
     return {i for d, idx in isl if d >= share * top for i in idx}
 
 
+def _ordered(elems):
+    """BMesh elements hash by memory address: a float sum over a set of them would change with every run."""
+    return sorted(elems, key=lambda x: x.index)
+
+
 def object_ends(s, dg, cap_max, strict=False):
     """Real ends of a cable or conduit object, from its structure: spline end points, open boundary loops, planar end caps, or
     wire end vertices. Never from vertex extremes (those pick corners of a bent run). Returns [(point, outward unit vector)], method.
@@ -410,8 +415,8 @@ def object_ends(s, dg, cap_max, strict=False):
         vs = {v for e in loop for v in e.verts}
         if strict and (len(vs) < 6 or any(v.index not in big for v in vs)):
             continue
-        p = sum((W(v) for v in vs), Vector()) / len(vs)
-        inner = [W(o) for v in vs for e in v.link_edges for o in [e.other_vert(v)] if o not in vs]
+        p = sum((W(v) for v in _ordered(vs)), Vector()) / len(vs)
+        inner = [W(o) for v in _ordered(vs) for e in v.link_edges for o in [e.other_vert(v)] if o not in vs]
         back = sum(inner, Vector()) / len(inner) if inner else centre
         ends.append((p, (p - back).normalized() if (p - back).length > 1e-9 else Vector((0, 0, 1))))
     # capped tube ends: a planar cluster of faces whose neighbours all meet it at a steep angle
@@ -432,9 +437,9 @@ def object_ends(s, dg, cap_max, strict=False):
         edges = {e for g in cl for e in g.edges if any(h not in cl for h in e.link_faces) or len(e.link_faces) == 1}
         if len(edges) < 3 or any(len(e.link_faces) == 1 for e in edges):
             continue
-        outside = [h for e in edges for h in e.link_faces if h not in cl]
+        outside = [h for e in _ordered(edges) for h in e.link_faces if h not in cl]
         bv = {v for e in edges for v in e.verts}
-        pts = [W(v) for v in bv]
+        pts = [W(v) for v in _ordered(bv)]
         ext = max((a - b).length for a in pts for b in pts)
         p = sum(pts, Vector()) / len(pts)
         if strict:
