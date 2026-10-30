@@ -188,6 +188,8 @@ def main():
     a = ap.parse_args(sys.argv[sys.argv.index("--") + 1:])
     if a.mode == "pairs" and not a.cams:
         ap.error("pairs needs --cams")
+    a.dir = os.path.abspath(a.dir)  # Blender reads a relative image path from the drive root
+    a.out = os.path.abspath(a.out or os.path.join(a.dir, "contact.png"))  # make_contact skips "contact*" when it reads --dir
     TMP = os.path.join(a.dir, "_compose_tmp.png")
     n = make_pairs(a) if a.mode == "pairs" else make_contact(a)
     if not n:
