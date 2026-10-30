@@ -10,7 +10,7 @@ Run by the route's worker (see `scene-pipeline/routes.md`), through its adapter 
 ## Steps
 
 1. **Proxies.** One proxy per shape in `layout.json`, kit-sized and on the grid, named with the shape ID (`BLK_W01`). Coloured by legend so captures read like the map.
-2. **Checks.** Games: a 1.8 m capsule or mannequin walks the path, with door, stair and ceiling clearances. CG: look through each hero camera and confirm the frame matches the brief.
+2. **Checks.** Games: a 1.8 m capsule or mannequin walks the path, with door, stair and ceiling clearances. CG: look through each hero camera and confirm the frame matches the brief. In a detailed blockout, the `placement-phases` rules for the services blueprint, conduit, cables, wall-mounted items and what a player can see apply from here on.
 3. **Rough rig** from `lights.json`: key light at physical units, sky, fog, and exposure locked to the brief's EV100. Placeholder lights only for practicals that drive the composition.
 4. **Review cameras.** Create the camera set from `layout.json › cameras`, plus one top view, and save it to `light/cameras.json`. Every later gate reuses these exact cameras.
 5. **Capture and stats** with the adapter, then hand over to the supervisor and the Art Director.

@@ -15,6 +15,8 @@ Gate order: G0, G1, G2, P0 to P9, T, L1, L2, L3, G3. The tier (`scene-pipeline`)
 2. Upload `contact.png` and the captures to the board artifact's asset store (Artifact publish with `asset: true` and the board's URL). Use the returned URLs exactly.
 3. Write the gate entry with ArtifactData `set` in collection `gates`, id `<slug>-<gate>-r<round>`, status `awaiting_review`. Stamp `createdAt` from the system clock (`date -u +%Y-%m-%dT%H:%M:%SZ`) at the moment of posting, never a typed time: on the corridor pilot typed times drifted up to 147 min and broke the retro's wait times.
    - Each Art Director note's default shows its cost and size (for example "Do it · ~20 min · 420 x 90 px").
+   - **Before and after.** Every fixed issue gets a before/after close-up pair: one camera per issue, rendered from the previous round's backup and from the new gate copy, before on the left and after on the right, captioned with what was wrong. Render the before side as soon as the review lands, headless on copies.
+   - **Please check.** A `sections` entry titled "Please check: things I'm not sure work properly" lists the manager's real doubts. Draw them from the agents' not-checked lists, numbers that weren't re-rendered, visible issues, the captures' limits and anything hidden or deferred. Each item says what may be wrong, where to look and why.
    - When the reviewers disagree, the entry carries both renders as captures, with each option's acceptance numbers in the question.
    - When the manager has started on the default path, the summary says so ("started on the default; undo is ready").
    - G0 carries the plan as `sections` (one per plan heading, as short items), plus `readiness`, `questions` and `requests`.

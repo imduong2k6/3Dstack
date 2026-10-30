@@ -26,11 +26,20 @@ Run by the route's worker. Each phase places only what physically exists by then
 - Respect `clearance_m` in the specs: no prop inside a door swing or a walkway.
 - Repeats are instances, never copies: collection instances in Blender, instanced static meshes or PCG in Unreal.
 - Unreal: PCG and splines for cables, pipes and railings. Blender: geometry nodes, curves with bevel objects, and arrays.
-- **Cables** follow `layout.json › runs`: every run starts and ends at a real object (a meter, a box, a conduit, a fixture) or past the frame edge. `brief.yaml › cables: rig` builds them with the cable generator from the toolbox, one rig per run (`geometry-nodes`); `guides` leaves one curve per run with its two end points marked, for the user's own cable tool. In Unreal, the end points become spline points on the same objects.
+- **Services blueprint first.** Before P3, and before any services in a detailed blockout, draw the services as one connected system over the map. A typical chain runs from the supply entry to the meter boards, then to the distribution boxes, then a run to each unit, then the fixtures (lamps, switches, sockets, intercoms, signs, AC). Give each component an id, its position and mount, what it connects to and by what (conduit, tray or cable), and whether it reuses, moves or is a new asset. Arrange it the way the references do: meter boards grouped near stair entries, conduit vertical and horizontal, bundles sagging between brackets. Build from the blueprint; nothing electrical goes in that isn't on it.
+- **Conduit is one system.** Every fitting (elbow, tee, coupling) meets straight conduit at each open end. Runs are orthogonal, saddle-clipped to the wall about every 0.9 m, and end at a box, a meter, a fixture or a wall entry. A fitting with an open end is a fault.
+- **Cables** follow `layout.json › runs`:
+  - **Ends.** Every run starts and ends at a real object (a meter, a box, a conduit, a fixture) or past the frame edge. A cable enters a wall only through a box, gland or conduit, never bare plaster. A visible run under about 0.6 m needs a reason (a drip loop, a box-to-box jumper); otherwise extend it or remove it.
+  - **Smooth curves:** at least 12 segments per bend, no facet over about 8°, shaded smooth.
+  - **Bundles vary:** mixed strand thickness (wire-sized, about 0.8 to 2 cm in a dense urban scene), and a different sag, spread and seed per run. Never parallel offset copies of one strand.
+  - **Building them.** `brief.yaml › cables: rig` builds them with the user's cable generator from the toolbox, one rig per run (`geometry-nodes`, `toolbox/tools/bl.cable_generator.md`). Use the rig for every hanging bundle and every span between two anchors; a single wire along a wall may be a tube. Realize the rig before saving. `guides` leaves one curve per run with its two end points marked, for the user's own cable tool.
+  - **In Unreal,** the end points become spline points on the same objects.
+- **Wall-mounted items sit on or in the wall.** Items that pass through a wall (vents, louvres, extract fans, AC units) get a real opening cut in the host wall, as an applied boolean, and sit with their frame flush on the wall face. Surface-mounted items touch the wall within 2 mm.
 - **Paper, posters, stickers and signs** are planes with an alpha cut-out for torn edges, subdivided only where they bend (`knowledge/paper-alpha-planes.md`).
 - **Wall shells stay simple shapes.** Chips and cracks are texturing notes; detailed damage is generated (`tripo-props`) only in `full_cg` or when the user asks for a detailed blockout.
 - **Paired elements** (`mirror_of` on the map) are placed once and mirrored across their axis, each set into its recess in the shell.
 - CG route: place only what a hero camera sees, plus what casts shadows or reflections into the frame.
+- Game routes: checks and polish cover what a player can see from eye height anywhere along the walk paths, looking in any direction including up, plus the review cameras. The worker writes that set once (`visible_set.json`, from rays cast at points every 0.5 m along the paths). Problems outside it are Later, not fixes.
 
 ## Per phase
 

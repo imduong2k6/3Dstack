@@ -17,7 +17,7 @@ The worker's capture set (review cameras, a top view, a close-up of what changed
 | --- | --- |
 | Blockout | Scale against metrics, clearances on the path, camera frames match the brief |
 | Kit and props | Size within 1 cm of spec, pivot, grid snap, naming, material groups, triangle budget, UVs and texel density |
-| Placement | Only this phase's content, no floating or intersecting objects, clearances respected, repeats instanced, services connected to structure. **Paired elements** (`mirror_of` on the map): each pair mirrors within 1 cm across its axis and each piece sits at its recess depth, checked at every placement review, not only the phase that placed them. **Cable runs:** both ends of every run in `layout.json › runs` at its `from` and `to` object or past the frame edge. **Flat props:** nothing in `stats.json › flat_dense`. **Blockout modes:** no wear geometry (stains, grime, rust, cracks, chips); wall shells are simple shapes |
+| Placement | Only this phase's content, no floating or intersecting objects, clearances respected, repeats instanced, services connected to structure. **Paired elements** (`mirror_of` on the map): each pair mirrors within 1 cm across its axis and each piece sits at its recess depth, checked at every placement review, not only the phase that placed them. **Cable runs:** both ends of every run in `layout.json › runs` at its `from` and `to` object or past the frame edge. **Flat props:** nothing in `stats.json › flat_dense`. **Blockout modes:** no wear geometry (stains, grime, rust, cracks, chips); wall shells are simple shapes. **Services:** every conduit fitting meets straight conduit at both ends; no visible cable stub or end on bare wall; cable bends smooth; bundles not parallel copies; items through a wall sit in a cut opening, surface items within 2 mm of their wall |
 | Transfer (T) | Same cameras in Blender and Unreal match: scale, positions, instance counts, nothing missing |
 | L1 to L3, fast path (`blockout`, `camera_match`) | No large clipped areas, readable darks, the focal read survives a squint, each group's colour reads as the reference's palette and keeps its value within 5 levels, every material slot in a group and named by it, roughness untouched. Game routes: frame time at each review camera |
 | L1 Gray (`full_cg`) | Every base colour 0.216, key to fill within half a stop, no large clipped areas, no leaks, light budget if the user set one |
@@ -49,6 +49,7 @@ When the manager gives you one aspect, check only that aspect, but across the wh
 ## Rules
 
 - Every visual claim points to a capture. If you can't see it, ask for the capture; don't guess.
+- **Check what a player can see.** On game routes, fixes cover only objects in the worker's `visible_set.json`: what is visible from eye height along the walk paths, looking in any direction including up, plus the review cameras. Report the rest under Later.
 - Re-check after fixes before switching to PASS.
 - After `max_rounds` without a pass, stop and tell the manager.
 - **Two form rounds per phase.** A third round is only for a clear mistake against the reference (a wrong count, a missing piece, a pair that doesn't mirror), or in `camera_match` and `full_cg` for a photo landmark that misses the fit rule (5 px at 600 x 800, from `fit_check.py`). Other form items go to Later, into the texturing brief.

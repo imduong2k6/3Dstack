@@ -25,6 +25,12 @@ routes: [blender, blender_unreal]
 ## Use it for
 `brief.yaml › cables: rig`, one rig per run in `layout.json › runs`. Each run starts and ends at a real object (a meter, a box, a conduit, a fixture) or past the frame edge.
 
+Use it for every hanging bundle and every span between two anchors. Single wires running along a wall may stay tubes. Set it up so the bundle doesn't read as a copy:
+- strands wire-sized, mixed between about 0.8 and 2 cm;
+- Seed, Messiness, Spread and the sag different per run.
+
+Parallel copies of one thick strand read as fake, and so do runs with the same seed (user feedback, 29 Oct 2026).
+
 ## How to call it
 1. Append `Cablez`, `Move Me` and the material once (`bpy.ops.wm.append` or `bpy.data.libraries.load`).
 2. Per run: duplicate the rig, rename it `CBL_<run id>` with `CBL_<run id>_Start` and `_End`, and move Start and End onto the end points. Set Seed (different per run), Cables (the run's count), Messiness, Spread and Thickness.

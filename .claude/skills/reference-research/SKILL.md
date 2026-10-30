@@ -32,6 +32,7 @@ Tier S stops after step 2 unless an object is hidden: the manager does it, with 
 - Prefer manufacturer data, standards and building codes, architectural references (Architects' Data and similar), and measured photos with a scale anchor.
 - Images found online go into `refs/index.yaml` with their link and a proposed role tag. Never use AI images for measurements.
 - If two sources disagree, record both and pick one with a reason.
+- **Detail pass.** When the brief puts detail first, research per element category (services, walls, doors and gates, stairs, signage, shop fronts, household spill-over, lighting, litter). Finish with a ranked add list mapped to the map's zones, putting first what a player sees from the walk paths. Collect links; download images only with the user's OK.
 
 ```yaml
 # plan/metrics.yaml
