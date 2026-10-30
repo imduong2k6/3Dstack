@@ -33,6 +33,7 @@ DEFAULT_RULES = {
     "penetration_tol_m": 0.02,      # smallest overlap of two solids' boxes (a depth proxy) that counts as interpenetration
     "origin_tol_m": 0.005, "origin_radius_m": 0.5, "origin_max_size_m": 4.0,   # larger objects are structure, authored around the origin
     "cable_anchor_tol_m": 0.05, "cable_entry_tol_m": 0.02, "cable_sag_max_ratio": 0.2,
+    "cable_end_hardware_m": 0.05,   # a cable end that enters a wall (or any bare surface) needs hardware (box, gland, sleeve...) this close, else it is a dead end
     "conduit_end_tol_m": 0.02, "cap_max_m": 0.4, "vent_pocket_min_m": 0.15,   # a blind pocket shallower than this reads as a vent on solid wall
     "door_min_width_m": 0.91, "door_min_height_m": 2.0,   # same limits as layout-2d/check_layout.py
     "passage_min_width_m": 0.91, "head_min_m": 2.1, "capsule_radius_m": 0.35, "capsule_height_m": 1.8, "eye_height_m": 1.6,
@@ -53,6 +54,8 @@ DEFAULT_RULES = {
                    "bulb", "holder", "batten", "pipe", "duct"],
         "through_wall": ["vent", "louvre", "louver", "fan", "extractor", "grille", "ac", "aircon"],
         "wall": ["wall", "walls", "facade", "partition"],
+        "no_end": ["louvre", "louvres", "louver", "louvers", "window", "windows", "grille", "grilles", "shutter", "shutters",
+                   "vent", "vents", "sign", "signs", "signboard"],   # faces a cable end must not land on or enter
         "door": ["door", "doors", "doorway"],
         "stair": ["stair", "stairs", "staircase", "step", "steps", "tread"],
         "walkable": ["stair", "stairs", "staircase", "step", "steps", "tread", "floor", "landing", "threshold", "kerb", "curb",
@@ -71,7 +74,9 @@ DEFAULT_RULES = {
                        "door": ["hasp", "padlock", "lock", "handle", "knob", "hinge", "bolt", "latch", "sign", "plate", "bell", "mat", "stop",
                                 "seal", "number", "peephole", "closer", "frame", "box", "light", "lamp", "step", "sill", "paper", "mailbox", "letterbox",
                                 "poster", "sticker", "notice", "label", "curtain", "curtains", "rod", "rail", "god", "gods"],   # door gods are prints on a leaf
-                       "wear": ["pipe", "pipes", "tray", "hose", "pan", "tap", "bracket", "clip", "clips"]},   # a drip pipe or a crack-filler tray is a real part
+                       "wear": ["pipe", "pipes", "tray", "hose", "pan", "tap", "bracket", "clip", "clips"],   # a drip pipe or a crack-filler tray is a real part
+                       "no_end": ["box", "boxes", "junction", "jb", "gland", "sleeve", "conduit", "fitting", "clip", "cleat", "saddle", "bracket",
+                                  "strap", "clamp", "meter", "lamp", "light", "bulb", "fixture", "connector", "plug", "socket", "switch", "holder"]},   # a sign's own box or lamp is hardware
     "overlap_allow": [],            # [[tokenA, tokenB], ...] pairs of tokens whose objects may overlap
 }
 

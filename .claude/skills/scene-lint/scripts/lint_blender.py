@@ -346,9 +346,9 @@ def check_steps(c):
 
 # ---- geometric checks (scoped to the visible set) ------------------------------------------------------------
 
-def _big_islands(bm, W, share=0.3):
-    """Vertex indices of the mesh islands whose box diagonal is at least `share` of the largest one's (drops screws, nuts, tabs)."""
-    seen, isl = set(), []
+def _islands(bm):
+    """Vertex index lists of the connected pieces of a bmesh (joined by edges); a loose vertex is not a piece."""
+    seen, out = set(), []
     for v in bm.verts:
         if v.index in seen:
             continue
@@ -362,8 +362,14 @@ def _big_islands(bm, W, share=0.3):
                 if o.index not in seen:
                     seen.add(o.index)
                     stack.append(o)
-        pts = np.array([tuple(W(bm.verts[i])) for i in idx])
-        isl.append((float(np.linalg.norm(np.ptp(pts, axis=0))), idx))
+        if len(idx) > 1:
+            out.append(idx)
+    return out
+
+
+def _big_islands(bm, W, share=0.3):
+    """Vertex indices of the mesh islands whose box diagonal is at least `share` of the largest one's (drops screws, nuts, tabs)."""
+    isl = [(float(np.linalg.norm(np.ptp(np.array([tuple(W(bm.verts[i])) for i in idx]), axis=0))), idx) for idx in _islands(bm)]
     top = max(d for d, _ in isl)
     return {i for d, idx in isl if d >= share * top for i in idx}
 
@@ -373,21 +379,25 @@ def _ordered(elems):
     return sorted(elems, key=lambda x: x.index)
 
 
-def object_ends(s, dg, cap_max, strict=False):
+def object_island_ends(s, dg, cap_max, strict=False):
     """Real ends of a cable or conduit object, from its structure: spline end points, open boundary loops, planar end caps, or
-    wire end vertices. Never from vertex extremes (those pick corners of a bent run). Returns [(point, outward unit vector)], method.
+    wire end vertices. Never from vertex extremes (those pick corners of a bent run). One entry per connected piece (a spline, a
+    mesh island), so a bundle of strands reads strand by strand: [(ends, centre, size, world verts)], method. An end is
+    (point, outward unit vector).
     strict (conduit fittings): ignore small hardware islands (screws, nuts, tabs), open loops under 6 vertices (holes, not tube
     ends) and caps that are not round; a round cap may be as wide as the piece (couplings, short stubs)."""
     ob, mw = s.ob, s.ob.matrix_world
     if ob.type == "CURVE":
-        ends = []
+        out = []
         for sp in ob.data.splines:
             if sp.use_cyclic_u:
                 continue
             pts = [mw @ (p.co.xyz if hasattr(p.co, "xyz") else Vector(p.co)) for p in (sp.bezier_points if sp.type == "BEZIER" else sp.points)]
             if len(pts) >= 2:
-                ends += [(pts[0], (pts[0] - pts[1]).normalized()), (pts[-1], (pts[-1] - pts[-2]).normalized())]
-        return ends, "spline"
+                a = np.array([tuple(p) for p in pts])
+                out.append(([(pts[0], (pts[0] - pts[1]).normalized()), (pts[-1], (pts[-1] - pts[-2]).normalized())],
+                            sum(pts, Vector()) / len(pts), max(1e-6, float(np.ptp(a, axis=0).max())), a))
+        return out, "spline"
     ev = ob.evaluated_get(dg)
     me = ev.to_mesh()
     bm = bmesh.new()
@@ -396,16 +406,21 @@ def object_ends(s, dg, cap_max, strict=False):
     bm.verts.ensure_lookup_table()
     bm.faces.ensure_lookup_table()
     W = lambda v: mw @ v.co
-    ends = []
+    m = np.array(mw)
+    P = np.array([tuple(v.co) for v in bm.verts]).reshape(-1, 3) @ m[:3, :3].T + m[:3, 3]
+    isl = _islands(bm)
+    of = {i: k for k, idx in enumerate(isl) for i in idx}   # vertex index -> piece
+    ctr = [Vector(P[idx].mean(0)) for idx in isl]
+    diag = [max(1e-6, float(np.ptp(P[idx], axis=0).max())) for idx in isl]
+    ends = [[] for _ in isl]
+    pieces = lambda method: ([(ends[k], ctr[k], diag[k], P[idx]) for k, idx in enumerate(isl)], method)
     if not bm.faces:  # a wire: vertices with one edge
         for v in bm.verts:
             if len(v.link_edges) == 1:
                 o = v.link_edges[0].other_vert(v)
-                ends.append((W(v), (W(v) - W(o)).normalized()))
+                ends[of[v.index]].append((W(v), (W(v) - W(o)).normalized()))
         bm.free()
-        return ends, "wire"
-    centre = sum((W(v) for v in bm.verts), Vector()) / len(bm.verts)
-    diag = max(1e-6, (np.ptp([tuple(W(v)) for v in bm.verts], axis=0)).max())
+        return pieces("wire")
     big = _big_islands(bm, W) if strict else None
     # open tube ends: loops of boundary edges
     bnd = [e for e in bm.edges if len(e.link_faces) == 1]
@@ -425,10 +440,11 @@ def object_ends(s, dg, cap_max, strict=False):
         vs = {v for e in loop for v in e.verts}
         if strict and (len(vs) < 6 or any(v.index not in big for v in vs)):
             continue
+        k = of[e0.verts[0].index]
         p = sum((W(v) for v in _ordered(vs)), Vector()) / len(vs)
         inner = [W(o) for v in _ordered(vs) for e in v.link_edges for o in [e.other_vert(v)] if o not in vs]
-        back = sum(inner, Vector()) / len(inner) if inner else centre
-        ends.append((p, (p - back).normalized() if (p - back).length > 1e-9 else Vector((0, 0, 1))))
+        back = sum(inner, Vector()) / len(inner) if inner else ctr[k]
+        ends[k].append((p, (p - back).normalized() if (p - back).length > 1e-9 else Vector((0, 0, 1))))
     # capped tube ends: a planar cluster of faces whose neighbours all meet it at a steep angle
     done = set()
     for f in bm.faces:
@@ -452,11 +468,12 @@ def object_ends(s, dg, cap_max, strict=False):
         pts = [W(v) for v in _ordered(bv)]
         ext = max((a - b).length for a in pts for b in pts)
         p = sum(pts, Vector()) / len(pts)
+        k = of[f.verts[0].index]
         if strict:
             rs = [(q - p).length for q in pts]
             if ext > cap_max or len(bv) < 8 or max(rs) - min(rs) > 0.2 * max(rs) or any(v.index not in big for v in bv):
                 continue
-        elif ext > cap_max or ext > 0.6 * diag:
+        elif ext > cap_max or ext > 0.6 * diag[k]:
             continue
         nw = (mw.to_3x3() @ n0).normalized()
         radial = 0  # at a tube's end the faces beyond the boundary point radially outward from the cap's centre
@@ -469,40 +486,81 @@ def object_ends(s, dg, cap_max, strict=False):
         if radial < 0.8 * len(edges):
             continue
         behind = [W(v) for h in outside for v in h.verts if v not in bv]
-        back = sum(behind, Vector()) / len(behind) if behind else centre
-        ends.append((p, (p - back).normalized() if (p - back).length > 1e-9 else Vector((0, 0, 1))))
+        back = sum(behind, Vector()) / len(behind) if behind else ctr[k]
+        ends[k].append((p, (p - back).normalized() if (p - back).length > 1e-9 else Vector((0, 0, 1))))
     bm.free()
-    return ends, "mesh"
+    return pieces("mesh")
 
 
-def classify_end(c, owner, e, out, anchor_kinds, tol, entry_tol, join_cables=False, own=None):
-    """-> (class, via, joint_names): attached (touches an anchor), terminated (enters a surface head-on), dead_end (a tail along a
-    surface, or floating). With join_cables, a touch on another cable comes back as class 'joint' for the caller to settle. With
-    own (the object's Solid), an end that runs into another part of its own mesh (merged fittings) is attached too."""
-    near = c.geo.near(e, max(tol, 0.05), exclude={owner})
+def object_ends(s, dg, cap_max, strict=False):
+    """All ends of an object as one list [(point, outward unit vector)], method (see object_island_ends)."""
+    pieces, method = object_island_ends(s, dg, cap_max, strict)
+    return [e for p in pieces for e in p[0]], method
+
+
+def read_ends(s, dg, cap_max, strict=False):
+    """The ends of an object, piece by piece: (pieces, unreadable, method). pieces = [(ends, world verts)] for the connected pieces
+    whose ends can be read (2 to 16 and an even count for a cable, 1 to 16 for a conduit run); unreadable = [(ends found, centre)]
+    for the rest. A closed piece with no ends that is small beside the largest (a ring, a tie) has nothing to check; an object with
+    no readable end at all is unreadable as a whole (centre None)."""
+    raw, method = object_island_ends(s, dg, cap_max, strict)
+    top = max((size for _, _, size, _ in raw), default=0)
+    pieces, bad = [], []
+    for ends, centre, size, verts in raw:
+        n = len(ends)
+        if (1 <= n <= 16) if strict else (2 <= n <= 16 and n % 2 == 0):
+            pieces.append((ends, verts))
+        elif n or size >= 0.3 * top:
+            bad.append((n, v3(centre)))
+    if not raw:
+        bad.append((0, None))
+    return pieces, bad, method
+
+
+def classify_end(c, owner, e, out, anchor_kinds, tol, entry_tol, join_cables=False, own=None, no_end=None, hw_m=None):
+    """-> (class, via, joint_names, surface): attached (touches an anchor), terminated (enters a surface head-on), dead_end (a tail
+    along a surface, or floating); surface is the object the end lands on or enters. With join_cables, a touch on another cable comes
+    back as class 'joint' for the caller to settle. With own (the object's Solid), an end that runs into another part of its own mesh
+    (merged fittings) is attached too.
+    Cables also pass no_end (a kind name): an end on or inside a solid of that kind (louvre, window, grille, shutter, vent, sign) is a
+    dead end, though a sign is also an anchor; and hw_m: an end that enters a surface or is buried in one is terminated only with an
+    anchor within hw_m of it, else a dead end (a bare cable poking into plaster)."""
+    near = c.geo.near(e, max(tol, 0.05, hw_m or 0), exclude={owner})
     sol = c.geo.solids
-    anchors = sorted((d, n) for n, (d, _, _) in near.items() if d <= tol and (sol[n].kinds & anchor_kinds) and "cable" not in sol[n].kinds)
+    face = lambda n: bool(no_end) and no_end in sol[n].kinds
+    hard = lambda n: bool(sol[n].kinds & anchor_kinds) and "cable" not in sol[n].kinds and not face(n)
+    anchors = sorted((d, n) for n, (d, _, _) in near.items() if d <= tol and hard(n))
     if anchors:
-        return "attached", "anchor:" + anchors[0][1], []
+        return "attached", "anchor:" + anchors[0][1], [], anchors[0][1]
     if own is not None and own.inside(e + out * 0.004):
-        return "attached", "own part", []
+        return "attached", "own part", [], None
     buried = c.containing(e, {owner})  # an end sunk into a box or a wall disappears into it, as an entry does
+    on_face = sorted((d, n) for n, (d, _, _) in near.items() if d <= tol and face(n)) + [(0.0, s.name) for s in buried if face(s.name)]
+    if on_face:
+        n = on_face[0][1]
+        word = (sorted(L.tokens(n) & set(c.rules["tokens"].get(no_end, ()))) or [no_end])[0]
+        return "dead_end", f"on a {word} face: {n}", [], n
+    bare = hw_m is not None and not any(d <= hw_m and hard(n) for n, (d, _, _) in near.items())
+    no_hw = f"no hardware within {(hw_m or 0) * 100:g} cm"
     if buried:
-        host = next((s for s in buried if s.kinds & anchor_kinds), buried[0])
-        return ("attached", "inside:" + host.name, []) if host.kinds & anchor_kinds else ("terminated", "buried in " + host.name, [])
+        host = next((s for s in buried if hard(s.name)), buried[0])
+        if hard(host.name):
+            return "attached", "inside:" + host.name, [], host.name
+        return ("dead_end", f"buried in {host.name}, {no_hw}", [], host.name) if bare else ("terminated", "buried in " + host.name, [], host.name)
     joints = sorted(n for n, (d, _, _) in near.items() if d <= tol and "cable" in sol[n].kinds) if join_cables else []
     surf = sorted((d, n) for n, (d, _, _) in near.items() if "cable" not in sol[n].kinds)
     if surf:
         d, n = surf[0]
         nrm = near[n][2]
-        if d <= entry_tol and (abs(out.dot(nrm.normalized())) >= 0.707 or sol[n].inside(e)):
-            return "terminated", "entry:" + n, joints
+        enter = d <= entry_tol and (abs(out.dot(nrm.normalized())) >= 0.707 or sol[n].inside(e))
+        if enter and not bare:
+            return "terminated", "entry:" + n, joints, n
         if joints:
-            return "joint", "joint", joints
-        return "dead_end", "tail along " + n, []
+            return "joint", "joint", joints, joints[0]
+        return ("dead_end", f"enters {n}, {no_hw}", [], n) if enter else ("dead_end", "tail along " + n, [], n)
     if joints:
-        return "joint", "joint", joints
-    return "dead_end", "float", []
+        return "joint", "joint", joints, joints[0]
+    return "dead_end", "float", [], None
 
 
 def check_cables(c):
@@ -514,17 +572,18 @@ def check_cables(c):
     rows = {}
     anchor_kinds = {"anchor"}
     for s in cables:
-        ends, method = object_ends(s, c.dg, r["cap_max_m"])
-        rows[s.name] = {"method": method, "ends": []}
-        if len(ends) < 2 or len(ends) % 2 or len(ends) > 16:  # a generated or damaged mesh: its ends cannot be read, so none is guessed
-            rows[s.name]["unresolved"] = len(ends)
-            continue
-        for p, out in ends:
-            if s.ob.get("ends_ok"):
-                cls, via, joints = "terminated", "ends_ok", []
-            else:
-                cls, via, joints = classify_end(c, s.name, p, out, anchor_kinds, r["cable_anchor_tol_m"], r["cable_entry_tol_m"], join_cables=True)
-            rows[s.name]["ends"].append({"at": v3(p), "class": cls, "via": via, "joints": joints})
+        pieces, bad, method = read_ends(s, c.dg, r["cap_max_m"])   # a bundle reads strand by strand; a piece that can't be read is listed, never guessed
+        rows[s.name] = row = {"method": method, "ends": [], "pieces": [], "unresolved": bad}
+        for ends, verts in pieces:
+            first = len(row["ends"])
+            for p, out in ends:
+                if s.ob.get("ends_ok"):
+                    cls, via, joints, surf = "terminated", "ends_ok", [], None
+                else:
+                    cls, via, joints, surf = classify_end(c, s.name, p, out, anchor_kinds, r["cable_anchor_tol_m"], r["cable_entry_tol_m"], join_cables=True,
+                                                          no_end="no_end", hw_m=r["cable_end_hardware_m"])
+                row["ends"].append({"at": v3(p), "class": cls, "via": via, "surface": surf, "joints": joints})
+            row["pieces"].append((range(first, len(row["ends"])), verts))
     # a joint to another cable only counts when that cable reaches an anchor or a surface itself (floating cables must not vouch for each other)
     grounded = {n for n, row in rows.items() if any(e["class"] in ("attached", "terminated") for e in row["ends"])}
     changed = True
@@ -548,25 +607,34 @@ def check_cables(c):
             continue
         for e in row["ends"]:
             tally[e["class"]] += 1
-        if "unresolved" in row:
-            items.append({"object": s.name, "class": "minor", "what": f"found {row['unresolved']} ends in the mesh, so none could be classified: check it by eye (a pass would be a guess)"})
+        if row["unresolved"]:
+            items.append({"object": s.name, "class": "minor", "pieces": row["unresolved"], "what": unread_text(row["unresolved"])})
             unresolved.append(s.name)
-            continue
-        dead = [e for e in row["ends"] if e["class"] == "dead_end"]
-        if dead:
-            items.append({"object": s.name, "what": "dead end: " + "; ".join(f"{e['via']} at {e['at']}" for e in dead), "ends": row["ends"], "seen_by": c.seen_by(s.name)})
-        a, b = np.array(row["ends"][0]["at"]), np.array(max(row["ends"], key=lambda e: np.linalg.norm(np.array(e["at"]) - np.array(row["ends"][0]["at"])))["at"])
-        span = float(np.linalg.norm(b - a))
-        if span > 0.3:
-            t = ((s.verts - a) @ (b - a)) / span ** 2
-            mid = (t > 0.3) & (t < 0.7)
-            if mid.any():
-                sag = float((a[2] + (b[2] - a[2]) * t[mid] - s.verts[mid, 2]).max())
-                if sag / span > r["cable_sag_max_ratio"]:
-                    sag_items.append({"object": s.name, "what": f"sags {sag:.2f} m over a {span:.2f} m span ({sag / span:.0%}; limit {r['cable_sag_max_ratio']:.0%})"})
+        for e in row["ends"]:  # one item per dead end: the list is the fix target list
+            if e["class"] == "dead_end":
+                items.append({"object": s.name, "reason": e["via"], "at": e["at"], "surface": e["surface"], "what": f"dead end: {e['via']} at {e['at']}",
+                              "seen_by": c.seen_by(s.name)})
+        for idx, verts in row["pieces"]:  # sag per strand: first end to the farthest end of the same piece
+            pe = [row["ends"][i]["at"] for i in idx]
+            a, b = np.array(pe[0]), np.array(max(pe, key=lambda q: np.linalg.norm(np.array(q) - np.array(pe[0]))))
+            span = float(np.linalg.norm(b - a))
+            if span > 0.3:
+                vs = verts if len(row["pieces"]) > 1 else s.verts
+                t = ((vs - a) @ (b - a)) / span ** 2
+                mid = (t > 0.3) & (t < 0.7)
+                if mid.any():
+                    sag = float((a[2] + (b[2] - a[2]) * t[mid] - vs[mid, 2]).max())
+                    if sag / span > r["cable_sag_max_ratio"]:
+                        sag_items.append({"object": s.name, "what": f"sags {sag:.2f} m over a {span:.2f} m span ({sag / span:.0%}; limit {r['cable_sag_max_ratio']:.0%})"})
     checked = sum(1 for s in cables if c.scoped(s.name))
     c.add("cable_ends", "major", checked, items, extra={"ends": tally, "cables_total": len(cables), "unresolved": len(unresolved)})
     c.add("cable_sag", "minor", checked, sag_items)
+
+
+def unread_text(bad):
+    """The minor item for pieces whose ends could not be read: how many ends each held and where."""
+    shown = ", ".join(f"{n} ends" + (f" near {at}" if at else "") for n, at in bad[:5])
+    return f"{len(bad)} piece(s) of the mesh have ends that could not be read ({shown}{', ...' if len(bad) > 5 else ''}), so none was classified: check it by eye (a pass would be a guess)"
 
 
 def check_conduit_ends(c):
@@ -576,17 +644,17 @@ def check_conduit_ends(c):
         return c.skip("conduit_open_ends", "no object is a conduit or fitting (tag kind=conduit or name one)")
     items, ends_n, unresolved = [], 0, 0
     for s in conduits:
-        ends, _ = object_ends(s, c.dg, r["cap_max_m"], strict=True)
-        if not 1 <= len(ends) <= 16:  # a piece or a merged run; more means a generated or damaged mesh whose ends cannot be read
-            items.append({"object": s.name, "class": "minor", "what": f"found {len(ends)} ends in the mesh, so none could be classified: check it by eye (a pass would be a guess)"})
+        pieces, unread, _ = read_ends(s, c.dg, r["cap_max_m"], strict=True)   # a piece or a merged run; one piece with more than 16 ends is generated or damaged
+        if unread:
+            items.append({"object": s.name, "class": "minor", "pieces": unread, "what": unread_text(unread)})
             unresolved += 1
-            continue
         bad = []
-        for p, out in ends:
-            ends_n += 1
-            cls, via, _ = classify_end(c, s.name, p, out, {"anchor", "conduit"}, r["conduit_end_tol_m"], r["conduit_end_tol_m"], own=s)
-            if cls == "dead_end":
-                bad.append(v3(p))
+        for ends, _ in pieces:
+            for p, out in ends:
+                ends_n += 1
+                cls, via, *_ = classify_end(c, s.name, p, out, {"anchor", "conduit"}, r["conduit_end_tol_m"], r["conduit_end_tol_m"], own=s)
+                if cls == "dead_end":
+                    bad.append(v3(p))
         if bad:
             items.append({"object": s.name, "what": f"{len(bad)} open end(s) at {bad}: meets no conduit, fitting, box, meter, fixture or wall", "seen_by": c.seen_by(s.name)})
     c.add("conduit_open_ends", "major", len(conduits), items, extra={"ends_checked": ends_n, "unresolved": unresolved})

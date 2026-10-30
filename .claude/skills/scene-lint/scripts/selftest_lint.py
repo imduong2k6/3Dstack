@@ -90,24 +90,31 @@ def multibox(name, boxes, cname, **kw):
     return finish(name, bm, cname, **kw)
 
 
-def tube(name, pts, radius=0.01, k=8, cname="COL_P3_Services", **kw):
-    """A capped k-sided tube along world points (fan caps), like the pipeline's swept cables."""
-    bm = bmesh.new()
+def _tube(bm, pts, radius, k, closed=False):
+    """One tube along world points into bm: fan caps, or a closed loop (no ends) when closed."""
     pts = [Vector(p) for p in pts]
-    rings = []
+    n, rings = len(pts), []
     for i, p in enumerate(pts):
-        tg = (pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]).normalized()
+        tg = ((pts[(i + 1) % n] - pts[i - 1]) if closed else (pts[min(i + 1, n - 1)] - pts[max(i - 1, 0)])).normalized()
         ref = Vector((0, 0, 1)) if abs(tg.z) < 0.9 else Vector((1, 0, 0))
         u = tg.cross(ref).normalized()
         w = tg.cross(u)
         rings.append([bm.verts.new(p + (u * math.cos(a) + w * math.sin(a)) * radius) for a in (2 * math.pi * j / k for j in range(k))])
-    for r0, r1 in zip(rings, rings[1:]):
+    for r0, r1 in zip(rings, rings[1:] + ([rings[0]] if closed else [])):
         for j in range(k):
             bm.faces.new((r0[j], r0[(j + 1) % k], r1[(j + 1) % k], r1[j]))
-    for ring, flip in ((rings[0], True), (rings[-1], False)):
+    for ring, flip in (() if closed else ((rings[0], True), (rings[-1], False))):
         c = bm.verts.new(sum((v.co for v in ring), Vector()) / k)
         for j in range(k):
             bm.faces.new((c, ring[j], ring[(j + 1) % k]) if not flip else (c, ring[(j + 1) % k], ring[j]))
+
+
+def tube(name, pts, radius=0.01, k=8, cname="COL_P3_Services", closed=False, **kw):
+    """A capped k-sided tube along world points (fan caps), like the pipeline's swept cables. pts may be a list of paths: one
+    mesh of separate tubes, a bundle."""
+    bm = bmesh.new()
+    for run in (pts if isinstance(pts[0][0], (list, tuple)) else [pts]):
+        _tube(bm, run, radius, k, closed)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     return finish(name, bm, cname, **kw)
 
@@ -182,10 +189,37 @@ tube("Cable_Chain", path((-2.4, 2.95, 1.8), (-2.4, 2.95, 1.2)))                 
 tube("Cable_Hook", path((3.2, 0, 1.5), (5.5, 0, 1.5), (5.5, 2.5, 1.5), (3.8, 2.5, 1.5), (3.8, 1.0, 1.5)))
 tube("Cable_Tail", path((-1.2, 2.97, 1.95), (-0.2, 2.97, 1.95)))                        # ends along the wall
 box("Box_E_stub", (1.2, 2.9, 1.0), (1.6, 3.0, 1.1), "COL_P3_Services")
-tube("Cable_Entry", path((1.6, 2.95, 1.95), (2.0, 2.95, 1.95), (2.0, 3.0, 1.95)))       # ends head-on in the wall
+box("Wall_Gland_Entry", (1.97, 2.9, 1.92), (2.03, 3.0, 1.98), "COL_P3_Services")          # hardware at the wall entry
+tube("Cable_Entry", path((1.6, 2.95, 1.95), (2.0, 2.95, 1.95), (2.0, 3.0, 1.95)))       # ends head-on in the wall, through the gland
+box("Box_Feed", (2.45, 2.9, 2.2), (2.65, 3.0, 2.4), "COL_P3_Services")
+tube("Cable_Bare_Entry", path((2.45, 2.95, 2.3), (2.0, 2.95, 2.3), (2.0, 3.0, 2.3)))     # ends head-on in the wall with no hardware near
+box("SM_Sign_Plate", (3.0, 2.9, 1.3), (3.6, 3.0, 1.7), "COL_P3_Services")                 # a sign face a cable must not end on
+box("SM_Sign_Box", (3.62, 2.9, 1.3), (3.8, 3.0, 1.5), "COL_P3_Services")                  # the sign's own box is hardware
+tube("Cable_OnPlate", path((2.65, 2.95, 2.35), (3.3, 2.95, 2.35), (3.3, 2.95, 1.7)))      # ends on the sign's top face
+tube("Cable_ToHardware", path((2.65, 2.95, 2.22), (3.71, 2.95, 2.22), (3.71, 2.95, 1.5)))  # ends on the sign's box
 tube("Cable_FloatA", path((-4, -4.5, 1.0), (-3, -4.5, 1.0)))
 tube("Cable_FloatB", path((-3, -4.5, 1.0), (-2, -4.5, 1.0)))
 tube("Cable_Droop", path((1.2, -4.0, 1.9), (2.1, -4.0, 0.9), (3.0, -4.0, 1.9), n=8))
+# a bundle: ten strands in one mesh (20 ends), strand 4 stops in the air, strand 7 pokes into wall B with no hardware; a small tie ring has no ends
+box("Box_BA", (-3.7, -3.0, 0.8), (-3.5, -2.9, 2.2), "COL_P3_Services")
+box("Box_BB", (-1.7, -3.0, 0.8), (-1.5, -2.9, 2.2), "COL_P3_Services")
+strands = [path((-3.5, -2.95, 0.9 + 0.12 * i), (-1.7, -2.95, 0.9 + 0.12 * i), n=3) for i in range(10)]
+strands[4] = path((-3.5, -2.95, 1.38), (-3.2, -2.7, 1.38), (-2.4, -2.7, 1.38), n=2)
+strands[7] = path((-3.5, -2.95, 1.74), (-2.6, -2.95, 1.74), (-2.6, -3.0, 1.74), n=3)
+bm = bmesh.new()
+for run in strands:
+    _tube(bm, run, 0.01, 8)
+_tube(bm, [(-2.6 + 0.05 * math.cos(a), -2.95, 2.15 + 0.05 * math.sin(a)) for a in (2 * math.pi * j / 16 for j in range(16))], 0.003, 8, closed=True)
+bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+finish("Cable_Bundle", bm, "COL_P3_Services")
+tube("Cable_Ring", [(-4.5 + 0.3 * math.cos(a), 4.5 + 0.3 * math.sin(a), 1.0) for a in (2 * math.pi * j / 12 for j in range(12))], closed=True)   # a closed loop: no ends to read
+tube("Cable_EndsOk", path((-4.0, -7.0, 1.0), (-3.0, -7.0, 1.0)), props={"ends_ok": 1})   # ends_ok: a cable that leaves the frame
+box("SM_Window_Pane", (-0.9, -3.0, 1.2), (-0.3, -2.94, 2.3), "COL_P3_Services")          # a window a cable end must not enter
+tube("Cable_InWindow", path((-1.5, -2.97, 2.1), (-0.6, -2.97, 2.1)))
+# conduit: nine pieces in one mesh (18 ends), the fifth stops 0.3 m short of its box
+box("Box_CT", (1.0, -3.0, 2.5), (3.4, -2.9, 2.7), "COL_P3_Services")
+box("Box_CB", (1.0, -3.0, 0.3), (3.4, -2.9, 0.5), "COL_P3_Services")
+tube("Conduit_Merged", [path((1.2 + 0.25 * i, -2.95, 0.5), (1.2 + 0.25 * i, -2.95, 2.2 if i == 4 else 2.5), n=2) for i in range(9)], radius=0.016)
 tube("Conduit_Ok", path((-3.4, 2.95, 2.1), (-3.4, 2.95, 2.5)), radius=0.016)
 tube("Conduit_Open", path((-1.4, 2.95, 2.1), (-1.4, 2.95, 2.4)), radius=0.016)
 # narrow gap on the walk path, an enclosed room with something floating in it
@@ -316,18 +350,35 @@ check(not any("Prop_Hood_Edge" in it["object"] for it in pc), f"2.2 m over its o
 check(any(it["type"] == "width" and "Prop_Shin_A" in it["object"] and "Prop_Shin_B" in it["object"] for it in pc), f"shin-height clutter narrows the path: {pc}")
 
 # cable ends: the hooked run must show its hanging end; two floaters must not vouch for each other
-cab = {it["object"]: it for it in C["cable_ends"]["items"]}
-check(set(cab) == {"Cable_Hook", "Cable_Tail", "Cable_FloatA", "Cable_FloatB"}, f"cable dead ends: {sorted(cab)}")
-check("Cable_Ok" not in cab and "Cable_Chain" not in cab and "Cable_Entry" not in cab and "Cable_Droop" not in cab, "attached or terminated cables flagged")
-check("3.8, 1.0, 1.5" in cab["Cable_Hook"]["what"].replace("[", "").replace("]", "") or "1.0" in cab["Cable_Hook"]["what"], cab["Cable_Hook"]["what"])
-check("float" in cab["Cable_Hook"]["what"] and "tail" in cab["Cable_Tail"]["what"], "hook end is a float, tail end lies along the wall")
-check(all(e["class"] == "attached" for e in cab["Cable_Hook"]["ends"] if e["at"][0] < 3.3), "hook's first end is on its post")
-check("ungrounded" in cab["Cable_FloatA"]["what"] and "ungrounded" in cab["Cable_FloatB"]["what"], "floating cables must not vouch for each other")
+cab = {}
+for it in C["cable_ends"]["items"]:
+    cab.setdefault(it["object"], []).append(it)
+dead = {n for n, its in cab.items() if any("reason" in it for it in its)}
+want = {"Cable_Hook", "Cable_Tail", "Cable_FloatA", "Cable_FloatB", "Cable_Bare_Entry", "Cable_OnPlate", "Cable_InWindow", "Cable_Bundle"}
+check(dead == want, f"cable dead ends: {sorted(dead)}")
+check(set(cab) - dead == {"Cable_Ring"} and cab["Cable_Ring"][0]["class"] == "minor", f"only the closed loop is unresolved: {sorted(set(cab) - dead)}")
+check(not ({"Cable_Ok", "Cable_Chain", "Cable_Entry", "Cable_Droop", "Cable_ToHardware", "Cable_EndsOk"} & set(cab)), f"attached, terminated or ends_ok cables flagged: {sorted(cab)}")
+at = lambda n, i=0: cab[n][i]["at"]
+check(len(cab["Cable_Hook"]) == 1 and abs(at("Cable_Hook")[0] - 3.8) < 0.01 and abs(at("Cable_Hook")[1] - 1.0) < 0.01, cab["Cable_Hook"])
+check(cab["Cable_Hook"][0]["reason"] == "float" and cab["Cable_Hook"][0]["surface"] is None and "tail along SM_Wall_A" == cab["Cable_Tail"][0]["reason"], "hook end is a float, tail end lies along the wall")
+check(all("dead end: " in it["what"] and it["reason"] in it["what"] for its in cab.values() for it in its if "reason" in it), "each dead end names its reason")
+check(all(any("ungrounded" in it["what"] for it in cab[n]) and any(it["reason"] == "float" for it in cab[n]) for n in ("Cable_FloatA", "Cable_FloatB")), "floating cables must not vouch for each other")
+be = cab["Cable_Bare_Entry"][0]
+check(be["reason"] == "enters SM_Wall_A, no hardware within 5 cm" and be["surface"] == "SM_Wall_A" and abs(be["at"][1] - 3.0) < 0.01 and abs(be["at"][2] - 2.3) < 0.01, f"bare wall entry: {be}")
+sg = cab["Cable_OnPlate"][0]
+check(sg["reason"] == "on a sign face: SM_Sign_Plate" and sg["surface"] == "SM_Sign_Plate" and abs(sg["at"][2] - 1.7) < 0.01, f"end on a sign: {sg}")
+check(cab["Cable_InWindow"][0]["reason"] == "on a window face: SM_Window_Pane" and cab["Cable_InWindow"][0]["surface"] == "SM_Window_Pane", f"end in a window: {cab['Cable_InWindow']}")
+bu = {it["reason"]: it for it in cab["Cable_Bundle"]}   # 10 strands in one mesh: 20 ends, used to be given up on past 16
+check(len(cab["Cable_Bundle"]) == 2 and "float" in bu and "enters SM_Wall_B, no hardware within 5 cm" in bu, f"bundle dead ends: {cab['Cable_Bundle']}")
+check(abs(bu["float"]["at"][0] + 2.4) < 0.01 and abs(bu["float"]["at"][2] - 1.38) < 0.01, f"bundle float end: {bu['float']}")
+check(all(len(e) == 3 for it in cab["Cable_Bundle"] for e in [it["at"]]) and bu["float"]["surface"] is None, "dead end items carry the world position")
 t = C["cable_ends"]["ends"]
-check(t["dead_end"] == 6 and t["terminated"] == 1 and t["attached"] == 9, f"end tally {t}")   # 6 = hook 1, tail 1, floaters 4
-check(C["cable_ends"]["checked"] == 8, "all eight cables are checked, not zero")
-has(rep, "cable_sag", "Cable_Droop", absent=("Cable_Ok",))
-has(rep, "conduit_open_ends", "Conduit_Open", absent=("Conduit_Ok",))
+check(t["dead_end"] == 11 and t["terminated"] == 2 and t["attached"] == 33, f"end tally {t}")   # dead: hook, tail, floaters 4, bare entry, sign, window, bundle 2
+check(C["cable_ends"]["checked"] == 15 and C["cable_ends"]["unresolved"] == 1, f"cables checked, unresolved: {C['cable_ends']}")
+has(rep, "cable_sag", "Cable_Droop", absent=("Cable_Ok", "Cable_Bundle"))
+has(rep, "conduit_open_ends", "Conduit_Open", "Conduit_Merged", absent=("Conduit_Ok",))
+cm = next(it for it in C["conduit_open_ends"]["items"] if it["object"] == "Conduit_Merged")
+check(cm["what"].startswith("1 open end(s)") and "2.2" in cm["what"], f"merged conduit (18 ends): only the short piece is open: {cm['what']}")
 check(C["conduit_open_ends"]["status"] == "fail" and C["conduit_open_ends"]["unresolved"] == 0, f"conduit: {C['conduit_open_ends']}")
 
 # fittings: a coupling shorter than it is wide, with two screw heads merged in, reads exactly its two ends;
@@ -382,7 +433,7 @@ check(n_in == 0, f"{n_in} of {len(on_face)} points on a face read as inside")
 check(cube.inside(rot @ Vector((0.998, 0.5, 0.5))) and not cube.inside(rot @ Vector((1.002, 0.5, 0.5))), "2 mm under a face is inside, 2 mm over it is not")
 
 # rules file: a project threshold and a severity change take effect
-open(os.path.join(proj, "plan", "lint_rules.yaml"), "w").write("# test\nriser_max_m: 0.25\nvent_pocket_min_m: 0.1\nseverity:\n  names_tags: minor\ndisable: [wear_geometry]\noverlap_allow:\n  - [a, b]\n")
+open(os.path.join(proj, "plan", "lint_rules.yaml"), "w").write("# test\nriser_max_m: 0.25\nvent_pocket_min_m: 0.1\ncable_end_hardware_m: 0.5\nseverity:\n  names_tags: minor\ndisable: [wear_geometry]\noverlap_allow:\n  - [a, b]\n")
 rep2 = lint.run_lint(project=proj, out_dir=os.path.join(out, "r2"))
 check(not any(it.get("riser_max_m") for it in rep2["checks"]["stair_risers"]["items"]), "riser_max_m 0.25 should accept 0.22")
 check(rep2["checks"]["stair_risers"]["count"] == 1 and "uneven" in rep2["checks"]["stair_risers"]["items"][0]["what"], "only the uneven-riser minor is left")
@@ -392,6 +443,10 @@ check(not any("Prop_Overlap" in p for p in flagged(rep2, "interpenetration")) an
 check(rep2["checks"]["file_path"]["status"] == "skipped", "file_path skipped without --expect-file")
 tw2 = {it["object"]: it for it in rep2["checks"]["through_wall_openings"]["items"]}
 check(tw2["SM_Vent_Pocket"]["class"] == "minor" and tw2["SM_Vent_Bad"]["class"] == "major", "vent_pocket_min_m 0.1 turns the 0.12 m pocket into a note")
+ce2 = {}
+for it in rep2["checks"]["cable_ends"]["items"]:
+    ce2.setdefault(it["object"], []).append(it)
+check("Cable_Bare_Entry" not in ce2 and len(ce2["Cable_Bundle"]) == 2, f"cable_end_hardware_m 0.5 accepts the wall entry 0.32 m from the gland, not the bundle's: {sorted(ce2)}")
 os.remove(os.path.join(proj, "plan", "lint_rules.yaml"))
 
 # visible set: the enclosed float is hidden, and lint then leaves it out
