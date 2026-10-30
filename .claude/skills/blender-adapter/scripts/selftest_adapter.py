@@ -154,6 +154,35 @@ check(code == 1, f"stats CLI must exit 1 on the wrong file, got {code}: {o}")
 code, o = run_blender(work, os.path.join(HERE, "stats.py"), "--", "--out", sp, "--expect-file", work)
 check(code == 0, f"stats CLI exit {code}: {o}")
 
+# ---- stats: flat_dense has no triangle limit (a card of 12,800 triangles was never looked at: the test stopped at 5,000) ---------------
+bpy.ops.wm.read_factory_settings(use_empty=True)
+sc = bpy.context.scene
+M = bpy.data.materials.new("M")
+
+
+def shape(name, make, loc):
+    bm = bmesh.new()
+    make(bm)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(M)
+    ob = bpy.data.objects.new(name, me)
+    ob.location = loc
+    sc.collection.objects.link(ob)
+
+
+def grid(n, size):
+    return lambda bm: bmesh.ops.create_grid(bm, x_segments=n, y_segments=n, size=size)
+
+
+shape("Card_Dense", grid(80, 0.1), (0, 0, 0))              # 12,800 triangles on 0.04 m2: 320,000 per m2
+shape("Card_Small", grid(40, 0.1), (1, 0, 0))              # 3,200 triangles: flagged before too
+shape("Floor_Coarse", grid(55, 15.0), (30, 0, 0))          # 6,050 quads, flat but 900 m2: a few triangles per m2
+shape("Ball_Dense", lambda bm: bmesh.ops.create_uvsphere(bm, u_segments=100, v_segments=52, radius=0.5), (5, 0, 1))   # over 5,000 triangles, not flat
+fd = statsmod.write_stats(os.path.join(out, "stats_flat.json"))["flat_dense"]
+check(set(fd) == {"Card_Dense", "Card_Small"} and fd["Card_Dense"]["tris"] > 5000 and fd["Card_Dense"]["tris_per_m2"] > 300000, f"flat_dense: {fd}")
+
 # ---- export_layout: text objects are rows too (they were skipped without a word) --------------------
 bpy.ops.wm.read_factory_settings(use_empty=True)
 sc = bpy.context.scene

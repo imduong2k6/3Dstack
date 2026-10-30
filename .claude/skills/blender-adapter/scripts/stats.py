@@ -79,14 +79,19 @@ def write_stats(path, expect_file=None, strict=True):
         me.calc_loop_triangles()
         tris += len(me.loop_triangles)
         n = len(me.loop_triangles)
-        if 100 < n <= 5000 and ob.original.name not in flat_dense:  # paper, posters, signs: a plane with alpha, not a dense mesh
-            mw = inst.matrix_world
-            co = [mw @ v.co for v in me.vertices]
-            d = sorted(max(c[i] for c in co) - min(c[i] for c in co) for i in range(3))
-            area = sum(((co[t.vertices[1]] - co[t.vertices[0]]).cross(co[t.vertices[2]] - co[t.vertices[0]])).length / 2
-                       for t in me.loop_triangles)
-            if d[0] < 0.03 and d[0] < 0.1 * d[1] and area and n / area > FLAT_TRIS_PER_M2:
-                flat_dense[ob.original.name] = {"tris": n, "tris_per_m2": round(n / area)}
+        if n > 100 and ob.original.name not in flat_dense:  # paper, posters, signs: a plane with alpha, not a dense mesh (no upper triangle limit)
+            m = np.array(inst.matrix_world)
+            co = np.empty(len(me.vertices) * 3)
+            me.vertices.foreach_get("co", co)
+            co = co.reshape(-1, 3) @ m[:3, :3].T + m[:3, 3]
+            d = np.sort(np.ptp(co, axis=0))
+            if d[0] < 0.03 and d[0] < 0.1 * d[1]:  # thin and wide: only then is the area worth measuring
+                tr = np.empty(n * 3, np.int32)
+                me.loop_triangles.foreach_get("vertices", tr)
+                tr = tr.reshape(-1, 3)
+                area = float(np.linalg.norm(np.cross(co[tr[:, 1]] - co[tr[:, 0]], co[tr[:, 2]] - co[tr[:, 0]]), axis=1).sum() / 2)
+                if area and n / area > FLAT_TRIS_PER_M2:
+                    flat_dense[ob.original.name] = {"tris": n, "tris_per_m2": round(n / area)}
         ob.to_mesh_clear()
         for slot in ob.material_slots:
             if slot.material:
