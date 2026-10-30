@@ -15,6 +15,8 @@ The board's URL is stored in `brief.yaml › board_url`. If it is empty, publish
 
 ## Post a gate
 
+The manager merges `review.md` and decides what the summary, "Locked" and "Please check" say. Steps 1 to 3 are then scripted work: hand them to the `pipeline-clerk` agent (Sonnet) with those texts, and post yourself only if it isn't available. Reading the decision stays with the manager.
+
 1. Write the gate pack locally in `reviews/<gate>-r<n>/`: `contact.png` (`review-pairs/scripts/compose_pairs.py contact --dir <that folder>`), the captures, `stats.json`, `lint.json`, `review.md`, `ad-notes.md`, and the pairs from `review-pairs`. On the Blender routes, a blocker in `lint.json` means fix first: never post it.
 2. Upload `contact.png`, the captures and the composed pairs to the board artifact's asset store (Artifact publish with `asset: true` and the board's URL). Use the returned URLs exactly. Captures with reference pixels in frame (photo overlays) are fine on the board, which is private (`house-rules` 3).
 3. Write the gate entry with ArtifactData `set` in collection `gates`, id `<slug>-<gate>-r<round>`, status `awaiting_review`. Stamp `createdAt` from the system clock (`date -u +%Y-%m-%dT%H:%M:%SZ`) at the moment of posting, never a typed time. The entry has these parts, in this order:

@@ -4,11 +4,14 @@
         --parts <parts_dir> --lanes north,south --out <joined.blend> [--patches <live_patches.py>] \
         [--backup-dir <backups> --step join_entry] [--report <join.json>] [--mode append|link]
     python integrate_parts.py freeze --parts <parts_dir> --lanes north,south     # writes each part file's hash into its manifest
+    bash bin/blender-bg <gate_copy.blend> --python <this file> -- replay --parts <parts_dir> --lanes fix_a,fix_b --out <merged.blend> \
+        [--backup-dir <backups> --phase <phase> --step fixes]                    # fix lanes: applies each <lane>/patches.py in order
 
 For each lane, in order: check the part file against the hash the lane froze, remove the lane's collection (and any
 object carrying its `lane` property) from the copy, load the collection by name from the part file, point every material
 slot at the gate file's material of the same name (never by slot index), place the manifest's instances, and assert.
 Then it replays live_patches.py and asserts again. Exit 1 on any failed assert: the report lists them and nothing is saved.
+The live worker applies the same fix lanes with replay_lanes(), which saves nothing and refuses a file the merge test didn't run.
 """
 import argparse
 import hashlib
@@ -266,15 +269,33 @@ def verify_lane(m, col, stage, rep, dups0=(), gate_mats=()):
     return ok
 
 
-def state_sig(objs):
-    rows = sorted((o.name, tuple(round(v, 5) for v in wloc(o)), tuple(round(v, 5) for v in o.rotation_euler),
-                   tuple(round(v, 5) for v in o.scale), tuple(s.material.name if s.material else None for s in o.material_slots),
-                   o.hide_render, o.hide_viewport) for o in objs)
-    return hashlib.sha256(repr(rows).encode()).hexdigest()
+def geometry_hash(o, memo):
+    """Mesh or curve points, shared data hashed once: a patch can move vertices by an offset as easily as an object."""
+    if o.type not in ("MESH", "CURVE"):
+        return None
+    d = o.data
+    if d.as_pointer() not in memo:
+        seqs = [(d.vertices, 3)] if o.type == "MESH" else [(x.points, 4) for x in d.splines] + [(x.bezier_points, 3) for x in d.splines]
+        h = hashlib.sha256()
+        for seq, n in seqs:
+            co = np.empty(len(seq) * n, np.float32)
+            seq.foreach_get("co", co)
+            h.update(co.tobytes())
+        memo[d.as_pointer()] = h.hexdigest()
+    return memo[d.as_pointer()]
+
+
+def state_rows(objs):
+    """What a patch can change, per object. Two of these make the repeat test; the difference from before is the patch's `changed` list."""
+    memo = {}
+    return {o.name: (tuple(round(v, 5) for row in o.matrix_basis for v in row), o.parent.name if o.parent else None,
+                     tuple(s.material.name if s.material else None for s in o.material_slots), o.hide_render, o.hide_viewport,
+                     sorted(c.name for c in o.users_collection), sorted((k, repr(o[k])) for k in o.keys()),
+                     [(m.name, m.type) for m in o.modifiers], geometry_hash(o, memo)) for o in objs}
 
 
 def replay_patches(path, lanes, objs, linked=()):
-    """Replay live_patches.py in file order, each patch checked for repeatability."""
+    """Replay a patch file in file order, each patch checked for repeatability. lanes=None runs all of it."""
     out, ns, patches = [], {"bpy": bpy}, []
 
     def patch(pid, lane=None, note=""):
@@ -286,20 +307,82 @@ def replay_patches(path, lanes, objs, linked=()):
     with open(path) as f:
         exec(compile(f.read(), path, "exec"), ns)
     ids = [p["id"] for p in patches]
-    for p in [p for p in patches if p["lane"] is None or p["lane"] in lanes]:
+    for p in [p for p in patches if lanes is None or p["lane"] is None or p["lane"] in lanes]:
         if p["lane"] in linked:  # edits to linked data are not saved
             out.append({"id": p["id"], "lane": p["lane"], "ok": False, "detail": "lane is joined by link; patches only persist on appended lanes"})
             continue
         try:  # run it twice in a row: the second run must change nothing
+            before = state_rows(objs())
             p["fn"](bpy)
-            first = state_sig(objs())
+            first = state_rows(objs())
             p["fn"](bpy)
-            same = first == state_sig(objs())
-            out.append({"id": p["id"], "lane": p["lane"], "ok": same, "detail": "" if same else "not repeatable: a second run changed the lanes' objects (set values, don't add to them)"})
+            same = first == state_rows(objs())
+            changed = sorted(k for k in before.keys() | first.keys() if before.get(k) != first.get(k))
+            out.append({"id": p["id"], "lane": p["lane"], "ok": same, "changed": changed,
+                        "detail": "" if same else "not repeatable: a second run changed the objects (set values, don't add to them)"})
         except Exception as e:  # a failed patch fails the join
             out.append({"id": p["id"], "lane": p["lane"], "ok": False, "error": repr(e)})
     out.append({"id": "_unique_ids", "ok": len(ids) == len(set(ids)), "detail": ids})
     return out
+
+
+def dup_names():
+    return {x.name for coll in (bpy.data.objects, bpy.data.meshes, bpy.data.curves, bpy.data.materials) for x in coll if DUP.search(x.name)}
+
+
+def replay_lanes(parts, lanes, tested=None):
+    """Apply fix lanes' patches.py to the open file in queue order, stopping at the first lane that fails. Saves nothing: the `replay`
+    command saves a tested copy, the live worker saves its own backup. tested is the merge test's report: a file it didn't run is refused."""
+    rep = {"ok": False, "at": now(), "input": bpy.data.filepath, "lanes": [], "noop": []}
+    files = {lane: os.path.join(parts, lane, "patches.py") for lane in lanes}
+    rep["failures"] = [f"{lane}: {f} not found" for lane, f in files.items() if not os.path.exists(f)]
+    if tested and not rep["failures"]:
+        with open(tested) as f:
+            ran = {x["lane"]: x["sha256"] for x in json.load(f)["lanes"]}
+        rep["failures"] = [f"{lane}: patches.py differs from the merge test" for lane in lanes if ran.get(lane) != sha256(files[lane])]
+    if rep["failures"]:
+        return rep
+    dups0, owner = dup_names(), {}
+    for lane in lanes:
+        try:
+            rows = replay_patches(files[lane], None, lambda: bpy.data.objects)
+        except Exception as e:  # a patch file that doesn't load fails its lane like a patch that fails
+            rows = [{"id": "_load", "ok": False, "error": repr(e)}]
+        changed = sorted({n for r in rows for n in r.get("changed", [])})
+        rep["lanes"].append({"lane": lane, "patches": files[lane], "sha256": sha256(files[lane]), "changed": changed, "rows": rows})
+        rep["noop"] += [f"{lane}/{r['id']}" for r in rows if "changed" in r and not r["changed"]]
+        rep["failures"] += [f"{lane}/{r['id']}: {r.get('error') or r.get('detail')}" for r in rows if not r["ok"]]
+        rep["failures"] += [f"{lane}: {n} was already changed by {owner[n]}; give it one seam owner" for n in changed if n in owner]
+        owner.update((n, lane) for n in changed)
+        if rep["failures"]:
+            break
+    new = sorted(dup_names() - dups0)
+    if new:
+        rep["failures"].append(f"new .001 names (a patch creates data on every run; get or create by name): {new[:10]}")
+    rep["ok"] = not rep["failures"]
+    return rep
+
+
+def replay(a):
+    assert bpy.data.filepath, "open a fresh copy of the gate: blender-bg <gate_copy.blend> --python integrate_parts.py -- replay ..."
+    assert os.path.abspath(bpy.data.filepath) != os.path.abspath(a.out), "--out must be a different file from the open gate copy"
+    rep = replay_lanes(a.parts, [x for x in a.lanes.split(",") if x])
+    rep["output"] = a.out
+    if rep["ok"]:
+        save_out(a, rep)
+    return rep
+
+
+def save_out(a, rep):
+    """Save --out, a backup copy under the house-rule name, and record the new file's hash."""
+    bpy.ops.wm.save_as_mainfile(filepath=a.out)
+    if a.backup_dir:
+        os.makedirs(a.backup_dir, exist_ok=True)
+        pre = f"{os.path.splitext(os.path.basename(a.out))[0]}_{getattr(a, 'phase', 'blockout')}_"   # house rule 4: <file>_<phase>_<nn>_<step>
+        nn = 1 + sum(1 for f in os.listdir(a.backup_dir) if f.startswith(pre) and f.endswith(".blend"))
+        rep["backup"] = os.path.join(a.backup_dir, f"{pre}{nn:02d}_{a.step}.blend")
+        bpy.ops.wm.save_as_mainfile(filepath=rep["backup"], copy=True)
+    rep["output_sha256"] = sha256(a.out)
 
 
 # ---------- join ----------
@@ -357,21 +440,14 @@ def join(a):
                       [f"patch {p['id']}: {p.get('error') or p.get('detail')}" for p in rep["patches"] if not p["ok"]]
     rep["ok"] = not rep["failures"]
     if rep["ok"]:
-        bpy.ops.wm.save_as_mainfile(filepath=a.out)
-        if a.backup_dir:
-            os.makedirs(a.backup_dir, exist_ok=True)
-            pre = f"{os.path.splitext(os.path.basename(a.out))[0]}_{getattr(a, 'phase', 'blockout')}_"   # house rule 4: <file>_<phase>_<nn>_<step>
-            nn = 1 + sum(1 for f in os.listdir(a.backup_dir) if f.startswith(pre) and f.endswith(".blend"))
-            rep["backup"] = os.path.join(a.backup_dir, f"{pre}{nn:02d}_{a.step}.blend")
-            bpy.ops.wm.save_as_mainfile(filepath=rep["backup"], copy=True)
-        rep["output_sha256"] = sha256(a.out)
+        save_out(a, rep)
     return rep
 
 
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("cmd", nargs="?", choices=["join", "freeze"], default="join")
+    ap.add_argument("cmd", nargs="?", choices=["join", "freeze", "replay"], default="join")
     ap.add_argument("--parts", required=True, help="folder holding <lane>/manifest.json and <lane>/<lane>.blend")
     ap.add_argument("--lanes", required=True, help="comma list, in merge-queue order")
     ap.add_argument("--out", help="joined file to write (must differ from the open gate copy)")
@@ -384,14 +460,16 @@ def main():
     a = ap.parse_args(argv)
     if a.cmd == "freeze":
         return freeze(a.parts, [x for x in a.lanes.split(",") if x])
-    assert bpy and a.out, "join runs inside Blender and needs --out"
-    rep = join(a)
-    path = a.report or os.path.splitext(a.out)[0] + "_join.json"
+    assert bpy and a.out, "join and replay run inside Blender and need --out"
+    rep = join(a) if a.cmd == "join" else replay(a)
+    path = a.report or f"{os.path.splitext(a.out)[0]}_{a.cmd}.json"
     with open(path, "w") as f:
         json.dump(rep, f, indent=1, default=str)
-    print("JOIN", "OK" if rep["ok"] else "FAILED", path)
+    print(a.cmd.upper(), "OK" if rep["ok"] else "FAILED", path)
     for x in rep["failures"]:
         print("  FAIL", x)
+    for x in rep.get("noop", []):
+        print("  NOOP", x)
     if not rep["ok"]:
         sys.exit(1)
 

@@ -5,7 +5,8 @@
 Builds a gate file (a master, a lane to rebuild, a lane that must stay untouched), a frozen part file with a stale red
 material, and a manifest. Then it checks the happy path (rebuild by name, slots remapped by name, instances placed,
 live patch replayed, a second join gives the same scene, link mode), each defect the script exists to stop (instance at
-the origin, empty slot, part changed after the freeze, a foreign ID, a patch that is not repeatable), and the exit codes.
+the origin, empty slot, part changed after the freeze, a foreign ID, a patch that is not repeatable), fix lanes replayed
+in order (overlaps, geometry offsets, leftover data, patches changed after the merge test), and the exit codes.
 """
 import copy
 import importlib.util
@@ -209,6 +210,75 @@ assert holder.instance_collection.library is not None and "A_Wall_01" in holder.
 assert tuple(bpy.data.objects["A_Box_01"].location) == (1, 2, 3)
 print("ok  link mode")
 
+# fix lanes: one patches.py per lane, applied to a copy of the gate in queue order
+def fix_lane(lane, code):
+    os.makedirs(os.path.join(PARTS, lane), exist_ok=True)
+    open(os.path.join(PARTS, lane, "patches.py"), "w").write(code)
+
+
+def replay(name, lanes, expect_ok=True):
+    shutil.copy(GATE, os.path.join(out, name + "_in.blend"))
+    bpy.ops.wm.open_mainfile(filepath=os.path.join(out, name + "_in.blend"))
+    o = os.path.join(out, name + ".blend")
+    rep = ip.replay(Namespace(parts=PARTS, lanes=lanes, out=o, backup_dir=os.path.join(out, "bk"), step=name, phase="fixes"))
+    assert rep["ok"] == expect_ok, (name, rep["failures"])
+    assert os.path.exists(o) == expect_ok, (name, "saved only when every lane passed")
+    return rep
+
+
+fix_lane("fix_a", '@patch("f1", note="wall sits higher")\ndef _(bpy):\n    bpy.data.objects["B_Wall_01"].location.z = 1.5\n')
+fix_lane("fix_b", '@patch("f2", note="a missing bracket")\ndef _(bpy):\n    ob = bpy.data.objects.get("Fix_Bracket") or bpy.data.objects.new("Fix_Bracket", None)\n'
+                  '    if ob.name not in bpy.context.scene.collection.objects:\n        bpy.context.scene.collection.objects.link(ob)\n    ob.location = (1, 1, 1)\n'
+                  '@patch("f3", note="a tag")\ndef _(bpy):\n    bpy.data.objects["A_Old_01"]["kind"] = "wall"\n')
+rep = replay("fixes", "fix_a,fix_b")
+assert bpy.data.objects["B_Wall_01"].location.z == 1.5 and tuple(bpy.data.objects["Fix_Bracket"].location) == (1, 1, 1) and bpy.data.objects["A_Old_01"]["kind"] == "wall"
+assert [x["changed"] for x in rep["lanes"]] == [["B_Wall_01"], ["A_Old_01", "Fix_Bracket"]] and not rep["noop"], rep["lanes"]
+assert os.path.exists(os.path.join(out, "bk", "fixes_fixes_01_fixes.blend"))
+print("ok  fix lanes apply in order, each one's changes listed, on a saved copy")
+
+fix_lane("fix_c", '@patch("f4")\ndef _(bpy):\n    bpy.data.objects["B_Wall_01"].scale.z = 2\n')
+assert "seam owner" in " ".join(replay("overlap", "fix_a,fix_c", expect_ok=False)["failures"])
+print("ok  two lanes changing one object are refused")
+
+fix_lane("fix_d", '@patch("f5")\ndef _(bpy):\n    for v in bpy.data.objects["B_Wall_01"].data.vertices:\n        v.co.z += 0.1\n')
+assert "not repeatable" in " ".join(replay("offset", "fix_d", expect_ok=False)["failures"])
+fix_lane("fix_e", '@patch("f6")\ndef _(bpy):\n    bpy.data.objects["B_Wall_01"].data.vertices[0].co.z = 3\n    bpy.data.meshes.new("Fix_Mesh")\n')
+assert ".001" in " ".join(replay("leftover", "fix_e", expect_ok=False)["failures"])
+fix_lane("fix_f", '@patch("f7")\ndef _(bpy):\n    bpy.data.objects["Wrong_Name"].location.z = 1\n')
+assert "Wrong_Name" in " ".join(replay("wrongname", "fix_f", expect_ok=False)["failures"])
+fix_lane("fix_g", 'this is not python\n')
+assert "_load" in " ".join(replay("noload", "fix_g", expect_ok=False)["failures"])
+assert "not found" in " ".join(replay("missing", "fix_none", expect_ok=False)["failures"])
+fix_lane("fix_h", '@patch("f8")\ndef _(bpy):\n    ob = bpy.data.objects.get("Wrong_Name")\n    if ob:\n        ob.location.z = 1\n')
+assert replay("noop", "fix_h")["noop"] == ["fix_h/f8"]
+print("ok  a vertex offset, leftover data, a wrong name, a bad file and a missing file are refused; a patch that finds nothing is listed")
+
+cu = bpy.data.curves.new("Fix_Curve", "CURVE")
+bez, poly = cu.splines.new("BEZIER"), cu.splines.new("POLY")
+bez.bezier_points.add(1)
+poly.points.add(1)
+cob = bpy.data.objects.new("Fix_Curve", cu)
+r0 = ip.state_rows([cob])
+bez.bezier_points[1].co.x = 2
+r1 = ip.state_rows([cob])
+poly.points[1].co.x = 3
+assert r0 != r1 and r1 != ip.state_rows([cob]), "curve points count as state"
+print("ok  the repeat test reads curve points")
+
+# the live worker's call: the files the merge test ran, nothing else
+merge = replay("merge", "fix_a,fix_b")
+report = os.path.join(out, "merge_replay.json")
+json.dump(merge, open(report, "w"), default=str)
+live = os.path.join(out, "live.blend")
+shutil.copy(GATE, live)
+bpy.ops.wm.open_mainfile(filepath=live)
+assert ip.replay_lanes(PARTS, ["fix_a", "fix_b"], tested=report)["ok"] and bpy.data.objects["B_Wall_01"].location.z == 1.5
+bpy.ops.wm.open_mainfile(filepath=live)   # back to the file on disk: the z check below also proves the live call saved nothing
+fix_lane("fix_b", 'pass\n')
+late = ip.replay_lanes(PARTS, ["fix_a", "fix_b"], tested=report)
+assert not late["ok"] and "differs" in late["failures"][0] and bpy.data.objects["B_Wall_01"].location.z == 5, "nothing applied"
+print("ok  the live replay refuses a patch file changed after the merge test, before applying anything")
+
 # exit codes through the command line, as the manager runs it
 binary = bpy.app.binary_path
 script = os.path.join(repo, ".claude/skills/lane-integration/scripts/integrate_parts.py")
@@ -223,4 +293,12 @@ cmd[-1] = os.path.join(out, "cli_bad.blend")
 r = subprocess.run(cmd, capture_output=True, text=True)
 assert r.returncode == 1 and not os.path.exists(cmd[-1]) and "none_at_origin" in r.stdout, (r.returncode, r.stdout[-800:])
 print("ok  exit 0 on a clean join, exit 1 and no file on a failed assert")
+cmd = [binary, "--background", "--factory-startup", os.path.join(out, "cli_in.blend"), "--python", script, "--", "replay", "--parts", PARTS, "--lanes", "fix_a",
+       "--out", os.path.join(out, "cli_fix.blend")]
+r = subprocess.run(cmd, capture_output=True, text=True)
+assert r.returncode == 0 and "REPLAY OK" in r.stdout and os.path.exists(os.path.join(out, "cli_fix_replay.json")), r.stdout[-800:]
+cmd[-3], cmd[-1] = "fix_d", os.path.join(out, "cli_fix_bad.blend")
+r = subprocess.run(cmd, capture_output=True, text=True)
+assert r.returncode == 1 and not os.path.exists(cmd[-1]) and "not repeatable" in r.stdout, (r.returncode, r.stdout[-800:])
+print("ok  replay exits 0 on a clean run, 1 and no file on a failed patch")
 print("integrate_parts self-test passed")

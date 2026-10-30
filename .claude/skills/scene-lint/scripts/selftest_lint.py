@@ -405,6 +405,43 @@ rep3 = lint.run_lint(project=proj, out_dir=os.path.join(out, "r3"))
 check("Enclosed_Float" not in flagged(rep3, "floating") and "Prop_Float" in flagged(rep3, "floating"), "lint scopes floating to the visible set")
 check(rep3["scope"]["in_scope"] < rep3["scope"]["solids"], "scope counts")
 
+# --baseline shows only what a run adds: the same scene against itself shows nothing, a problem that moved is not new, a new one is
+base = os.path.join(out, "r3", "lint.json")
+b1 = lint.run_lint(project=proj, out_dir=os.path.join(out, "b1"), baseline=base)
+check(b1["new"] == {} and b1["baseline"]["new"] == {"blocker": 0, "major": 0, "minor": 0} and b1["baseline"]["gone"] == 0, f"same scene against itself: {b1['new']}")
+victim = next(it["object"] for name in ("door_sizes", "stair_risers", "floating") for it in rep3["checks"][name]["items"] if it["object"] in bpy.data.objects and it["object"] != "Prop_Float")
+bpy.data.objects.remove(bpy.data.objects[victim])
+bpy.data.objects["Prop_Float"].location.z += 0.003
+box("Prop_New_Float", (7.0, 7.0, 3.0), (7.2, 7.2, 3.2))
+b2 = lint.run_lint(project=proj, out_dir=os.path.join(out, "b2"), baseline=base)
+new_float = {it["object"] for it in b2["new"].get("floating", [])}
+check("Prop_New_Float" in new_float and "Prop_Float" not in new_float, f"baseline: a new problem shows, a moved one doesn't: {sorted(new_float)}")
+check(b2["baseline"]["new"]["major"] >= 1 and b2["baseline"]["gone"] >= 1, f"baseline counts: {b2['baseline']}")
+check(json.load(open(os.path.join(out, "b2", "lint.json")))["new"].keys() == b2["new"].keys(), "lint.json carries `new`")
+# past max_items the keys still hold every item, and an older lint.json without them says so
+cap_rules = os.path.join(out, "cap_rules.yaml")
+open(cap_rules, "w").write("max_items: 1\n")
+t1 = lint.run_lint(project=proj, out_dir=os.path.join(out, "t1"), rules=cap_rules)
+capped = sorted(n for n, ch in t1["checks"].items() if ch.get("items_truncated"))
+check(capped and all(len(t1["checks"][n]["keys"]) == t1["checks"][n]["count"] for n in capped), f"keys hold every item past max_items: {capped}")
+t1_file = os.path.join(out, "t1", "lint.json")
+t2 = lint.run_lint(project=proj, out_dir=os.path.join(out, "t2"), rules=cap_rules, baseline=t1_file)
+check(t2["new"] == {} and t2["baseline"]["partial"] == [], f"items past max_items are not new: {list(t2['new'])}")
+older = json.load(open(t1_file))
+for ch in older["checks"].values():
+    ch.pop("keys", None)
+older_file = os.path.join(out, "older.json")
+json.dump(older, open(older_file, "w"))
+check(lint.run_lint(project=proj, out_dir=os.path.join(out, "t3"), rules=cap_rules, baseline=older_file)["baseline"]["partial"] == capped, "an older baseline is reported as partial")
+not_lint = os.path.join(out, "not_lint.json")
+json.dump({"a": 1}, open(not_lint, "w"))
+for bad in (os.path.join(out, "nope.json"), not_lint, scene_file):
+    try:
+        lint.run_lint(project=proj, out_dir=os.path.join(out, "x"), baseline=bad)
+        check(False, f"a bad baseline must stop the run: {bad}")
+    except lint.L.LintError:
+        pass
+
 # the CLI exits 2 on a blocker and 0 when only majors are left
 bl = bpy.app.binary_path
 cmd = [bl, "--background", "--factory-startup", scene_file, "--python", os.path.join(HERE, "lint_blender.py"), "--", "--project", proj, "--out", os.path.join(out, "cli")]
@@ -414,6 +451,10 @@ p = subprocess.run(cmd[:-2] + ["--out", os.path.join(out, "cli2"), "--only", "do
 check(p.returncode == 0, f"CLI exit code {p.returncode} (want 0) with majors only: {p.stdout[-300:]}")
 p = subprocess.run(cmd[:-2] + ["--out", os.path.join(out, "cli3"), "--only", "nonsense"], capture_output=True, text=True)
 check(p.returncode == 1, f"CLI exit code {p.returncode} (want 1) for an unknown check")
+p = subprocess.run(cmd[:-2] + ["--out", os.path.join(out, "cli4"), "--baseline", os.path.join(out, "cli", "lint.json")], capture_output=True, text=True)
+check(p.returncode == 2 and "NEW blocker=0 major=0 minor=0 gone=0" in p.stdout, f"CLI with a baseline: exit {p.returncode}, keeps the exit code, prints NEW: {p.stdout[-300:]}")
+p = subprocess.run(cmd[:-2] + ["--out", os.path.join(out, "cli5"), "--baseline", os.path.join(out, "nope.json")], capture_output=True, text=True)
+check(p.returncode == 1 and "LINT ERROR" in p.stdout, f"CLI exit code {p.returncode} (want 1) for a missing baseline")
 
 # the yaml subset reader
 y = lib.parse_yaml("a: 1\nb: [x, y]\nc:\n  d: true\n  e:\n    - p\n    - q\nf: 'z' # note\n")

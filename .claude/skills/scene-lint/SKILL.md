@@ -5,7 +5,7 @@ description: Count every countable defect in the Blender scene with one script (
 
 # Scene lint
 
-Scripts count, reviewers judge (`house-rules` rule 9). Run it on the gate copy of the file (never a backup) before `capture_set`, and again at the start of every review round. A reviewer reruns it and reads `lint.json`; no per-round probe scripts.
+Scripts count, reviewers judge (`house-rules` rule 9). Run it on the gate copy of the file (never a backup) before `capture_set`, and again at the start of every review round. A reviewer reruns it and reads `lint.json`; no per-round probe scripts. The one run on a backup is the batch check below, which is a progress check and never a gate.
 
 ## Classes
 
@@ -26,11 +26,21 @@ Exit 0: no blocker. Exit 2: a blocker (`lint.json` is still written). Exit 1: th
 
 `visible_set.py` writes `plan/visible_set.json`: eyes along `plan/walk.json` (`{"paths": {"main": [[x, y], ...]}}`, copied from `layout.json › path`; start on the lowest floor or give the first point a z) and every camera in `light/cameras.json`, by ray casting, plus a probe of each unseen object so thin cables are not lost. Rerun it when a path, a camera or the layout changes. Geometric checks look only at that set; objects added since count as in it. Data checks (materials, file, cameras, names, origin, visibility, wear, backups) cover the whole file.
 
+**Only what's new.** `--baseline <an earlier lint.json>` adds `new` (every item that run didn't have, per check) and `baseline` (`new` counts by class, `gone`, `partial`) to `lint.json`, and prints `NEW blocker=... major=... minor=... gone=...` with the new blockers and majors. Exit codes don't change. An item is the same problem when its check and object match and its text matches with the measured numbers taken out, so one that moved 2 mm isn't new. A new `visible_set.json` between the two runs widens the scope, so its items read as new. From round 2 on, the gate lint adds `--baseline reviews/<gate>-r<n-1>/lint.json`, and reviewers read `new` first.
+
+**Batch check.** On an earlier project three of five scale majors were regressions found hours later, at the next review. So after every batch of steps the worker lints the batch's last backup, headless, against the round's `lint.json`:
+
+```text
+bash bin/blender-bg <last backup> --python .claude/skills/scene-lint/scripts/lint_blender.py -- --project projects/<slug> --out <phase>/lint_batch --baseline projects/<slug>/reviews/<gate>-r<n>/lint.json
+```
+
+It takes seconds, never touches the open Blender and saves nothing, and it takes no `--expect-file`. Fix any new blocker or major your own change caused before the next batch. The baseline stays the round's `lint.json`, never the last batch's, so a problem left unfixed keeps showing. A fix round's patches get the same check in their merge test (`lane-integration`).
+
 ## Reading `lint.json`
 
 `command`, `project` and `inputs` record how the run was made, so two runs that disagree can be traced to their inputs.
 
-`summary` has the counts, `blockers`, and three lists that are never a pass: `skipped` (an input file was missing), `no_subjects` (the check found nothing to check, for example no object is named or tagged a cable) and `errors` (a check crashed). Each check has `status` (`pass`, `fail` when it has a blocker or major, `warn` when it has only minors, `skipped`, `no_subjects`, `error`), `checked` (how many things it looked at), `count`, `counts` by class, and `items` (the first 100; `count` is exact). A zero with `checked: 0` means nothing was looked at. It is not a clean result.
+`summary` has the counts, `blockers`, and three lists that are never a pass: `skipped` (an input file was missing), `no_subjects` (the check found nothing to check, for example no object is named or tagged a cable) and `errors` (a check crashed). Each check has `status` (`pass`, `fail` when it has a blocker or major, `warn` when it has only minors, `skipped`, `no_subjects`, `error`), `checked` (how many things it looked at), `count`, `counts` by class, and `items` (the first 100; `count` is exact, and a longer check also holds `keys`, one per item, so a later `--baseline` sees them all; `partial` names the checks of an older `lint.json` without them, whose unlisted items read as new). A zero with `checked: 0` means nothing was looked at. It is not a clean result.
 
 | Check (field) | Class | Finds |
 | --- | --- | --- |

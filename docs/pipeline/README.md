@@ -81,7 +81,7 @@ After G2 two lanes run at once: the asset lane builds kit pieces and props headl
 | [stages.md](stages.md) | Each stage's inputs, work, outputs, agents and exit rule |
 | [routes.md](routes.md) | The three build routes and the Blender to Unreal transfer |
 | [lighting.md](lighting.md) | Lighting brief, neutral rig, the gray, value and hue passes, the pass switch |
-| [agents.md](agents.md) | Agents, models, the interview, the Modeler, the Asset Tech and Generator, the toolbox scanner, researchers and the retro |
+| [agents.md](agents.md) | Agents, models, the interview, the Modeler, the Asset Tech, Generator and pipeline clerk, the toolbox scanner, researchers and the retro |
 | [parallel.md](parallel.md) | What runs at the same time, what stays single, and the settings |
 | [studio-workflows.md](studio-workflows.md) | How game and VFX studios staff and run environment work, and what v4 took from it |
 | [data-and-commits.md](data-and-commits.md) | Project folder layout, `brief.yaml` keys, data contracts for the form and board, save points and commits |

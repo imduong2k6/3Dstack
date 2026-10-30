@@ -78,7 +78,7 @@ Every item carries its file, its number in that file and its location (object id
 
 ## Rounds
 
-- **Round 1 reviews the aspect in full. Round n+1 reviews only the fix list, regressions from those fixes, and new lint blockers.** A finding outside those says why it wasn't visible before (a new camera, a moved object, a lint rule that didn't exist); without a reason it goes to Notes.
+- **Round 1 reviews the aspect in full. Round n+1 reviews only the fix list, regressions from those fixes, and what `lint.json` lists under `new` (from `--baseline`).** A finding outside those says why it wasn't visible before (a new camera, a moved object, a lint rule that didn't exist); without a reason it goes to Notes.
 - **Two form rounds per phase.** A third round is only for a clear mistake against the reference (a wrong count, a missing piece, a pair that doesn't mirror), or in `camera_match` and `full_cg` for a photo landmark that misses the fit rule (5 px at 600 x 800, from `fit_check.py`). Other form items go to Later, into the texturing brief.
 - After `max_rounds` without a pass, stop and tell the manager.
 

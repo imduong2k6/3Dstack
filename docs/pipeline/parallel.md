@@ -9,13 +9,14 @@ New in v5. The short answer to "should more agents work at once?" is yes, but on
 | Research (Stage 1) | 2 or 3 researchers, one topic each, plus the toolbox scanner | Each other | Separate output files |
 | Reviews (every review point) | Up to 4 supervisors, one aspect each (the aspects are listed in `supervisor`), and the Art Director (look and mood) | Each other | All read-only, one review file each, on the same captures, after `scene-lint` has run |
 | Blockout lanes (Stage 3) | Headless agents, each building its own part file under a lane brief | Each other | Owned ID prefixes and seam owners; `lane-integration` joins them headless on a copy |
+| Fix lanes (any fix round of 10 or more items in two or more areas) | Up to 3 `modeler` agents, one area each, writing patches on copies of the gate | Each other | Owned objects and seam owners; a merge test refuses an object two lanes changed; the live worker replays the tested patches (`lane-integration`) |
 | Asset lane (Stage 4) | Generator, up to 4 Modelers (default 3), 1 or 2 Asset Techs | The level lane | One asset per `.blend`, headless Blender, never the live session |
 | Level lane (Stage 5) | Unreal worker, or the Blender worker on the Blender routes | The asset lane | The only writer in the live editor |
 
 ## What stays single, and why
 
 - **The live Unreal editor has one writer.** Epic's MCP server accepts concurrent calls, but Epic's own skill warns that conflicting changes from several agents can break things and asks for mutations to be serialised. A second editor on the same project would fight over the same assets.
-- **The open Blender session has one writer.** The Blender MCP add-on serves one socket on one port, and the Blender worker owns it. It gets short jobs: a fresh live worker for each batch of steps, handed `plan/steps.json`, with joining and probing moved to headless agents (`lane-integration`).
+- **The open Blender session has one writer.** The Blender MCP add-on serves one socket on one port, and the Blender worker owns it. It gets short jobs: a fresh live worker for each batch of steps, handed `plan/steps.json`, with joining, probing and long fix lists moved to headless agents (`lane-integration`).
 - **Creative calls have one owner:** layout, kit design, the pilots, the lighting passes and art direction. In studios these stay with one person or a lead.
 - **GPU renders.** One GPU renders one thing at a time well, so parallel renders don't finish sooner.
 

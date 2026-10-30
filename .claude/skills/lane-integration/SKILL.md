@@ -1,6 +1,6 @@
 ---
 name: lane-integration
-description: Split a blockout (or any big placement batch) into parallel lanes and join them back into one gate file without the usual defects (instances at the origin, lanes re-appended wholesale, an old material re-applied, empty material slots). It covers the lane brief, seam owners, the freeze rule, the merge queue and the headless join script. Use it whenever two or more agents build parts of the same scene at once.
+description: Split a blockout (or any big placement batch) into parallel lanes and join them back into one gate file without the usual defects (instances at the origin, lanes re-appended wholesale, an old material re-applied, empty material slots). It covers the lane brief, seam owners, the freeze rule, the merge queue and the headless join script, and fix lanes: a long fix list split by area into tested patches that the live worker replays. Use it whenever two or more agents build or fix parts of the same scene at once.
 ---
 
 # Lane integration
@@ -55,9 +55,43 @@ Any failed assert prints `FAIL`, exits 1 and saves nothing. The manager sends th
 
 Anything the live worker changes in a lane after a join is also added to `parts/live_patches.py` (`templates/live_patches.py`): one `@patch(id, lane=...)` function per fix, finding objects by name and **setting** values, never adding to them. The join replays the file after every rebuild and runs each patch twice; a patch that changes the scene on the second run fails. A fix that belongs in the lane's own file goes to the builder at the next freeze, and its patch is then deleted.
 
+## Fix lanes
+
+On an earlier project a fix round took 5 h 12 min, and the live worker was 87 % of it. Of its active time, 70 % was the model working through items one after another and 5 % was live Blender calls, so the wait was one agent thinking, not the tools. Fix lanes do that thinking in parallel on copies. The live worker only replays what already passed, which keeps one writer in the open Blender (`house-rules` rule 2).
+
+**Use them** when a fix list has 10 or more items in two or more areas. A shorter list stays with the live worker. The manager writes the lanes after merging the fix list (`scene-pipeline`):
+
+1. **Split.** Cut by area, never by trade. Each lane (`fix_<area>`) gets its items by ID and the objects it owns, by name or bounding box; an object two lanes need goes in the seam table with one owner. Items that touch kit masters, the palette, cameras, lights or exposure, and items that need the user's eye, stay with the live worker. Run up to 3 lanes at a time, counting any Modelers running then (`docs/pipeline/parallel.md`, the PC's limit). While lanes run, the live worker changes nothing the lanes own.
+2. **Build.** One `modeler` agent per lane, briefed from `templates/fix-lane-brief.md`. It writes `<parts>/<lane>/patches.py` in the same format as `live_patches.py`, tests it on a fresh copy of the gate and reports. Its report's `not_fixed` items go back to the live worker's list.
+3. **Merge test.** On a fresh copy of the gate, one run with every lane in queue order (structure first, then what hangs on it, then cables and services):
+
+   ```
+   bash bin/blender-bg <gate_copy.blend> --python .claude/skills/lane-integration/scripts/integrate_parts.py -- \
+     replay --parts <parts> --lanes fix_a,fix_b,fix_c --out <merged.blend>
+   bash bin/blender-bg <merged.blend> --python .claude/skills/scene-lint/scripts/lint_blender.py -- \
+     --project projects/<slug> --out <parts>/merge_lint --baseline <the round's lint.json>
+   ```
+
+   Exit 1 and no file if a patch fails, isn't repeatable, or creates data on every run, or if two lanes changed one object. `<merged>_replay.json` lists what each patch changed. `NOOP` lists a patch that changed nothing. A red result goes back to the lane. So does a new blocker or major in the lint's `NEW` line.
+4. **Live replay.** Only the live worker, in the open Blender, after `step_log.py diff`. If that shows the user changed by hand an object in the report's `changed` lists, stop and tell the manager: a patch would overwrite the user's value. Then, for one lane at a time:
+
+   ```python
+   import importlib.util
+   spec = importlib.util.spec_from_file_location("ip", r"<repo>/.claude/skills/lane-integration/scripts/integrate_parts.py")
+   ip = importlib.util.module_from_spec(spec)
+   spec.loader.exec_module(ip)
+   rep = ip.replay_lanes(r"<parts>", ["fix_a"], tested=r"<merged>_replay.json")
+   print(rep["ok"], rep["noop"], rep["failures"])
+   ```
+
+   It refuses, before applying anything, a patch file the merge test didn't run. It saves nothing, so after each lane the worker saves the backup and logs the step (`house-rules` rule 4). A failed lane stops the replay: the worker reports it instead of fixing it by hand. Then the round goes on as usual: the live worker's own items, `scene-lint`, captures, AFTER renders (`review-pairs`).
+
+If the scene still has blockout lanes that may be joined again, copy the patches into `parts/live_patches.py` with the blockout lane's ID, so the next rebuild keeps them.
+
 ## Don't
 
 - Don't append a lane's objects wholesale into the live file, or place instances by hand there.
 - Don't let a lane create materials. A new one is named in the lane brief by the manager, and the manifest declares it under `new_materials`.
 - Don't edit a part after its freeze, or a master after the lanes start.
 - Don't fix a seam in the lane that doesn't own it.
+- Don't let a fix lane touch the open Blender, or the live worker edit a patch after the merge test. An edited patch is a new merge test.

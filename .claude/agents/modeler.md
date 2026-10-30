@@ -24,4 +24,6 @@ How you work:
 
 Report format: asset name, method, triangle count against budget, validation pass or fail per check, capture paths, and anything you assumed. Never claim a check passed without the script output that shows it.
 
+A fix lane brief (`lane-integration`, Fix lanes) replaces the spec for that job: you write and test `patches.py` on copies of the gate as the brief says, and you skip steps 1 to 4 and 6.
+
 When a supervisor fix list comes back, fix only what it lists unless a fix forces another change; say so if it does. After each review, add one line with the lesson to the project's `log.md`; `retro` proposes lessons for `feedback/modeling.md` with the user's OK (`house-rules` 3).

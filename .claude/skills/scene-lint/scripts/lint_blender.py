@@ -1,7 +1,7 @@
 """scene-lint for Blender: every countable defect in one run, written to lint.json (tested headless with bpy 5.2.3).
 
     bash bin/blender-bg <copy.blend> --python .claude/skills/scene-lint/scripts/lint_blender.py -- \
-        --project projects/<slug> --out projects/<slug>/reviews/<gate>-r<n> [--expect-file <gate copy>] [--only a,b] [--skip a,b]
+        --project projects/<slug> --out projects/<slug>/reviews/<gate>-r<n> [--expect-file <gate copy>] [--baseline <earlier lint.json>] [--only a,b] [--skip a,b]
 
 Exit 0: no blocker. Exit 2: at least one blocker (lint.json is written). Exit 1: the script itself failed or a check crashed.
 Inputs are read from --project when present (light/cameras.json, light/lights.json, light/exposure.json, plan/steps.json,
@@ -17,6 +17,7 @@ import re
 import sys
 import time
 import traceback
+from collections import Counter
 
 import bmesh
 import bpy
@@ -30,6 +31,12 @@ import lintlib as L  # noqa: E402
 
 VERSION = 1
 CLASSES = ("blocker", "major", "minor")
+MEASURE = re.compile(r"(?<![A-Za-z_])-?\d+(\.\d+)?")
+
+
+def item_key(it):
+    """A problem's identity between runs: its object and its text with the measured numbers taken out, so one that moved 2 mm is not new."""
+    return f"{it['object']}|{MEASURE.sub('#', it.get('what', ''))}"
 LIGHT_TYPES = {"point": "POINT", "area": "AREA", "spot": "SPOT", "sun": "SUN", "directional": "SUN"}
 DEFAULT_NAMES = re.compile(r"^(Cube|Plane|Sphere|Cylinder|Cone|Torus|Circle|Grid|Monkey|Suzanne|Icosphere|Empty|Mesh|Curve|Text|"
                            r"Light|Camera|Point|Sun|Spot|Area|Lamp|Bezier\w*|Nurbs\w*|Path)(\.\d+)?$", re.I)
@@ -51,6 +58,7 @@ class Ctx:
         self.slist = [s for s in self.geo.solids.values() if len(s.tris)]
         self.lo, self.hi = (np.array([s.lo for s in self.slist]), np.array([s.hi for s in self.slist])) if self.slist else (np.zeros((0, 3)), np.zeros((0, 3)))
         self.checks = {}
+        self.all_items = {}
 
     def containing(self, p, exclude=()):
         """Solids that enclose the point p (box first, then ray parity)."""
@@ -74,8 +82,9 @@ class Ctx:
         counts = {c: sum(1 for it in items if it["class"] == c) for c in CLASSES}
         status = status or ("fail" if counts["blocker"] or counts["major"] else "warn" if items else ("pass" if checked else "no_subjects"))
         cap = self.rules["max_items"]
-        self.checks[check] = {"status": status, "class": self.sev(check, cls), "checked": checked, "count": len(items),
-                              "counts": counts, "items": items[:cap], **({"items_truncated": len(items) - cap} if len(items) > cap else {}),
+        self.all_items[check] = items
+        self.checks[check] = {"status": status, "class": self.sev(check, cls), "checked": checked, "count": len(items), "counts": counts, "items": items[:cap],
+                              **({"items_truncated": len(items) - cap, "keys": [item_key(it) for it in items]} if len(items) > cap else {}),
                               **({"note": note} if note else {}), **(extra or {})}
 
     def skip(self, check, reason):
@@ -892,9 +901,43 @@ def resolve_paths(project, **given):
     return paths
 
 
-def run_lint(project=None, out_dir=None, expect_file=None, only=None, skip=None, **files):
+def load_baseline(path):
+    try:
+        with open(path) as f:
+            old = json.load(f)
+    except (OSError, ValueError) as e:
+        raise L.LintError(f"--baseline {path}: {e}")
+    if not isinstance(old, dict) or old.get("tool") != "scene-lint" or "checks" not in old:
+        raise L.LintError(f"--baseline {path} is not a lint.json")
+    return old
+
+
+def diff_baseline(old, path, c):
+    """What this run found that the baseline run did not, per check. A check that didn't run here says nothing either way."""
+    new, gone, partial = {}, 0, []
+    for name, items in c.all_items.items():
+        och = old["checks"].get(name, {})
+        if och.get("items_truncated") and "keys" not in och:
+            partial.append(name)   # an older lint.json lists only its first items, so the rest read as new
+        left = Counter(och.get("keys") or [item_key(it) for it in och.get("items", [])])
+        fresh = []
+        for it in items:
+            k = item_key(it)
+            if left[k] > 0:
+                left[k] -= 1
+            else:
+                fresh.append(it)
+        if fresh:
+            new[name] = fresh
+        gone += sum(left.values())
+    counts = {k: sum(1 for items in new.values() for it in items if it["class"] == k) for k in CLASSES}
+    return {"baseline": {"file": path, "created": old.get("created"), "new": counts, "gone": gone, "partial": sorted(partial)}, "new": new}
+
+
+def run_lint(project=None, out_dir=None, expect_file=None, only=None, skip=None, baseline=None, **files):
     """Run the checks on the open file, write <out_dir>/lint.json and return the report."""
     t0 = time.time()
+    old = load_baseline(baseline) if baseline else None
     paths = resolve_paths(project, expect_file=expect_file, **files)
     rules = L.load_rules(paths["rules"] if paths["rules"] and os.path.exists(paths["rules"]) else None)
     c = Ctx(bpy.context.scene, rules, paths)
@@ -930,6 +973,8 @@ def run_lint(project=None, out_dir=None, expect_file=None, only=None, skip=None,
                        "skipped": {n: ch["reason"] for n, ch in c.checks.items() if ch["status"] == "skipped"},
                        "no_subjects": sorted(n for n, ch in c.checks.items() if ch["status"] == "no_subjects"), "errors": errors},
            "blockers": blockers[:200], "checks": c.checks}
+    if old:
+        rep.update(diff_baseline(old, baseline, c))
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
         with open(os.path.join(out_dir, "lint.json"), "w") as f:
@@ -942,17 +987,27 @@ def main(argv):
     ap.add_argument("--project")
     ap.add_argument("--out", required=True)
     ap.add_argument("--expect-file")
+    ap.add_argument("--baseline")
     for k in ("cameras", "lights", "exposure", "steps", "rules", "walk", "layout", "visible"):
         ap.add_argument("--" + k)
     ap.add_argument("--only")
     ap.add_argument("--skip")
     a = ap.parse_args(argv)
     split = lambda s: [x for x in (s or "").split(",") if x]
-    rep = run_lint(a.project, a.out, a.expect_file, split(a.only), split(a.skip),
+    rep = run_lint(a.project, a.out, a.expect_file, split(a.only), split(a.skip), a.baseline,
                    **{k: getattr(a, k) for k in ("cameras", "lights", "exposure", "steps", "rules", "walk", "layout", "visible")})
     s = rep["summary"]
     print(f"LINT blocker={s['blocker']} major={s['major']} minor={s['minor']} errors={s['errors']} skipped={list(s['skipped'])} "
           f"no_subjects={s['no_subjects']} seconds={rep['seconds']} -> {os.path.join(a.out, 'lint.json')}")
+    if a.baseline:
+        b = rep["baseline"]
+        print(f"NEW blocker={b['new']['blocker']} major={b['new']['major']} minor={b['new']['minor']} gone={b['gone']} against {b['file']}"
+              + (f" (older baseline, unlisted items read as new: {b['partial']})" if b["partial"] else ""))
+        rows = sorted(((it["class"], n, it) for n, items in rep["new"].items() for it in items if it["class"] != "minor"), key=lambda r: (CLASSES.index(r[0]), r[1]))
+        for cls, n, it in rows[:30]:
+            print(f"  {cls} {n} {it['object']}: {it.get('what', '')}")
+        if len(rows) > 30:
+            print(f"  ... {len(rows) - 30} more under `new` in lint.json")
     return 1 if s["errors"] else (2 if s["blocker"] else 0)
 
 

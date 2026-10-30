@@ -7,7 +7,7 @@ description: Turn a review's fix list (review.md, the Art Director notes and the
 
 The user's rule: every fixed issue gets a before/after close-up pair, so they judge the fix without hunting for it (`gate-board`, before/after). An earlier project built this step by hand twice (20 pairs in about 8 minutes, with the BEFORE frames re-rendered). This is the same step as scripts, so the BEFORE side can start the minute the review lands, while the workers fix.
 
-Everything runs headless on copies (`bash bin/blender-bg`, `house-rules` rule 2); the open Blender is never touched. Files go in `reviews/<gate>-r<n+1>/`, the round the fixes land in.
+The manager writes `fix_issues.json` with the merged fix list (step 1). The `pipeline-clerk` agent (Sonnet) runs steps 2 to 7, which are scripts, and reports anything it can't frame or that looks unchanged; it decides nothing about the fixes. Everything runs headless on copies (`bash bin/blender-bg`, `house-rules` rule 2); the open Blender is never touched. Files go in `reviews/<gate>-r<n+1>/`, the round the fixes land in.
 
 ## Steps
 

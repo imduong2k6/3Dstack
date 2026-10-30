@@ -147,3 +147,20 @@ Closes the item left open above. On a copy of an earlier project's file, one cab
 
 Eight runs on the copy: all 360 cables identical to the last bit. Old code against new on the same inputs: the same 71 majors and 68 minors. One cable lying nearly along a wall gained its second dead end (terminated 199 to 198, dead ends 48 to 49), and the cable that used to flip now stays a dead end. Nudging every end by that noise changed the class of 3 of 1154 ends before and 1 after: an end at a frame's edge, where a different nearest face changes the reading. It is stable from run to run on the same file.
 
+## 2026-10-30: Faster fix rounds: fix lanes, a lint baseline and a Sonnet clerk
+
+Measured on one fix round of an earlier project: 5 h 12 min, of which the live worker took 4 h 33 (87 %), reviews 29 min and the board 9 min. Of the worker's 371 active minutes, 70 % was the model generating (about nine tenths of that thinking), 6 % renders and 5 % live Blender calls, so the wait is one agent thinking through items in turn, not the tools. Three of five scale majors were regressions found hours later. The pair and board agents spent 51 active minutes and 640,000 output tokens on the default model. The user chose three of five proposed speed-ups. Their gains are estimates until a round has run on them.
+
+- **Fix lanes.** A fix list of 10 or more items in two or more areas is split by area. `modeler` agents (Opus) write and test patches on copies of the gate, a merge test replays them all on a fresh copy, and the live worker replays only what passed, so the open Blender keeps one writer. The merge test refuses an object two lanes changed, and the live replay refuses a patch file the merge test didn't run.
+- **Repeat test.** It now also reads mesh and curve points, parent, collections, custom properties and the modifier list, so a patch that moves vertices by an offset fails, and a patch that changes nothing is listed as `NOOP`.
+- **Lint baseline.** `--baseline <lint.json>` reports only what a run adds, and the worker lints each batch's last backup against the round's `lint.json`. A regression shows in the batch that made it. The comparison ignores measured numbers, so a problem that moved 2 mm isn't new. Past `max_items` it uses `keys`, which holds every item.
+- **Pipeline clerk.** A new Sonnet agent runs `review-pairs` steps 2 to 7 and `gate-board` posts. The manager still writes `fix_issues.json`, merges `review.md` and reads decisions, so the saving is a little under the full figure above. Workers, Modelers and reviewers stay on Opus: nothing that judges detail changed.
+
+| Change | Files |
+| --- | --- |
+| `replay` command and `replay_lanes()`, wider repeat test | `integrate_parts.py`, `selftest_integrate.py` |
+| Fix lanes section, brief template | `lane-integration`, `templates/fix-lane-brief.md`, `modeler.md`, `parallel.md`, `scene-pipeline` |
+| `--baseline`, `new`, `baseline`, `keys`, the batch check | `lint_blender.py`, `selftest_lint.py`, `scene-lint`, `blender-worker.md`, `scene-pipeline`, `supervisor` |
+| `pipeline-clerk` agent | `.claude/agents/pipeline-clerk.md`, `review-pairs`, `gate-board`, `scene-pipeline`, `agents.md`, `README.md` |
+
+Both self-tests pass. On a copy of an earlier project's file, unchanged against itself: `NEW blocker=0 major=0 minor=0 gone=0`, about 11 s. Two test lanes went through the merge test in about 2.4 s, and a prop lifted 3 m came out as the one new major. Not yet run on a real fix round, and the clerk hasn't run at all: a session sees a new agent type only after it restarts.

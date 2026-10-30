@@ -9,10 +9,11 @@ You talk to the manager, through the Claude Code session and the two pages. Only
 | Researchers | Real-world reference; how professionals build this kind of scene; fixes for problems that keep failing; retro input | Sonnet | No | `research.md`, `metrics.yaml`, `workflow-notes.md`, `pro-tips.md` |
 | Toolbox scanner | Finds tools, researches only new or changed ones, writes an instruction file per tool | Sonnet | No (read-only) | `toolbox/`, `plan/toolbox.md` |
 | Generator | Submits every generation job in a batch at once (Tripo Studio in the browser, or Magnific), downloads results, logs credits | Sonnet | No | `source/` meshes, spec `generated` blocks |
-| Modeler (up to 4 at once) | Kit pieces, props, hero assets, generated mesh repair, headless on one asset file each | **Opus** | Own asset files only | Meshes, `kit/*.md` |
+| Modeler (up to 4 at once) | Kit pieces, props, hero assets, generated mesh repair, headless on one asset file each. Also fix lanes: tested patches on copies of the gate (`lane-integration`) | **Opus** | Own asset files only | Meshes, `kit/*.md`, `parts/<lane>/patches.py` |
 | Asset Tech (1 or 2) | Collision, LODs where Nanite can't be used, UV and texel checks, FBX export, re-import check | Sonnet | Own asset files only | FBX, `assets/<id>/` checks |
 | Unreal worker | Blockout, assembly, PCG, placement, lighting passes, captures, stats on the Unreal routes. Short jobs, a fresh worker per batch of steps | **Opus** | Yes, Unreal | Level, `stats.json` |
 | Blender worker | Blockout, placement and transfer on Blender then Unreal; everything including lighting on the CG route. Short jobs, a fresh worker per batch of steps | **Opus** | Yes, Blender | `.blend`, `stats.json`, `transfer/` |
+| Pipeline clerk | Scripted round work: before/after pairs and gate posts, from a fix list and gate pack the manager wrote. Judges nothing | Sonnet | No | `reviews/<gate>-r<n>/pairs/`, gate entries |
 | Supervisor | Correctness: scale, overlaps, specs, budgets, value ranges. Runs `scene-lint` first | Opus | No | `review.md`, fix list |
 | Art Director | Look and believability against real references | Opus | No | `ad-notes.md` |
 
@@ -37,14 +38,15 @@ New in v4. Runs the `modeling` skill, which starts by choosing a method per asse
 
 When a spec has reference views, it loads `blender-image-to-3d` then, not at start-up. It writes the chosen method into the asset spec, classifies the shape (axial, symmetric, asymmetric or multi-volume, each with its own construction method), builds at real scale, runs the validation script, and logs one lesson per review in `feedback/modeling.md`.
 
-## Asset Tech and Generator
+## Asset Tech, Generator and pipeline clerk
 
-New in v5, for the repetitive half of asset work that studios give to technical artists and outsourcing:
+New in v5 (the clerk came later), for the repetitive half of the work that studios give to technical artists and outsourcing:
 
 - **Asset Tech** finishes each mesh after the Modeler: collision (`collision-proxy`), LODs only where Nanite can't be used (`lod-pipeline`), UV, texel density and naming checks, FBX export, then `validate.py` and `roundtrip.py` from `blender-image-to-3d`. It sends shape problems back to the Modeler instead of fixing form itself.
+- **Pipeline clerk** runs `review-pairs` and `gate-board` posts, the scripted part of every round. On one round these took 51 active minutes and 640,000 output tokens on the default model. The manager still merges the fix list and `review.md`, and reads the user's decisions.
 - **Generator** runs generation for `source: generate` specs: inputs, credit check, every job submitted at once, downloads to `<work_dir>/assets/<id>/source/`, and the `generated` block in the spec. Tripo stand-ins and Magnific go through `generated-asset`.
 
-Both run on Sonnet because their work is scripted and checked by numbers. That's a deliberate exception to Opus for scene work; change `model:` in their agent files if you'd rather have Opus.
+All three run on Sonnet because their work is scripted and checked by numbers. That's a deliberate exception to Opus for scene work; change `model:` in their agent files if you'd rather have Opus.
 
 ## Toolbox scanner
 
@@ -104,7 +106,7 @@ Set per agent in `.claude/agents/*.md` (`house-rules` 13).
 | Agents | Model | Effort |
 | --- | --- | --- |
 | Unreal worker, Blender worker, Modeler, supervisor, Art Director, input reviewer | Opus | High for the two workers, the agent default for the rest |
-| Asset Tech, Generator | Sonnet | Medium, low |
+| Asset Tech, pipeline clerk, Generator | Sonnet | Medium, medium, low |
 | Researcher, toolbox scanner | Sonnet | Medium, low |
 
 Check that `CLAUDE_CODE_EFFORT_LEVEL` isn't set on your PC: it silently overrides every agent's `effort`.
@@ -115,7 +117,7 @@ All in `.claude/skills/`. Credits for adapted skills: `.claude/skills/CREDITS.md
 
 | Stage | Skills |
 | --- | --- |
-| Manager | `house-rules`, `scene-pipeline` (with `docs/pipeline/routes.md`), `gate-board`, `checkpoint` |
+| Manager | `house-rules`, `scene-pipeline` (with `docs/pipeline/routes.md`), `gate-board` (the clerk posts, the manager reads decisions), `checkpoint` |
 | 0 | `scene-intake`, `input-review`, `scene-interview` |
 | 1 | `reference-research`, `workflow-research`, `detail-inventory`, `toolbox-scan` |
 | 2 | `layout-2d`, `lighting-brief`, `level-design` (walkable game scenes) |
@@ -123,6 +125,6 @@ All in `.claude/skills/`. Credits for adapted skills: `.claude/skills/CREDITS.md
 | 4 | `modular-kit`, `modeling`, `blender-image-to-3d`, `generated-asset`, `collision-proxy`, `lod-pipeline`, `environment-artist` |
 | 5 | `placement-phases`, `set-dressing`, `geometry-nodes` (Blender routes), `scene-lint` |
 | 6–8 | `lighting-passes` |
-| Reviews | `scene-lint`, `supervisor`, `art-director`, `review-pairs` |
+| Reviews | `scene-lint`, `supervisor`, `art-director`, `review-pairs` (the clerk runs it) |
 | 9 | `texturing-handoff`, `retro` |
 | Adapters | `unreal-adapter`, `blender-adapter` (tool names, conventions, captures, stats, validation, palette, transfer), `ue5-mcp` (Unreal gotchas; the Unreal worker reads the digest in `unreal-adapter` and loads `ue5-mcp` only when it needs more), plus Epic's `unreal-mcp` plugin skill |
