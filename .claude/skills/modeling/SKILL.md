@@ -42,6 +42,7 @@ Single volume or several volumes joined into one mass. A single volume is axial 
 3. **Build the detail with the chosen method.**
 4. **Contact and placement.** Nothing floats and nothing intersects by accident. For CG, leave a tiny gap so the contact shadow reads. For games, snap kit pieces exactly and sink organic objects such as rocks slightly into the ground.
 5. **Pivot and parent.** The pivot goes at the bottom centre, or at the kit grid origin for kit pieces. For a multi-part product, parent all parts to an empty at the bottom centre so the whole thing can be snapped onto a surface. Cameras and lights are never parented to it.
+6. **No wear.** Grime, stains, drips, rust, cracks, chips, dents and peeling are the user's texturing work: keep surfaces clean and list them in the spec's notes. Model damage only when the user asks for it.
 
 ## 4. Validate (scripted, every asset)
 

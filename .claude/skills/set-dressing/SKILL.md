@@ -11,7 +11,7 @@ Tell the story through placement: controlled clutter in readable clusters.
 
 ## Order
 
-Layout locked, then hero narrative props (P5), story clusters (P6), small clutter inside clusters (P7), wear (P8: silhouette damage as geometry, the rest as texturing notes), then a lighting check with the rough rig.
+Layout locked, then hero narrative props (P5), story clusters (P6), small clutter inside clusters (P7), wear (P8: texturing notes; silhouette damage only when the user asks), then a lighting check with the rough rig.
 
 ## Density by zone
 
@@ -26,7 +26,7 @@ Layout locked, then hero narrative props (P5), story clusters (P6), small clutte
 
 1. Pick a story beat: a meal left behind, a workbench in use, a hurried escape. Take it from the brief's context and the research's wear-and-story notes.
 2. Place 3 to 7 props that sell that beat. Real placement: things sit where hands put them, against walls and on surfaces, at the heights from the metrics.
-3. Add 1 or 2 wear cues: geometry only when they change the silhouette, otherwise a line in `handoff/wear-notes.md`.
+3. Note 1 or 2 wear cues in `handoff/wear-notes.md` for the user's texturing; don't model them.
 4. Stop. Don't fill every surface.
 
 ## Rules

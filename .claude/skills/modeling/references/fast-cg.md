@@ -20,7 +20,7 @@ For the Blender-only CG route, and for vistas or set extensions on any route. Th
 | Photo-to-building | Start from a cube in the photo's perspective, project the photo, extrude window and door recesses, then add a few real 3D pieces (sills, AC units, cables) | Background buildings in minutes, e.g. a shop front in about 14 minutes |
 | Kitbash | Combine existing pieces into new forms | Machinery, rooftops, greebles |
 | Camera projection | Project a matte painting or plate from the shot camera onto simple geometry | Set extensions, far vistas |
-| Imperfection pass | Add noise displacement, slight random rotation, bent edges, and decals | Breaking up CG perfection in `full_cg` only; in the blockout modes, wear is a texturing note |
+| Imperfection pass | Add noise displacement, slight random rotation, bent edges, and decals | Only when the user asks for it; otherwise wear is the user's texturing work |
 
 ## Limits
 

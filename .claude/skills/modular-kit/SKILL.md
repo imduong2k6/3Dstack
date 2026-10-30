@@ -12,7 +12,7 @@ The kit plan comes first; the Modeler builds pieces from the specs with the `mod
 1. **Count the repeats** in the blockout. Pieces that repeat become kit pieces; one-offs become props.
 2. **Grid:** pick it from the blockout (for example 0.5 m snapping, with 1, 2 and 4 m wall widths). Pivots go on a grid corner.
 3. **Trim sheet first.** Design one trim sheet (mouldings, frames, skirting, panel edges) and the tiling materials before modelling, so pieces are UV'd once. Assign each surface a `material_group` from the palette groups.
-4. **Piece list:** straight, corner, T-junction, end, door, window, transitions, and floor and ceiling tiles. Add a broken variant only when the story needs a silhouette change; dirt, stains, cracks and chips are material variants, not mesh variants. Recesses for doors and windows are part of the wall piece.
+4. **Piece list:** straight, corner, T-junction, end, door, window, transitions, and floor and ceiling tiles. Add a broken variant only when the user asks for one; dirt, stains, cracks and chips are the user's texturing work, not mesh variants. Recesses for doors and windows are part of the wall piece.
 5. **Collision and LOD plan** per piece type (see `modeling/references/game-models.md`).
 6. **Batches for the asset lane.** In `plan/assets.yaml`, give each asset a `batch` (pilot, kit, props, generated, hero) so the manager can split the work across Modelers by type. Hero assets get a Modeler to themselves.
 

@@ -88,7 +88,7 @@ Agent: the route's worker on Opus, the only agent that writes to the live editor
 | P5 | Anchor props and the hero piece |
 | P6 | Story clusters of 3 to 7 props |
 | P7 | Small clutter, inside clusters |
-| P8 | Wear and time: decals, grime, damage, repairs |
+| P8 | Wear and time: repairs. Grime, stains, drips, rust, cracks and chips are wear notes for the user's texturing, never meshes or decals |
 | P9 | Life and nature: foliage, animated assets |
 
 - Place only what the phase allows. Services follow the structure they hang from; fixtures only go where services reach; clutter only goes inside a cluster that explains it.

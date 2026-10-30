@@ -17,7 +17,7 @@ Run by the route's worker. Each phase places only what physically exists by then
 | P5 | Anchor props and the hero piece | Furniture move-in | Yellow |
 | P6 | Story clusters of 3 to 7 props | Occupancy | Orange |
 | P7 | Small clutter, inside clusters | Daily use | Orange |
-| P8 | Wear and time: damage that changes the silhouette, and repairs. Grime, stains, leaks, rust, cracks and chips are texturing notes, not meshes (in `full_cg`, decals are allowed) | Ageing | Not on the map |
+| P8 | Wear and time: repairs (patched panels, replaced parts), and silhouette damage only when the user asks for it. Grime, stains, drips, leaks, rust, cracks, chips and peeling are the user's texturing work: notes in `handoff/wear-notes.md`, never meshes, overlays or decals | Ageing | Not on the map |
 | P9 | Life and nature: foliage, animated assets, people | Living in it | Green, Red |
 
 ## Rules
@@ -36,7 +36,7 @@ Run by the route's worker. Each phase places only what physically exists by then
   - **In Unreal,** the end points become spline points on the same objects.
 - **Wall-mounted items sit on or in the wall.** Items that pass through a wall (vents, louvres, extract fans, AC units) get a real opening cut in the host wall, as an applied boolean, and sit with their frame flush on the wall face. Surface-mounted items touch the wall within 2 mm.
 - **Paper, posters, stickers and signs** are planes with an alpha cut-out for torn edges, subdivided only where they bend (`knowledge/paper-alpha-planes.md`).
-- **Wall shells stay simple shapes.** Chips and cracks are texturing notes; detailed damage is generated (`tripo-props`) only in `full_cg` or when the user asks for a detailed blockout.
+- **Wall shells stay simple shapes.** Chips, cracks and other wear are the user's texturing notes; damage is modelled or generated only when the user asks for it.
 - **Paired elements** (`mirror_of` on the map) are placed once and mirrored across their axis, each set into its recess in the shell.
 - CG route: place only what a hero camera sees, plus what casts shadows or reflections into the frame.
 - Game routes: checks and polish cover what a player can see from eye height anywhere along the walk paths, looking in any direction including up, plus the review cameras. The worker writes that set once (`visible_set.json`, from rays cast at points every 0.5 m along the paths). Problems outside it are Later, not fixes.
@@ -48,7 +48,7 @@ Run by the route's worker. Each phase places only what physically exists by then
 3. Save, run the stats script, and capture the camera set plus a close-up of what changed.
 4. Supervisor and Art Director review; post the board entry; commit with `checkpoint`.
 5. Fix rounds up to `max_rounds`, but at most two rounds of form polish: a third is only for a clear mistake against the reference, or in `camera_match` and `full_cg` a photo landmark that misses the fit rule (5 px at 600 x 800). Other form notes go to Later, into the texturing brief.
-6. Write each wear item you didn't model (and each Art Director wear note) into `handoff/wear-notes.md`: the surface, the kind of wear, where and how much.
+6. Write each wear item (and each Art Director wear note) into `handoff/wear-notes.md`: the surface, the kind of wear, where and how much.
 
 Steps 1 to 3 run after every phase. Step 4 runs per review group of the tier: S reviews P0 to P4 and P5 to P9 as two groups, M uses three (P0 to P4, P5 to P7, P8 to P9), L reviews every phase.
 
