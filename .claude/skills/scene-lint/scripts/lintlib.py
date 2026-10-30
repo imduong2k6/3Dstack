@@ -30,6 +30,7 @@ class Parser(argparse.ArgumentParser):
 # Every threshold and word list the checks use. A project's plan/lint_rules.yaml overrides single keys.
 DEFAULT_RULES = {
     "float_tol_m": 0.02,            # an object farther than this from everything that reaches the ground floats
+    "seat_gap_max_m": 0.002,        # an object that rests on something (within float_tol_m) must touch it: its lowest vertices at most this far off
     "penetration_tol_m": 0.02,      # smallest overlap of two solids' boxes (a depth proxy) that counts as interpenetration
     "origin_tol_m": 0.005, "origin_radius_m": 0.5, "origin_max_size_m": 4.0,   # larger objects are structure, authored around the origin
     "cable_anchor_tol_m": 0.05, "cable_entry_tol_m": 0.02, "cable_sag_max_ratio": 0.2,

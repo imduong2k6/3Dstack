@@ -696,11 +696,45 @@ def penetration(a, b, hits):
     return float(d[k]), ta[k].mean(0)
 
 
+def _seat_gap(a, others, reach, ok):
+    """How far `a` sits off whatever it touches, from every vertex (not samples): (gap, name of the other, point) or None when no
+    vertex is within `reach` of another. The gap is the smallest distance from a's lowest vertices (within `reach` of its lowest
+    point) to the others' faces, and from the others' vertices near a to a's faces (a peg or a bracket touching from below or the side);
+    0 when triangles cross. It stops at the first vertex within `ok`: that is a seat."""
+    low = a.verts[a.verts[:, 2] <= a.lo[2] + reach]
+    low = low[np.argsort(low[:, 2])]
+    best = None
+    for b in others:
+        if b.bvh is None:
+            continue
+        for p in low[np.all((low >= b.lo - reach) & (low <= b.hi + reach), axis=1)]:
+            h = b.bvh.find_nearest(Vector(p), reach)
+            if h[0] is not None and (best is None or h[3] < best[0]):
+                best = (h[3], b.name, p)
+                if best[0] <= ok:
+                    return best
+    for b in others:
+        if b.bvh is None:
+            continue
+        for p in b.verts[np.all((b.verts >= a.lo - reach) & (b.verts <= a.hi + reach), axis=1)]:
+            h = a.bvh.find_nearest(Vector(p), reach)
+            if h[0] is not None and (best is None or h[3] < best[0]):
+                best = (h[3], b.name, p)
+                if best[0] <= ok:
+                    return best
+    if best:
+        for b in others:
+            if b.bvh is not None and a.bvh.overlap(b.bvh):
+                return (0.0, b.name, best[2])
+    return best
+
+
 def check_float_and_overlap(c):
     r, g = c.rules, c.geo
     solids = [s for s in g.solids.values() if len(s.tris)]
     if not solids:
         c.skip("floating", "no rendered mesh")
+        c.skip("seat_gap", "no rendered mesh")
         return c.skip("interpenetration", "no rendered mesh")
     lo, hi = np.array([s.lo for s in solids]), np.array([s.hi for s in solids])
     tol, cache = r["float_tol_m"], {}
@@ -718,6 +752,20 @@ def check_float_and_overlap(c):
     c.add("floating", "major", len(subjects),
           [{"object": solids[i].name, "at": v3((lo[i] + hi[i]) / 2), "what": f"floats: no chain of touching objects (within {tol} m) reaches the ground"}
            for i in subjects if i not in seen], extra={"ground_z_m": round(float(gz), 3)})
+    # seat gap: floating allows float_tol_m of air, so an object seated 1 to 2 cm above its support is in the chain; measure the real gap
+    seat, seats, measured = r["seat_gap_max_m"], [], 0
+    for i in subjects:
+        s = solids[i]
+        if i not in seen or s.ob.get("seat_ok") or s.lo[2] <= gz + seat:  # out of the chain is `floating`'s; the ground itself rests on nothing
+            continue
+        res = _seat_gap(s, [solids[j] for j in np.where(np.all((lo <= hi[i] + tol) & (hi >= lo[i] - tol), axis=1))[0] if j != i], tol, seat)
+        if res:
+            measured += 1
+            if res[0] > seat:
+                seats.append({"object": s.name, "on": res[1], "gap_m": round(res[0], 4), "at": v3(res[2]),
+                              "what": f"seat gap: {res[0] * 1000:.1f} mm between its lowest vertices and {res[1]} (limit {seat * 1000:g} mm)"})
+    seats.sort(key=lambda it: -it["gap_m"])
+    c.add("seat_gap", "major", measured, seats)
     # interpenetration: boxes overlap by more than the tolerance on every axis AND surfaces cross
     pen, items, checked = r["penetration_tol_m"], [], 0
     allow = [(str(x).lower(), str(y).lower()) for x, y in r["overlap_allow"]]
@@ -1038,7 +1086,7 @@ def run_lint(project=None, out_dir=None, expect_file=None, only=None, skip=None,
             errors.append(name)
             c.checks[name] = {"status": "error", "error": f"{type(e).__name__}: {e}", "trace": traceback.format_exc()[-900:], "count": 0,
                               "counts": {k: 0 for k in CLASSES}, "items": []}
-        for k in (name, "cable_sag", "interpenetration"):
+        for k in (name, "cable_sag", "interpenetration", "seat_gap"):
             if k in c.checks and "seconds" not in c.checks[k]:
                 c.checks[k]["seconds"] = round(time.time() - t1, 2)
     totals = {k: sum(ch["counts"][k] for ch in c.checks.values()) for k in CLASSES}

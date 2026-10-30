@@ -134,7 +134,7 @@ def path(*pts, n=6):
 box("SM_Floor", (-6, -6, -0.1), (6, 6, 0), "COL_P1_Structure")
 multibox("SM_Wall_A", [((-4, 3, 0), (0.1, 3.2, 3)), ((0.5, 3, 0), (4, 3.2, 3)), ((0.1, 3, 0), (0.5, 3.2, 1.4)), ((0.1, 3, 2.0), (0.5, 3.2, 3))], "COL_P1_Structure")
 box("SM_Wall_B", (-4, -3.2, 0), (4, -3, 3), "COL_P1_Structure")
-box("SM_Vent_Good", (0.11, 2.9, 1.51), (0.49, 3.3, 1.89), "COL_P3_Services")            # inside the cut opening
+box("SM_Vent_Good", (0.1, 2.9, 1.5), (0.5, 3.3, 1.9), "COL_P3_Services")              # inside the cut opening, flush with its sides
 box("SM_Vent_Bad", (0.1, -3.3, 1.5), (0.5, -2.9, 1.9), "COL_P3_Services")              # through a solid wall
 multibox("SM_Wall_P", [((4.2, -3.2, 0), (5.2, -3.12, 3)), ((4.2, -3.12, 0), (4.5, -3.0, 3)), ((4.9, -3.12, 0), (5.2, -3.0, 3)),
                        ((4.5, -3.12, 0), (4.9, -3.0, 1.5)), ((4.5, -3.12, 1.9), (4.9, -3.0, 3))], "COL_P1_Structure")
@@ -152,6 +152,9 @@ box("Prop_Float_Pair_B", (4.5, -5.0, 1.5), (5.0, -4.5, 2.0))
 box("Prop_Overlap_A", (-5.5, -5.5, 0), (-5.0, -5.0, 0.5))
 box("Prop_Overlap_B", (-5.05, -5.4, 0.1), (-4.55, -4.9, 0.6))                              # 5 cm into A
 box("Prop_Touch_A", (-3.5, -5.5, 0), (-3.0, -5.0, 0.5))
+box("Prop_Seat_Gap", (-5.6, 2.0, 0.015), (-5.2, 2.4, 0.3))                               # 1.5 cm above the floor: inside the 2 cm touch tolerance, but not seated
+box("Prop_Seat_Ok", (-5.6, 2.8, 0.001), (-5.2, 3.2, 0.3))                                # 1 mm above it: seated
+box("Prop_Seat_Allowed", (-5.6, 3.6, 0.015), (-5.2, 4.0, 0.3), props={"seat_ok": 1})       # an intended gap
 box("Prop_Touch_B", (-3.005, -5.4, 0.1), (-2.5, -4.9, 0.6))                                # 5 mm into A: inside the tolerance
 box("Prop_At_Origin", (-0.4, -0.2, 0), (-0.1, 0.2, 0.3))                                 # object origin at (0, 0, 0)
 box("Prop_Origin_OK", (0.1, -0.2, 0), (0.4, 0.2, 0.3), props={"origin_ok": 1})
@@ -332,6 +335,10 @@ for o in ("Prop_Float", "Prop_Float_Pair_A", "Prop_Float_Pair_B", "Enclosed_Floa
     check(o in fl, f"floating: expected {o}, got {sorted(fl)}")
 for o in ("Prop_Crate", "SM_Vent_Good", "Box_A", "Box_Post_H1", "SM_Door_Ok", "Prop_Touch_A", "Stub_Review_Bad"):
     check(o not in fl, f"floating: {o} rests on something, got {sorted(fl)}")
+sg = {it["object"]: it for it in C["seat_gap"]["items"]}
+check(set(sg) == {"Prop_Seat_Gap"} and abs(sg["Prop_Seat_Gap"]["gap_m"] - 0.015) < 0.0005 and sg["Prop_Seat_Gap"]["on"] == "SM_Floor" and sg["Prop_Seat_Gap"]["class"] == "major",
+      f"seat gap: the 1.5 cm prop only (1 mm, flush, crossing, seat_ok and floating objects pass): {sg}")
+check("Prop_Seat_Gap" not in fl, "the 1.5 cm prop is inside the touch tolerance, so `floating` passes it and seat_gap catches it")
 pen = flagged(rep, "interpenetration")
 check("Prop_Overlap_A x Prop_Overlap_B" in pen or "Prop_Overlap_B x Prop_Overlap_A" in pen, f"interpenetration missed the 5 cm overlap: {sorted(pen)}")
 check(not any("Prop_Touch" in p for p in pen), f"interpenetration flagged a 5 mm overlap: {sorted(pen)}")
