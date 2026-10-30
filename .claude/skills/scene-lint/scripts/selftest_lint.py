@@ -540,6 +540,99 @@ check(p.returncode == 2 and "NEW blocker=0 major=0 minor=0 gone=0" in p.stdout, 
 p = subprocess.run(cmd[:-2] + ["--out", os.path.join(out, "cli5"), "--baseline", os.path.join(out, "nope.json")], capture_output=True, text=True)
 check(p.returncode == 1 and "LINT ERROR" in p.stdout, f"CLI exit code {p.returncode} (want 1) for a missing baseline")
 
+# cable_in_rigid and the stable cable_ends key, in a fresh small scene so the tallies above stay as they are
+bpy.ops.wm.read_factory_settings(use_empty=True)
+sc = bpy.context.scene
+MAT = bpy.data.materials.new("M_Test")
+MAT["material_group"] = "plaster"
+cols.clear()
+col("COL_P3_Services")
+
+
+def open_tube(name, pts, radius):
+    """A single-surface tube with open ends: a conduit whose bore is open."""
+    bm = bmesh.new()
+    _tube(bm, pts, radius, 8)
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if len(f.verts) == 3], context="FACES")
+    return finish(name, bm, "COL_P3_Services")
+
+
+# a conduit and a rotated, scaled linked duplicate of it: the cable through the duplicate is a defect, the one 3 cm off its wall is not
+src = tube("SM_Conduit_Straight_Src", path((0, 0, 0), (0, 0, 1), n=3), radius=0.03, k=16)
+dup = bpy.data.objects.new("SM_Conduit_Straight_Inst", src.data)
+dup.location, dup.rotation_euler, dup.scale = (3, -2, 0.5), (0.6, 0.4, 1.1), (1.5, 1.5, 1.2)
+link(dup, "COL_P3_Services")
+bpy.context.view_layer.update()
+mw = dup.matrix_world
+mid, ax, side = mw @ Vector((0, 0, 0.5)), (mw.to_3x3() @ Vector((0, 0, 1))).normalized(), (mw.to_3x3() @ Vector((1, 0, 0))).normalized()   # 4.5 cm radius, 1.2 m long
+tube("Cable_Thru_Inst", path(mid - side * 0.15, mid + side * 0.15, n=12), radius=0.004)
+tube("Cable_Near_Inst", path(mid + side * 0.079 - ax * 0.3, mid + side * 0.079 + ax * 0.3, n=12), radius=0.004)
+# a straight pipe: a cable lying 15 mm into it, a cable lying on it (2 mm in)
+tube("SM_Pipe_Straight_A", path((0, 5, 0.5), (2, 5, 0.5), n=8), radius=0.05, k=16)
+tube("Cable_In_Pipe", path((0.4, 5, 0.545), (1.6, 5, 0.545), n=12))
+tube("Cable_On_Pipe", path((0.4, 5, 0.442), (1.6, 5, 0.442), n=12))
+# a thin sign board: a cable through it, a cable 2 cm in front of it, a marked cable through it
+box("SM_Sign_Board_A", (5, 5.0, 0.5), (6, 5.03, 1.1), "COL_P3_Services")
+tube("Cable_Thru_Sign", path((5.5, 4.8, 0.8), (5.5, 5.25, 0.8), n=12))
+tube("Cable_Ahead_Sign", path((5.2, 4.97, 0.6), (5.2, 4.97, 1.0), n=8))
+tube("Cable_Marked", path((5.8, 4.8, 0.8), (5.8, 5.25, 0.8), n=12), props={"overlap_ok": 1})
+# boxes: a cable that ends inside one passes, a cable through one does not
+box("SM_JunctionBox_A", (8, 5, 0.5), (8.14, 5.07, 0.63), "COL_P3_Services")
+tube("Cable_End_In_J", path((8.07, 4.7, 0.565), (8.07, 5.035, 0.565), n=8))
+box("SM_JunctionBox_B", (9, 5, 0.5), (9.14, 5.07, 0.63), "COL_P3_Services")
+tube("Cable_Pass_J", path((9.07, 4.7, 0.565), (9.07, 5.4, 0.565), n=10))
+# never hosts: a saddle, a wall, a box tagged kind=anchor by hand
+box("SM_Saddle_A", (11, 5, 0.5), (11.1, 5.1, 0.6), "COL_P3_Services")
+tube("Cable_Pass_Saddle", path((11.05, 4.7, 0.55), (11.05, 5.4, 0.55), n=10))
+box("SM_Wall_X", (13, 5, 0), (13.2, 6, 3), "COL_P3_Services")
+tube("Cable_Pass_Wall", path((13.1, 4.7, 1), (13.1, 6.3, 1), n=10))
+box("Block_Tagged", (15, 5, 0.5), (15.1, 5.1, 0.6), "COL_P3_Services", props={"kind": "anchor"})
+tube("Cable_Pass_Anchor", path((15.05, 4.7, 0.55), (15.05, 5.4, 0.55), n=10))
+# a cable in its conduit: from the end of a capped solid tube and of an open tube, coaxial; one that leaves through the wall is not
+tube("SM_Conduit_Straight_Cap", path((17, 5, 0.5), (18, 5, 0.5), n=8), radius=0.03, k=16)
+tube("Cable_Cap_Run", path((16.7, 5, 0.5), (17.8, 5, 0.5), n=11))
+tube("SM_Conduit_Straight_Cap2", path((17, 6, 0.5), (18, 6, 0.5), n=8), radius=0.03, k=16)
+tube("Cable_Cap_Exit", path((16.7, 6, 0.5), (17.3, 6, 0.5), (17.3, 6, 0.9), n=6))
+open_tube("SM_Conduit_Straight_Open", path((20, 5, 0.5), (21, 5, 0.5), n=8), 0.03)
+tube("Cable_Open_Run", path((19.7, 5, 0.5), (20.6, 5, 0.5), n=9))
+rig = lint.run_lint(project=None, out_dir=os.path.join(out, "cir"), only=["cable_in_rigid"])
+ci = {it["object"]: it for it in rig["checks"]["cable_in_rigid"]["items"]}
+want = {"Cable_Thru_Inst x SM_Conduit_Straight_Inst", "Cable_In_Pipe x SM_Pipe_Straight_A", "Cable_Thru_Sign x SM_Sign_Board_A",
+        "Cable_Pass_J x SM_JunctionBox_B", "Cable_Cap_Exit x SM_Conduit_Straight_Cap2"}
+check(set(ci) == want and rig["checks"]["cable_in_rigid"]["checked"] == 14 and not rig["summary"]["errors"], f"cable_in_rigid: expected {sorted(want)}, got {sorted(ci)}")
+check(all(it["class"] == "major" and it["what"].startswith("cable runs through ") for it in ci.values()), "cable_in_rigid is a major, one item per pair")
+check(rig["checks"]["cable_in_rigid"]["pairs_inside"] == 8, f"the 5 defects and the 3 allowed cases (end in a box, in a capped conduit, in an open one) all go deep: {rig['checks']['cable_in_rigid']['pairs_inside']}")
+dp = {k.split(" x ")[0]: it["depth_m"] for k, it in ci.items()}
+check(0.035 < dp["Cable_Thru_Inst"] < 0.046 and 0.014 < dp["Cable_In_Pipe"] < 0.016 and 0.013 < dp["Cable_Thru_Sign"] < 0.016,
+      f"depths: the 4.5 cm duplicate's axis, 15 mm into the pipe, the middle of a 3 cm board: {dp}")
+# a limit and a token pair in the rules file
+rules_path = os.path.join(out, "cir_rules.yaml")
+open(rules_path, "w").write("cable_rigid_depth_max_m: 0.02\noverlap_allow:\n  - [thru, board]\n")
+rig2 = lint.run_lint(project=None, out_dir=os.path.join(out, "cir2"), only=["cable_in_rigid"], rules=rules_path)
+check({it["object"] for it in rig2["checks"]["cable_in_rigid"]["items"]} == {"Cable_Thru_Inst x SM_Conduit_Straight_Inst", "Cable_Pass_J x SM_JunctionBox_B", "Cable_Cap_Exit x SM_Conduit_Straight_Cap2"},
+      f"cable_rigid_depth_max_m 0.02 passes the 15 mm pipe case, overlap_allow clears the sign board: {[it['object'] for it in rig2['checks']['cable_in_rigid']['items']]}")
+# the key of a cable_ends dead end ignores its reason: the end moves 1 cm into the wall and its text flips from "enters" to "buried"
+box("SM_Wall_K", (-1, 5.0, 0), (1, 5.2, 2), "COL_P3_Services")
+box("SM_JunctionBox_K", (-0.1, 4.5, 0.9), (0.1, 4.6, 1.1), "COL_P3_Services")
+tube("Cable_Key", path((0, 4.6, 1.0), (0, 5.0, 1.0), n=6))
+k1 = lint.run_lint(project=None, out_dir=os.path.join(out, "key1"), only=["cable_ends"])
+tube("Cable_Key2", path((0, 4.6, 1.0), (0, 5.01, 1.0), n=6))
+bpy.data.objects.remove(bpy.data.objects["Cable_Key"])
+bpy.data.objects["Cable_Key2"].name = "Cable_Key"
+k2 = lint.run_lint(project=None, out_dir=os.path.join(out, "key2"), only=["cable_ends"], baseline=os.path.join(out, "key1", "lint.json"))
+d1 = [it for it in k1["checks"]["cable_ends"]["items"] if it["object"] == "Cable_Key"]
+d2 = [it for it in k2["checks"]["cable_ends"]["items"] if it["object"] == "Cable_Key"]
+check(len(d1) == len(d2) == 1 and d1[0]["reason"].startswith("enters") and d2[0]["reason"].startswith("buried") and d1[0]["end"] == d2[0]["end"], f"the end changes its reason: {d1} {d2}")
+check(k2["new"] == {} and k2["baseline"]["gone"] == 0, f"a dead end whose reason flips is the same end, not new: {k2['new']}")
+moved = dict(d1[0], what="dead end: tail along SM_Wall_K", at=[d1[0]["at"][0] + 0.002, d1[0]["at"][1] - 0.003, d1[0]["at"][2]])
+check(lint.item_key(d1[0]) == lint.item_key(moved) and lint.item_key(d1[0]) != lint.item_key(dict(moved, end=d1[0]["end"] + 1)), "item_key: same cable, end number and position to 0.1 m")
+older = json.load(open(os.path.join(out, "key1", "lint.json")))
+for it in older["checks"]["cable_ends"]["items"]:
+    it.pop("end", None)   # a lint.json from before the end number: readable, and its dead ends read as new and gone once
+json.dump(older, open(os.path.join(out, "key_old.json"), "w"))
+k3 = lint.run_lint(project=None, out_dir=os.path.join(out, "key3"), only=["cable_ends"], baseline=os.path.join(out, "key_old.json"))
+check(k3["baseline"]["gone"] >= 1 and len(k3["new"]["cable_ends"]) == len(k2["checks"]["cable_ends"]["items"]), f"an older baseline reads as new and gone once: {k3['baseline']}")
+
 # the yaml subset reader
 y = lib.parse_yaml("a: 1\nb: [x, y]\nc:\n  d: true\n  e:\n    - p\n    - q\nf: 'z' # note\n")
 check(y == {"a": 1, "b": ["x", "y"], "c": {"d": True, "e": ["p", "q"]}, "f": "z"}, f"yaml subset: {y}")

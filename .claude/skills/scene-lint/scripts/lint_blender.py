@@ -35,7 +35,10 @@ MEASURE = re.compile(r"(?<![A-Za-z_])-?\d+(\.\d+)?")
 
 
 def item_key(it):
-    """A problem's identity between runs: its object and its text with the measured numbers taken out, so one that moved 2 mm is not new."""
+    """A problem's identity between runs: its object and its text with the measured numbers taken out, so one that moved 2 mm is not new.
+    A dead end of cable_ends is its cable, end number and position to 0.1 m: its reason flips (enters, tail along) on a tiny change."""
+    if "end" in it and it.get("at"):
+        return f"{it['object']}|end {it['end']}|" + ",".join(f"{round(x, 1) + 0.0:.1f}" for x in it["at"])
     return f"{it['object']}|{MEASURE.sub('#', it.get('what', ''))}"
 LIGHT_TYPES = {"point": "POINT", "area": "AREA", "spot": "SPOT", "sun": "SUN", "directional": "SUN"}
 DEFAULT_NAMES = re.compile(r"^(Cube|Plane|Sphere|Cylinder|Cone|Torus|Circle|Grid|Monkey|Suzanne|Icosphere|Empty|Mesh|Curve|Text|"
@@ -59,6 +62,13 @@ class Ctx:
         self.lo, self.hi = (np.array([s.lo for s in self.slist]), np.array([s.hi for s in self.slist])) if self.slist else (np.zeros((0, 3)), np.zeros((0, 3)))
         self.checks = {}
         self.all_items = {}
+        self._ends = {}
+
+    def cable_ends(self, s):
+        """read_ends for a cable, once per run (cable_ends and cable_in_rigid both read them)."""
+        if s.name not in self._ends:
+            self._ends[s.name] = read_ends(s, self.dg, self.rules["cap_max_m"])
+        return self._ends[s.name]
 
     def containing(self, p, exclude=()):
         """Solids that enclose the point p (box first, then ray parity)."""
@@ -572,7 +582,7 @@ def check_cables(c):
     rows = {}
     anchor_kinds = {"anchor"}
     for s in cables:
-        pieces, bad, method = read_ends(s, c.dg, r["cap_max_m"])   # a bundle reads strand by strand; a piece that can't be read is listed, never guessed
+        pieces, bad, method = c.cable_ends(s)   # a bundle reads strand by strand; a piece that can't be read is listed, never guessed
         rows[s.name] = row = {"method": method, "ends": [], "pieces": [], "unresolved": bad}
         for ends, verts in pieces:
             first = len(row["ends"])
@@ -610,9 +620,9 @@ def check_cables(c):
         if row["unresolved"]:
             items.append({"object": s.name, "class": "minor", "pieces": row["unresolved"], "what": unread_text(row["unresolved"])})
             unresolved.append(s.name)
-        for e in row["ends"]:  # one item per dead end: the list is the fix target list
+        for i, e in enumerate(row["ends"]):  # one item per dead end: the list is the fix target list
             if e["class"] == "dead_end":
-                items.append({"object": s.name, "reason": e["via"], "at": e["at"], "surface": e["surface"], "what": f"dead end: {e['via']} at {e['at']}",
+                items.append({"object": s.name, "end": i, "reason": e["via"], "at": e["at"], "surface": e["surface"], "what": f"dead end: {e['via']} at {e['at']}",
                               "seen_by": c.seen_by(s.name)})
         for idx, verts in row["pieces"]:  # sag per strand: first end to the farthest end of the same piece
             pe = [row["ends"][i]["at"] for i in idx]
@@ -658,6 +668,187 @@ def check_conduit_ends(c):
         if bad:
             items.append({"object": s.name, "what": f"{len(bad)} open end(s) at {bad}: meets no conduit, fitting, box, meter, fixture or wall", "seen_by": c.seen_by(s.name)})
     c.add("conduit_open_ends", "major", len(conduits), items, extra={"ends_checked": ends_n, "unresolved": unresolved})
+
+
+def _pieces(n, tris):
+    """The connected piece of every vertex of a mesh, as the lowest vertex index in it: the strands of a bundle, the pipes of a merged run."""
+    lab = np.arange(n)
+    if not len(tris):
+        return lab
+    e = np.concatenate([tris[:, :2], tris[:, 1:], tris[:, ::2]])
+    while True:
+        la, lb = lab[e[:, 0]], lab[e[:, 1]]
+        new = lab.copy()
+        np.minimum.at(new, la, np.minimum(la, lb))
+        np.minimum.at(new, lb, np.minimum(la, lb))
+        new = new[new]
+        if np.array_equal(new, lab):
+            return lab
+        lab = new
+
+
+def _edge_samples(s, step, piece):
+    """Points to test a cable from, and the piece of each: its vertices plus a point every `step` m along each triangle edge (a long
+    edge between two rings has no vertex in its middle)."""
+    if not len(s.tris):
+        return s.verts, piece
+    n = len(s.verts)
+    e = np.unique(np.sort(s.tris[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1).astype(np.int64) @ [n, 1])   # one key per edge
+    a, b = e // n, e % n
+    m = np.ceil(np.linalg.norm(s.verts[b] - s.verts[a], axis=1) / step).astype(int)   # segments per edge
+    cnt = np.maximum(m - 1, 0)
+    k = np.repeat(np.arange(len(e)), cnt)
+    j = np.arange(len(k)) - np.repeat(np.cumsum(cnt) - cnt, cnt) + 1
+    return (np.concatenate([s.verts, s.verts[a[k]] + (s.verts[b[k]] - s.verts[a[k]]) * (j / m[k])[:, None]]),
+            np.concatenate([piece, piece[a[k]]]))
+
+
+def _frame(s):
+    """(rotation, centre, half extents) of the tighter of s's world box and its principal-axes box: `p @ rotation - centre` inside +-half
+    is the box test. A point deeper than d inside a solid is inside this box shrunk by d (the way out to the box is never shorter)."""
+    best = None
+    vec = np.linalg.eigh(np.cov((s.verts[::max(1, len(s.verts) // 20000)] - s.verts.mean(0)).T))[1]
+    for rot in (np.eye(3), vec):
+        q = s.verts @ rot
+        lo, hi = q.min(0), q.max(0)
+        if best is None or np.prod(hi - lo) < best[3]:
+            best = (rot, (lo + hi) / 2, (hi - lo) / 2, np.prod(hi - lo))
+    return best[:3]
+
+
+def _tube(v):
+    """(centre, axis, radius, t0, t1) when the vertices v are one straight round tube (nearly every vertex, and every one within 15 %, at
+    one radius from one axis, and at least two diameters long): a conduit or pipe a cable may run into from its end. Else None."""
+    mid = v.mean(0)
+    ax = np.linalg.eigh(np.cov((v[::max(1, len(v) // 20000)] - mid).T))[1][:, 2]
+    t = (v - mid) @ ax
+    rho = np.linalg.norm(v - mid - np.outer(t, ax), axis=1)
+    rad = float(np.median(rho))
+    return (mid, ax, rad, float(t.min()), float(t.max())) if rad > 1e-3 and rho.max() <= 1.15 * rad and np.percentile(rho, 20) >= 0.85 * rad and np.ptp(t) >= 4 * rad else None
+
+
+def _in_its_conduit(tube, pts, ends, zone):
+    """A cable in its conduit: the cable's samples `pts` that are inside the tube run along its axis (or are a short stub of a cable end
+    that enters along it) and reach one of its ends, and none sits just outside the wall between the ends, which would be a cable
+    through the wall."""
+    mid, ax, rad, t0, t1 = tube
+    d = pts - mid
+    t = d @ ax
+    rho = np.linalg.norm(d - np.outer(t, ax), axis=1)
+    if np.any((t > t0 + 0.01) & (t < t1 - 0.01) & (rho > rad) & (rho < rad + 0.03)):
+        return False
+    inside = pts[(t > t0) & (t < t1) & (rho < rad)]
+    ti = (inside - mid) @ ax
+    if not len(inside) or (ti.min() > t0 + 0.02 and ti.max() < t1 - 0.02):   # it never comes from an end
+        return False
+    if len(inside) >= 3:
+        ev, vec = np.linalg.eigh(np.cov((inside - inside.mean(0)).T))
+        if ev[2] >= 4 * ev[1] and abs(vec[:, 2] @ ax) >= 0.95:
+            return True
+    return any(abs(np.array(out) @ ax) >= 0.95 and np.linalg.norm(inside - np.array(e), axis=1).max() <= zone + 2 * rad for e, out in ends)
+
+
+def _embedded(h, e):
+    """How deep (m) the cable end e sits inside the solid h; 0.0 when it is on it (within 1 cm); None when it is clear of it."""
+    d = h.bvh.find_nearest(e)[3]
+    return d if h.inside(e) else (0.0 if d <= 0.01 else None)
+
+
+def _deeper_than(h, pts, tol):
+    """(depths, indexes into pts) of the points of `pts` that lie deeper than tol inside the solid h (depth: distance to its nearest
+    surface). A cell with no surface within its half-diagonal plus tol is one region: one ray test gives the state of all its points, and
+    inside they are all deeper than tol. Cells of 4 cm and then 1 cm shrink the points to the few near a surface, tested one by one."""
+    dep, ids, bvh, keep = [], [], h.bvh, np.arange(len(pts))
+    for cs in (0.04, 0.01):
+        if not len(keep):
+            break
+        cell = np.floor(pts[keep] / cs).astype(np.int64)
+        lo = cell.min(0)
+        span = cell.max(0) - lo + 1
+        key = ((cell[:, 0] - lo[0]) * span[1] + cell[:, 1] - lo[1]) * span[2] + cell[:, 2] - lo[2]
+        order = np.argsort(key, kind="stable")
+        start = np.flatnonzero(np.r_[True, np.diff(key[order]) != 0])
+        near = []
+        for a, b in zip(start, list(start[1:]) + [len(order)]):
+            idx = order[a:b]
+            if bvh.find_nearest(Vector((cell[idx[0]] + 0.5) * cs), cs * 0.8660254 + tol + 1e-6)[0] is not None:
+                near.append(keep[idx])
+            elif h.inside(Vector((cell[idx[0]] + 0.5) * cs)):
+                dep += [bvh.find_nearest(Vector(pts[i]))[3] for i in keep[idx]]
+                ids += list(keep[idx])
+        keep = np.concatenate(near) if near else keep[:0]
+    for i in keep:
+        d = bvh.find_nearest(Vector(pts[i]))[3]
+        if d > tol and h.inside(pts[i]):
+            dep.append(d)
+            ids.append(i)
+    return np.array(dep), np.array(ids, dtype=int)
+
+
+def check_cable_in_rigid(c):
+    r, g = c.rules, c.geo
+    cables = [s for s in g.of_kind("cable") if s.ob.type in ("MESH", "CURVE") and len(s.verts)]
+    if not cables:
+        return c.skip("cable_in_rigid", "no object is a cable (tag kind=cable or name one)")
+    tol, zone = r["cable_rigid_depth_max_m"], r["cable_end_zone_m"]
+    skip_words = set(r["tokens"]["cable_hold"]) | set(r["tokens"]["shell"])   # holders and shells, read from the object's own name
+    prop = lambda ob: {x.strip().lower() for x in str(ob.get("kind") or "").split(",") if x.strip()}
+    allow = [(str(x).lower(), str(y).lower()) for x, y in r["overlap_allow"]]
+    hosts = [s for s in c.slist if "cable" not in s.kinds and s.ob.type != "FONT" and not s.ob.get("overlap_ok")
+             and not (L.tokens(s.name) & skip_words) and not (prop(s.ob) & {"anchor", "wall"})]
+    hlo, hhi = np.array([h.lo for h in hosts]).reshape(-1, 3), np.array([h.hi for h in hosts]).reshape(-1, 3)
+    frames, labels, tubes, items, pairs = {}, {}, {}, [], 0
+    for s in cables:
+        if not c.scoped(s.name) or s.ob.get("overlap_ok"):
+            continue
+        piece = _pieces(len(s.verts), s.tris)   # a strand of a bundle is judged on its own
+        pts, pc = _edge_samples(s, 0.004, piece)   # 4 mm: a conduit wall or a thin board is crossed by at least one sample
+        ends = [(e, out, int(piece[np.argmin(((s.verts - vs[0]) ** 2).sum(1))])) for es, vs in c.cable_ends(s)[0] for e, out in es]   # (point, outward direction, piece)
+        for i in np.where(np.all((hlo <= pts.max(0)) & (hhi >= pts.min(0)), axis=1))[0]:
+            h = hosts[i]
+            ta, tb = L.tokens(s.name), L.tokens(h.name)
+            if any((x in ta and y in tb) or (y in ta and x in tb) for x, y in allow):
+                continue
+            sub = np.flatnonzero(np.all((pts >= h.lo) & (pts <= h.hi), axis=1))
+            if not len(sub):
+                continue
+            rot, ctr, half = frames[h.name] if h.name in frames else frames.setdefault(h.name, _frame(h))
+            sub = sub[np.all(np.abs(pts[sub] @ rot - ctr) <= half - tol, axis=1)]
+            if not len(sub):
+                continue
+            depth, ids = _deeper_than(h, pts[sub], tol)
+            if not len(ids):
+                continue
+            ids = sub[ids]   # now indexes into pts
+            pairs += 1
+            keep = np.ones(len(ids), bool)
+            if h.kinds & {"tube", "conduit"}:   # a cable in its conduit, tube by tube and strand by strand
+                lab = labels[h.name] if h.name in labels else labels.setdefault(h.name, _pieces(len(h.verts), h.tris))
+                isl = lab[h.tris[[h.bvh.find_nearest(Vector(p))[2] for p in pts[ids]], 0]]
+                for k in np.unique(isl):
+                    if (h.name, k) not in tubes:
+                        tubes[(h.name, k)] = _tube(h.verts[lab == k])
+                    for j in np.unique(pc[ids][isl == k]):
+                        sel = (isl == k) & (pc[ids] == j)
+                        if tubes[(h.name, k)] and _in_its_conduit(tubes[(h.name, k)], pts[pc == j], [(e, o) for e, o, q in ends if q == j], zone):
+                            keep[sel] = False
+            elif "anchor" in h.kinds and "no_end" not in h.kinds:   # hardware: a cable that ends in or on it may be inside near that end
+                loose = ~np.isin(pc[ids], [j for _, _, j in ends])   # a piece with no end of its own (a ring, a sleeve) goes with the ends near it
+                for e, _, j in ends:
+                    emb = _embedded(h, e)
+                    if emb is None:
+                        continue
+                    keep &= ~((np.linalg.norm(pts[ids] - np.array(e), axis=1) <= zone + 2 * emb) & ((pc[ids] == j) | loose))   # the stub: the end zone plus twice the depth of the end
+            depth, ids = depth[keep], ids[keep]
+            if not len(ids):
+                continue
+            k = int(depth.argmax())
+            span = float(np.linalg.norm(np.ptp(pts[ids], axis=0)))
+            items.append({"object": f"{s.name} x {h.name}", "depth_m": round(float(depth[k]), 4), "inside_m": round(span, 3), "at": v3(pts[ids[k]]),
+                          "what": f"cable runs through {h.name}: up to {depth[k] * 1000:.0f} mm deep over {span * 100:.0f} cm (limit {tol * 1000:g} mm); lift it clear, or end it on the host's hardware",
+                          "seen_by": c.seen_by(s.name)})
+    items.sort(key=lambda it: -it["depth_m"])
+    c.add("cable_in_rigid", "major", sum(1 for s in cables if c.scoped(s.name) and not s.ob.get("overlap_ok")), items, extra={"hosts": len(hosts), "pairs_inside": pairs})
 
 
 def _touching(a, b, tol, cache):
@@ -1008,7 +1199,7 @@ def check_path_clearance(c):
 CHECKS = [("file_path", check_file_path), ("faces_no_material", check_faces_no_material), ("cameras_match", check_cameras),
           ("lights_match", check_lights), ("exposure_match", check_exposure), ("names_tags", check_names_tags),
           ("origin_objects", check_origin), ("visibility_states", check_visibility), ("wear_geometry", check_wear),
-          ("step_backup", check_steps), ("cable_ends", check_cables), ("conduit_open_ends", check_conduit_ends),
+          ("step_backup", check_steps), ("cable_ends", check_cables), ("cable_in_rigid", check_cable_in_rigid), ("conduit_open_ends", check_conduit_ends),
           ("floating", check_float_and_overlap), ("through_wall_openings", check_through_wall), ("door_sizes", check_doors),
           ("stair_risers", check_stairs), ("path_clearance", check_path_clearance)]
 # a function may write several checks (cable_ends + cable_sag, floating + interpenetration); the key is what --only/--skip name

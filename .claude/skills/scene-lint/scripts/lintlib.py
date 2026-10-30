@@ -12,6 +12,7 @@ import sys
 
 import bpy
 import numpy as np
+from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "blender-adapter", "scripts"))
@@ -35,6 +36,8 @@ DEFAULT_RULES = {
     "origin_tol_m": 0.005, "origin_radius_m": 0.5, "origin_max_size_m": 4.0,   # larger objects are structure, authored around the origin
     "cable_anchor_tol_m": 0.05, "cable_entry_tol_m": 0.02, "cable_sag_max_ratio": 0.2,
     "cable_end_hardware_m": 0.05,   # a cable end that enters a wall (or any bare surface) needs hardware (box, gland, sleeve...) this close, else it is a dead end
+    "cable_rigid_depth_max_m": 0.005,   # a cable (centreline or edges) deeper than this inside another solid is a defect (cable_in_rigid)
+    "cable_end_zone_m": 0.05,       # the last stretch of a cable that may enter a box, meter or terminal head-on (cable_in_rigid)
     "conduit_end_tol_m": 0.02, "cap_max_m": 0.4, "vent_pocket_min_m": 0.15,   # a blind pocket shallower than this reads as a vent on solid wall
     "door_min_width_m": 0.91, "door_min_height_m": 2.0,   # same limits as layout-2d/check_layout.py
     "passage_min_width_m": 0.91, "passage_window_m": 0.35,   # clear width = nearest left plus nearest right within this much path each way (a body depth)
@@ -55,6 +58,10 @@ DEFAULT_RULES = {
                    "panel", "ac", "aircon", "sign", "cage", "connector", "plug", "intercom", "riser", "cleat", "hook", "antenna",
                    "bulb", "holder", "batten", "pipe", "duct",
                    "service", "terminal", "splitter", "tvsplitter", "fuse", "cutout"],   # service heads, phone terminals, TV splitters, fuse bases and cut-outs take cable ends
+        "tube": ["conduit", "conduits", "pipe", "pipes", "duct", "ducts", "downpipe", "downpipes"],   # a straight one may hold a cable that runs in from its end (cable_in_rigid)
+        "cable_hold": ["saddle", "saddles", "clip", "clips", "strap", "straps", "tie", "ties", "cleat", "cleats", "gland", "glands",
+                       "sleeve", "sleeves", "collar", "collars", "clamp", "clamps", "bushing", "bushings", "tray", "trays", "trunking"],   # what holds a cable: never a host for cable_in_rigid
+        "shell": ["wall", "walls", "facade", "partition", "parapet", "floor", "floors", "ceiling", "ceilings", "soffit", "roof", "roofs"],   # read from the object's own name: a cable buried in one is cable_ends' job
         "through_wall": ["vent", "louvre", "louver", "fan", "extractor", "grille", "ac", "aircon"],
         "wall": ["wall", "walls", "facade", "partition"],
         "no_end": ["louvre", "louvres", "louver", "louvers", "window", "windows", "grille", "grilles", "shutter", "shutters",
@@ -71,6 +78,8 @@ DEFAULT_RULES = {
     },
     "exclude_tokens": {"cable": ["tray", "trunking", "duct", "box", "conduit", "bracket", "clip", "hanger", "reel", "label", "tag",
                                  "cover", "gland", "sleeve", "junction", "spool", "coil", "stand"],
+                       "tube": ["cable", "cables", "cbl", "wire", "wires", "box", "boxes", "saddle", "saddles", "clip", "clips", "strap", "straps",
+                                "clamp", "clamps", "bracket", "meter", "board", "junction", "jb"],
                        "conduit": ["cable", "cables", "cbl", "wire", "wires",   # boxes, saddles and clips are anchors a conduit ends at, not pieces with ends
                                    "box", "boxes", "saddle", "saddles", "clip", "clips", "strap", "straps", "clamp", "clamps", "bracket",
                                    "meter", "board", "junction", "jb"],
@@ -243,6 +252,9 @@ def viewport_visible(ob, view_layer):
 
 # ---- geometry ----------------------------------------------------------------
 
+INSIDE_RAYS = [Vector(v).normalized() for v in ((0.1234, 0.2711, 0.9546), (-0.8311, 0.4127, -0.3726), (0.3001, -0.9101, 0.2857))]
+
+
 class Solid:
     """One rendered object (an instancer counts as one) in world space."""
 
@@ -266,15 +278,15 @@ class Solid:
         return self._bvh
 
     def inside(self, p):
-        """Ray parity along three axes, majority vote (a back-facing nearest face on an open mesh is not 'inside'). A point within
-        0.1 mm of a face is not inside either: parity there is rounding noise."""
+        """Ray parity along three oblique directions, majority vote (a back-facing nearest face on an open mesh is not 'inside'; rays
+        along the axes graze the edges of axis-aligned boxes). A point within 0.1 mm of a face is not inside either: parity there is
+        rounding noise."""
         if self.bvh is None:
             return False
-        from mathutils import Vector
         if self.bvh.find_nearest(Vector(p), 1e-4)[0] is not None:
             return False
-        odd = 0
-        for dv in (Vector((0, 0, 1)), Vector((1, 0, 0)), Vector((0, 1, 0))):
+        odd = []
+        for dv in INSIDE_RAYS:
             n, q = 0, Vector(p)
             while n < 64:
                 h = self.bvh.ray_cast(q, dv)
@@ -282,8 +294,10 @@ class Solid:
                     break
                 n += 1
                 q = h[0] + dv * 1e-4
-            odd += n % 2
-        return odd >= 2
+            odd.append(n % 2)
+            if len(odd) == 2 and odd[0] == odd[1]:   # two agree: the third cannot change the vote
+                break
+        return sum(odd) >= 2
 
 
 class Geo:

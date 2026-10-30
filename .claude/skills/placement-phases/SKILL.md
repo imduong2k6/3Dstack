@@ -39,7 +39,7 @@ When `brief.yaml › detail` is `detailed` or `final` (mode table in `scene-pipe
   - Every fitting meets straight conduit at each open end. Lint: `conduit_open_ends`.
   - Saddle clips about every 0.9 m (not in lint yet; the supervisor checks).
 - **Cables** follow `layout.json › runs`.
-  - Every run starts and ends at a real object or past the frame edge; a cable enters a wall only through a box, gland or conduit; a visible run under about 0.6 m needs a reason (a drip loop, a box-to-box jumper). Lint: `cable_ends`.
+  - Every run starts and ends at a real object or past the frame edge; a cable enters a wall only through a box, gland or conduit; a visible run under about 0.6 m needs a reason (a drip loop, a box-to-box jumper); no cable passes through a conduit, pipe, box or board. Lint: `cable_ends`, `cable_in_rigid`.
   - Smooth curves: at least 12 segments per bend, no facet over about 8°, shaded smooth (not in lint yet; lint's `cable_sag` covers sag only).
   - **Bundles vary:** mixed strand thickness (wire-sized, about 0.8 to 2 cm in a dense urban scene), and a different sag, spread and seed per run. Never parallel offset copies of one strand. Reviewer.
   - **Building them.** `brief.yaml › cables: rig` builds them with the user's cable generator from the toolbox, one rig per run (`geometry-nodes`, `toolbox/tools/bl.cable_generator.md`). Use the rig for every hanging bundle and every span between two anchors; a single wire along a wall may be a tube. Realize the rig before saving. `guides` leaves one curve per run with its two end points marked, for the user's own cable tool.

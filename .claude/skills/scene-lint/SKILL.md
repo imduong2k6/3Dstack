@@ -1,6 +1,6 @@
 ---
 name: scene-lint
-description: Count every countable defect in the Blender scene with one script (missing materials, wrong file, cameras, lights and exposure off their JSON, names and tags, objects at the origin, floating or crossing objects, cable ends, conduit ends, openings, doors, stairs, path clearance, wear geometry, visibility states, missing backups) and write lint.json next to the captures. Use it before every capture set and at every review, so reviewers only judge. The Unreal version is not built yet.
+description: Count every countable defect in the Blender scene with one script (missing materials, wrong file, cameras, lights and exposure off their JSON, names and tags, objects at the origin, floating or crossing objects, cables through solids, cable ends, conduit ends, openings, doors, stairs, path clearance, wear geometry, visibility states, missing backups) and write lint.json next to the captures. Use it before every capture set and at every review, so reviewers only judge. The Unreal version is not built yet.
 ---
 
 # Scene lint
@@ -12,7 +12,7 @@ Scripts count, reviewers judge (`house-rules` rule 9). Run it on the gate copy o
 | Class | Meaning | Effect |
 | --- | --- | --- |
 | blocker | A capture would lie or a house rule is broken (faces without material, wrong file, a camera or the exposure off its JSON, a review-only object visible, an object at the origin, wear as geometry) | `capture_set` refuses to render; the gate cannot post |
-| major | A defect a player or camera can see (floating, crossing or unseated objects, a cable or conduit end in the air, a vent with no opening, a narrow door or passage, a high riser, a missing backup, naming and tags) | Goes into the worker's fix list this round |
+| major | A defect a player or camera can see (floating, crossing or unseated objects, a cable through a conduit, box or board, a cable or conduit end in the air, a vent with no opening, a narrow door or passage, a high riser, a missing backup, naming and tags) | Goes into the worker's fix list this round |
 | minor | Small or unreadable (a cable sags a lot, an end that could not be read, a duplicate name suffix) | Noted; never blocks a gate |
 
 ## Run
@@ -26,7 +26,7 @@ Exit 0: no blocker. Exit 2: a blocker (`lint.json` is still written). Exit 1: th
 
 `visible_set.py` writes `plan/visible_set.json`: eyes along `plan/walk.json` (`{"paths": {"main": [[x, y], ...]}}`, copied from `layout.json › path`; start on the lowest floor or give the first point a z) and every camera in `light/cameras.json`, by ray casting, plus a probe of each unseen object so thin cables are not lost. Rerun it when a path, a camera or the layout changes. Geometric checks look only at that set; objects added since count as in it. Data checks (materials, file, cameras, names, origin, visibility, wear, backups) cover the whole file.
 
-**Only what's new.** `--baseline <an earlier lint.json>` adds `new` (every item that run didn't have, per check) and `baseline` (`new` counts by class, `gone`, `partial`) to `lint.json`, and prints `NEW blocker=... major=... minor=... gone=...` with the new blockers and majors. Exit codes don't change. An item is the same problem when its check and object match and its text matches with the measured numbers taken out, so one that moved 2 mm isn't new. A new `visible_set.json` between the two runs widens the scope, so its items read as new. The same goes for a `lint.json` from older lint code or other rules, where many items read as new and gone, so lint once with the current code before using a file as the baseline. From round 2 on, the gate lint adds `--baseline reviews/<gate>-r<n-1>/lint.json`, and reviewers read `new` first.
+**Only what's new.** `--baseline <an earlier lint.json>` adds `new` (every item that run didn't have, per check) and `baseline` (`new` counts by class, `gone`, `partial`) to `lint.json`, and prints `NEW blocker=... major=... minor=... gone=...` with the new blockers and majors. Exit codes don't change. An item is the same problem when its check and object match and its text matches with the measured numbers taken out, so one that moved 2 mm isn't new. A dead end of `cable_ends` is the same end when its cable, its end number and its position to 0.1 m match, whatever its reason says ("enters" turns into "buried" on a 1 cm change). A new `visible_set.json` between the two runs widens the scope, so its items read as new. The same goes for a `lint.json` from older lint code or other rules, where many items read as new and gone, so lint once with the current code before using a file as the baseline. From round 2 on, the gate lint adds `--baseline reviews/<gate>-r<n-1>/lint.json`, and reviewers read `new` first.
 
 **Batch check.** On an earlier project three of five scale majors were regressions found hours later, at the next review. So after every batch of steps the worker lints the batch's last backup, headless, against the round's `lint.json`:
 
@@ -58,6 +58,7 @@ It takes seconds, never touches the open Blender and saves nothing, and it takes
 | `seat_gap` | major | an object that rests on something (it touches it within 2 cm, so `floating` passes it) but whose lowest vertices are more than `seat_gap_max_m` (2 mm) off everything it touches; read from every vertex, not samples; names the support and the measured gap. `seat_ok` allows an intended gap (a door's undercut) |
 | `interpenetration` | major | two solids cross deeper than 2 cm (depth from the crossing triangles) |
 | `cable_ends`, `cable_sag` | major, minor | every cable end classed attached, terminated (`ends_ok`, or an entry with hardware within `cable_end_hardware_m` that does not touch it) or dead end. One item per dead end, with its `reason`, `at` (world position) and `surface` (the object it lands on): in the air; a tail along a surface; a joint to an ungrounded cable; on or inside a louvre, window, grille, shutter, vent or sign face (words under `tokens › no_end`, even a sign that is also an anchor); entering or buried in a wall or any bare surface with no hardware (anchor kinds: box, meter, gland, sleeve, conduit, fitting, clip, cleat, saddle...) within `cable_end_hardware_m` (0.05 m). Sag over 20 % of span, per strand |
+| `cable_in_rigid` | major | a cable that runs through another solid: any vertex, or point every 4 mm along an edge, of its mesh deeper than `cable_rigid_depth_max_m` (5 mm) inside a conduit, pipe, box, board, sign or any other visible solid, measured to that solid's nearest face; inside is decided by ray parity, so rotated and scaled copies read right. One item per cable and host, with `depth_m`, `inside_m` (the span of the deep part) and `at` (the deepest point). Never hosts: other cables; holders (saddle, clip, strap, tie, cleat, gland, sleeve, collar, clamp, bushing, tray, trunking: `tokens › cable_hold`); wall, facade, partition, parapet, floor, ceiling, soffit and roof shells, read from the object's own name (a buried end is `cable_ends`' job); anything with `kind=anchor` or `wall` set by hand. Allowed: the end of a cable that ends in or on hardware (a box, meter, terminal, service head, lamp...; a sign, grille or window face is not hardware): its end zone, `cable_end_zone_m` (0.05 m) plus twice the depth of the end, may be inside it; a cable running inside a straight round conduit or pipe from its end, with no part of it outside the wall (a bent or merged run is read pipe by pipe); `overlap_ok` on either object; token pairs in `overlap_allow`, as for `interpenetration`. A bundle is judged strand by strand |
 | `conduit_open_ends` | major | a conduit or fitting end that meets no conduit, fitting, box, meter, fixture or wall. Boxes, saddles, clips and straps are anchors, not pieces with ends, even when their name says conduit |
 | `through_wall_openings` | major | a vent, louvre, fan or AC unit on solid wall: probed from the face it sits on, a cut-through passes, a blind pocket at least `vent_pocket_min_m` (0.15 m) deep is a minor note (fine only while the far side is never seen), less is a major |
 | `door_sizes`, `stair_risers` | major | door width or height under the thresholds; risers over, treads under (uneven risers are minor) |
@@ -78,6 +79,8 @@ door_min_width_m: 0.8
 riser_max_m: 0.18
 cable_sag_max_ratio: 0.3
 cable_end_hardware_m: 0.1   # hardware this close lets a cable enter a wall
+cable_rigid_depth_max_m: 0.005   # a cable deeper than this inside another solid is a defect
+cable_end_zone_m: 0.05           # the end of a cable may sit this far inside hardware
 severity:
   names_tags: minor        # change a check's class
 disable: [interpenetration]
@@ -97,4 +100,4 @@ Not built yet. `lint_unreal.py` will iterate the level's actors for the same che
 bash bin/blender-bg --python-exit-code 1 --python .claude/skills/scene-lint/scripts/selftest_lint.py -- <out_dir>
 ```
 
-It builds a small scene with one planted defect per check and a clean control beside each, and checks `lint.json`, the visible set and the exit codes.
+It builds a small scene with one planted defect per check and a clean control beside each, and checks `lint.json`, the visible set and the exit codes. A second small scene tests `cable_in_rigid` (a cable through a rotated, scaled copy of a conduit, into a pipe, through a sign board and a box; a cable on a pipe, in front of a board, ending in a box and running inside a conduit pass) and the stable `cable_ends` key.
