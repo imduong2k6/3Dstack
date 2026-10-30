@@ -19,11 +19,14 @@ Chat first. Most projects start with a message such as "a 1970s hotel corridor, 
 
 3. **Images.** Copy chat images and form uploads into `refs/inbox/`. Form uploads are artifact assets: fetch each id with `Artifact read` (`path` = the asset id). Record them in `refs/index.yaml` with `from: chat | form`, and leave role tags for the input reviewer. For a PureRef `.pur` board, ask the user to export its images to a folder, one subfolder per group; don't extract from the `.pur` (see `knowledge/pureref-and-broken-images.md`).
 4. **Required fields:** subject, target, route, context (or a context prompt or images), and at least one reference source. The deadline, if any, comes from the prompt text.
-5. **Mode, tier, autopilot and budgets from the prompt.** "Full CG" or "finished scene" sets `mode: full_cg`; "match the camera" or "match the photo" sets `camera_match`; otherwise `blockout`, from `default`. "Tier S/M/L" (or "small", "medium", "large" job) sets `tier`; leave it empty for G0 if the prompt doesn't say. "Autopilot" or "don't wait for me" sets `autopilot: true`. Any cap the prompt names goes into `budgets`; never fill one in.
-6. **Form or interview?**
+5. **Mode, detail, tier, autopilot and budgets from the prompt.** "Full CG" or "finished scene" sets `mode: full_cg`; "match the camera" or "match the photo" sets `camera_match`; otherwise `blockout`, from `default`. "Massing only" sets `detail: massing`, "final assets" sets `final`; otherwise `detailed` (defined in `scene-pipeline`). "Tier S/M/L" (or "small", "medium", "large" job) sets `tier`; leave it empty for G0 if the prompt doesn't say. "Autopilot" or "don't wait for me" sets `autopilot: true`. Any cap the prompt names goes into `budgets`; never fill one in. A rule the prompt states for the project ("never model damage") goes into `standing_rules` as `{date, rule, from: chat}`.
+6. **Starting point.** From scratch, or reuse a named file (an earlier `.blend`, a level, a kit) with the parts the user allows. If the prompt names a file, record it in `starting_point` with the allowed parts; otherwise `from scratch`. The interview confirms it.
+7. **Walkable scenes** (a player or walk-through camera): record the constraints the prompt gives in `walk`: walk time end to end, footprint in metres, junctions, levels. Whatever is missing becomes an interview question, so the layout is sized before any map is drawn.
+8. **Form or interview?**
    - Send the form link only when three or more required fields are missing, or the user prefers forms. Tell them which sections to fill, and that each section can be a prompt with images.
    - Otherwise go straight to the input review and the interview, which fills the gaps with multiple-choice questions.
-7. **Project folder.** Create `projects/<slug>/` from the folder layout in `docs/pipeline/data-and-commits.md`. The slug comes from the user's project name if they gave one, otherwise from the brief title. Never ask for a project name just to make a slug.
+9. **Concept images.** None before the user answers the credit question in the interview (`house-rules` 11). After that, one concept per layout the user picks, with the model in `concept_model` (default Flux.2, with the user's references).
+10. **Project folder.** Create `projects/<slug>/` from the folder layout in `docs/pipeline/data-and-commits.md`. It stays local (`house-rules` 3). The slug comes from the user's project name if they gave one, otherwise from the brief title. Never ask for a project name just to make a slug.
 
 ## Output
 

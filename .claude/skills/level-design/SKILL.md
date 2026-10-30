@@ -1,15 +1,17 @@
 ---
 name: level-design
-description: "Level design practice for walkable or playable game spaces: player metrics, blockout then test then dress, critical path, pacing, gating and readability. In the scene pipeline the layout-2d and blockout skills read it on the Unreal routes when the scene is walkable; it does not replace them."
+description: "Level design practice for walkable or playable game spaces: player metrics, blockout then test then dress, critical path, pacing, gating and readability. In the scene pipeline layout-2d reads it, and blockout on walkable scenes; it does not replace them."
 ---
 
 # Level design
 
 ## Pipeline notes
 
-Modified by the 3Dstack pipeline (October 2026): the description is narrowed and this section is added. The rest is the upstream text. Licensed under the Apache License 2.0; see LICENSE and NOTICE in this folder. Upstream source and commit: `.claude/skills/CREDITS.md`. Where these notes and the upstream text differ, these notes win.
+Modified by the 3Dstack pipeline (October 2026, description and notes updated 30 Oct 2026): the description is narrowed and this section is added. The rest is the upstream text. Licensed under the Apache License 2.0; see LICENSE and NOTICE in this folder. Upstream source and commit: `.claude/skills/CREDITS.md`. Where these notes and the upstream text differ, these notes win.
 
 - **Use it on** routes `unreal` and `blender_unreal` when the scene is walkable or playable. For a showcase scene, use only the metrics and sightline parts.
+- **Read** Core workflow 1 to 3 and 7 (metrics, blockout, critical path, playtest), Pitfalls, and `references/pacing-and-flow.md › Readability and guidance`. **Skip** Patterns 1 to 3: they are 2D platformer GDScript (jump metrics, a beat timeline, a key and gate graph).
+- **Who reads it:** `layout-2d` (step 1), and `blockout` on walkable scenes. No other skill loads it.
 - **Metrics live in** `plan/metrics.yaml`. The GDScript examples below are illustrations; the pipeline stores the same numbers as data.
 - **Critical path and focal points** go on the 2D map (`layout-2d`) and are checked at G1 and G2.
 - The links to `godot-tilemap`, `unity-tilemap-2d`, `procedural-gen` and the genre skills point at upstream skills that aren't installed here.

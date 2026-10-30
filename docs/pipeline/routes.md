@@ -7,7 +7,7 @@
 | 0 Intake and plan | Manager | Manager | Manager |
 | 1 Toolbox scan | Unreal and Blender | Unreal and Blender, plus a transfer test | Blender only |
 | 2 Layout | Player metrics, path, hero cameras | Same | Camera first: hero shots and lens, then the layout that serves them |
-| 3 Blockout and rough light | Unreal worker | Blender worker. Rough light is judged for direction only, because the final light is in Unreal | Blender worker |
+| 3 Blockout and neutral light | Unreal worker | Blender worker. Neutral light is judged for direction only, because the final light is in Unreal | Blender worker |
 | 4 Asset lane | Modelers headless in Blender, in parallel after K; Asset Tech exports FBX; imported into Unreal by the Unreal worker | Modelers headless in Blender; the Blender worker links the finished assets into the scene | Modelers; SubD or fast CG chosen per shot distance; no Asset Tech (no collision, LODs or FBX) |
 | 5 Placement | Unreal worker, with PCG and splines | Blender worker, with geometry nodes and arrays | Blender worker, building only what the cameras see |
 | T Transfer | None | Blender worker exports, Unreal worker imports, supervisor checks | None |
@@ -29,4 +29,4 @@
 - Deliverables come from the brief: stills, turntables or shots at the render resolution.
 - Review cameras are the hero shots, plus one wider shot per shot for context.
 - Lighting passes use View Layer › Material Override for gray, and the palette script for value and hue (see [lighting.md](lighting.md)).
-- Exposure: one fixed exposure and view transform per project, set at G1 and locked.
+- Exposure: one fixed exposure and view transform per project, locked at G2 (`house-rules` 8).

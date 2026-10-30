@@ -8,12 +8,14 @@ license: MIT
 
 ## Pipeline notes
 
-Modified for the 3Dstack pipeline: the description is narrowed, the metadata block is removed and this section is added. The rest is the upstream text. Upstream source and commit: `.claude/skills/CREDITS.md`. Where these notes and the upstream text differ, these notes win.
+Modified for the 3Dstack pipeline: the description is narrowed, the metadata block is removed and this section is added (updated 30 Oct 2026). The rest is the upstream text. Upstream source and commit: `.claude/skills/CREDITS.md`. Where these notes and the upstream text differ, these notes win.
 
 - **Route `blender`:** use it freely for scatter, cables and pipes. Everything stays in Blender.
 - **Route `blender_unreal`:** `export_layout.py` transfers objects and collection instances, not Geometry Nodes instances. Either realize the instances before Stage T, or do the scatter in Unreal with PCG after the transfer. Record the choice in `phases.md`.
 - **Route `unreal`:** not used. Cables and pipes are PCG and splines in Unreal (`placement-phases`).
 - **Cables:** with `brief.yaml › cables: rig`, use the user's cable generator from the toolbox (`toolbox/tools/bl.cable_generator.md`), one rig per run in `layout.json › runs`, its Start and End objects on the run's real end points. With `guides`, leave one curve per run named `CBL_<run id>` with empties `CBL_<run id>_Start` and `_End` at its ends, for the user's own cable tool. The Cable/Pipe Routing recipe below is for pipes and for cables when neither applies.
+- **The `GN_` names are examples** (updated 30 Oct 2026). The library table below (`GN_Scatter_Objects`, `GN_Curve_Pipe`, `GN_Wall_Variant` and so on) does not exist in this pipeline. Name a node group `GN_<System>_<Descriptor>` when you build one, and don't look for the others.
+- **Conduit uses the kit**, not a Geometry Nodes pipe: straights, elbows, tees, couplings and saddles from the `modular-kit` specs, joined at their ports. **Cables use the user's cable rig** (the Cables bullet above), never a `GN_` cable group. The Cable/Pipe Routing recipe is for other pipes, and for cables only when neither `rig` nor `guides` applies.
 
 Reusable procedural systems. Parametric assets. Performance-aware instancing.
 

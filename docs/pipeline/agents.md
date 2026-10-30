@@ -1,26 +1,26 @@
 # Agents
 
-You talk to the manager, through the Claude Code session and the two pages. Only the route's worker changes the live scene; the Modelers and the Asset Tech change only their own asset files, so they can run at the same time ([parallel.md](parallel.md)). Agent files live in `.claude/agents/`, skills in `.claude/skills/`.
+You talk to the manager, through the Claude Code session and the two pages. Only the route's worker changes the live scene; the Modelers and the Asset Tech change only their own asset files, so they can run at the same time ([parallel.md](parallel.md)). Agent files live in `.claude/agents/`, skills in `.claude/skills/`. Every agent preloads `house-rules` (the standing rules in one place); the manager reads it at the start of every session.
 
 | Agent | Job | Model | Edits the scene | Writes |
 | --- | --- | --- | --- | --- |
-| Manager | Main session. Intake, the Stage 0 interview, routing, gates, your decisions, merged fix lists, commits | The model you start with (Opus recommended) | No | `plan.md`, `log.md`, gate entries |
+| Manager | Main session. Intake, the Stage 0 interview, routing, gates, your decisions, merged fix lists, save points | The model you start with (Opus recommended) | No | `plan.md`, `log.md`, gate entries |
 | Input reviewer | Judges the brief and references, writes the interview questions | Opus | No | `input-review.md`, `questions.yaml` |
 | Researchers | Real-world reference; how professionals build this kind of scene; fixes for problems that keep failing; retro input | Sonnet | No | `research.md`, `metrics.yaml`, `workflow-notes.md`, `pro-tips.md` |
 | Toolbox scanner | Finds tools, researches only new or changed ones, writes an instruction file per tool | Sonnet | No (read-only) | `toolbox/`, `plan/toolbox.md` |
-| Generator | Submits every generation job in a batch at once, downloads results, logs credits | Sonnet | No | `source/` meshes, spec `generated` blocks |
+| Generator | Submits every generation job in a batch at once (Tripo Studio in the browser, or Magnific), downloads results, logs credits | Sonnet | No | `source/` meshes, spec `generated` blocks |
 | Modeler (up to 4 at once) | Kit pieces, props, hero assets, generated mesh repair, headless on one asset file each | **Opus** | Own asset files only | Meshes, `kit/*.md` |
-| Asset Tech (1 or 2) | Collision, LODs where Nanite can't be used, UV and texel checks, FBX export, re-import check | Sonnet, Opus after two failed reviews | Own asset files only | FBX, `assets/<id>/` checks |
-| Unreal worker | Blockout, assembly, PCG, placement, lighting passes, captures, stats on the Unreal routes | **Opus** | Yes, Unreal | Level, `stats.json` |
-| Blender worker | Blockout, placement and transfer on Blender then Unreal; everything including lighting on the CG route | **Opus** | Yes, Blender | `.blend`, `stats.json`, `transfer/` |
-| Supervisor | Correctness: scale, overlaps, specs, budgets, value ranges, frame time | Opus | No | `review.md`, fix list |
+| Asset Tech (1 or 2) | Collision, LODs where Nanite can't be used, UV and texel checks, FBX export, re-import check | Sonnet | Own asset files only | FBX, `assets/<id>/` checks |
+| Unreal worker | Blockout, assembly, PCG, placement, lighting passes, captures, stats on the Unreal routes. Short jobs, a fresh worker per batch of steps | **Opus** | Yes, Unreal | Level, `stats.json` |
+| Blender worker | Blockout, placement and transfer on Blender then Unreal; everything including lighting on the CG route. Short jobs, a fresh worker per batch of steps | **Opus** | Yes, Blender | `.blend`, `stats.json`, `transfer/` |
+| Supervisor | Correctness: scale, overlaps, specs, budgets, value ranges. Runs `scene-lint` first | Opus | No | `review.md`, fix list |
 | Art Director | Look and believability against real references | Opus | No | `ad-notes.md` |
 
 The reviewers, researchers and input reviewer have the Unreal and Blender MCP servers removed (`disallowedTools: mcp__unreal-mcp, mcp__unreal-mcp-proxy, mcp__blender`), so they can't change the scene even by mistake. The Modelers, the Asset Tech and the Generator lose Unreal and every Blender tool that touches the open session; they keep the Blender API and manual search. The server names come from the repo's `.mcp.json`, so nothing needs renaming on your side.
 
 ## Interview: why the manager runs it
 
-Claude Code subagents can't ask you questions (AskUserQuestion is removed from every subagent). So the input reviewer writes the questions, and the manager asks them in multiple-choice rounds of up to four, each with a default. When the session runs unattended, the questions go on the G0 board entry instead.
+Claude Code subagents can't ask you questions (AskUserQuestion is removed from every subagent). So the input reviewer writes the questions, and the manager asks them in multiple-choice rounds of up to four, each with a default. One round is fixed (process and starting point), and after the answers the manager reads the job back in chat before it writes the plan. Without the multiple-choice tool the same questions go in chat as a numbered list; when the session runs unattended, they go on the G0 board entry instead.
 
 ## Modeler
 
@@ -35,16 +35,16 @@ New in v4. Runs the `modeling` skill, which starts by choosing a method per asse
 | CG background, set extension | Fast CG: simple geometry with photo projection, built only for the camera (the Ian Hubert way) |
 | Tripo or Magnific output | Repair, then retopologise or rebuild by camera tier |
 
-It writes the chosen method into the asset spec, classifies the shape (axial, symmetric, asymmetric or multi-volume, each with its own construction method), builds at real scale, runs the validation script, and logs one lesson per review in `feedback/modeling.md`.
+When a spec has reference views, it loads `blender-image-to-3d` then, not at start-up. It writes the chosen method into the asset spec, classifies the shape (axial, symmetric, asymmetric or multi-volume, each with its own construction method), builds at real scale, runs the validation script, and logs one lesson per review in `feedback/modeling.md`.
 
 ## Asset Tech and Generator
 
 New in v5, for the repetitive half of asset work that studios give to technical artists and outsourcing:
 
 - **Asset Tech** finishes each mesh after the Modeler: collision (`collision-proxy`), LODs only where Nanite can't be used (`lod-pipeline`), UV, texel density and naming checks, FBX export, then `validate.py` and `roundtrip.py` from `blender-image-to-3d`. It sends shape problems back to the Modeler instead of fixing form itself.
-- **Generator** runs generation for `source: generate` specs: inputs, credit check, every job submitted at once, downloads to `<work_dir>/assets/<id>/source/`, and the `generated` block in the spec. Magnific for now; your Tripo workflow plugs into the same slot later.
+- **Generator** runs generation for `source: generate` specs: inputs, credit check, every job submitted at once, downloads to `<work_dir>/assets/<id>/source/`, and the `generated` block in the spec. Tripo stand-ins and Magnific go through `generated-asset`.
 
-Both start on Sonnet because their work is scripted and checked by numbers. That's a deliberate exception to Opus for scene work; change `model:` in their agent files if you'd rather have Opus.
+Both run on Sonnet because their work is scripted and checked by numbers. That's a deliberate exception to Opus for scene work; change `model:` in their agent files if you'd rather have Opus.
 
 ## Toolbox scanner
 
@@ -64,7 +64,7 @@ Four kinds of topic:
 | Reference | Stage 1 | `research.md`, `metrics.yaml` with a source or an assumption flag per number |
 | Workflow | Stage 1 | `workflow-notes.md`: how professionals build this kind of scene on this route, each finding rated by fit and effort and marked adopt now, test first or later |
 | Problem | When a step fails review twice for the same reason, or a worker is blocked | `pro-tips.md`: one to three fixes with sources, one recommended |
-| Retro | Stage 9 | Research into the slowest steps for `improvements.md` |
+| Retro | Stage 9, run from `retro` | Research into the slowest steps for `improvements.md` |
 
 At the end of every project, `retro` sends you up to 10 ranked suggestions for the next phase or project, each with the evidence, the expected gain and effort, and the skill it would change. Nothing changes a skill until you approve it.
 
@@ -73,14 +73,15 @@ At the end of every project, `retro` sends you up to 10 ranked suggestions for t
 Looks, measures and reports. No scene tools.
 
 - **Capture set:** the review cameras from `cameras.json`, a top view, and a close-up of what changed. Single objects: front, side, back, top, and a three-quarter view next to a 1.8 m mannequin. One contact sheet at about 1600 px, shared with the Art Director and uploaded to the board.
-- **Numbers:** `stats.json` from the adapter's stats script: actors, unique meshes, triangles, material instances by group, lights by type and shadow casting, and on game routes frame time at the review cameras.
-- **Output:** `review.md` with pass or fix and issues ranked blocker, major or minor, each tied to object IDs. After `max_rounds` without a pass it stops and asks you.
+- **Lint first:** `scene-lint` writes `lint.json` (blocker, major, minor) and the capture set is refused on a blocker, so reviews spend their time on judgement.
+- **Numbers:** `stats.json` from the adapter's stats script: actors, unique meshes, triangles, material instances by group, lights by type and shadow casting, and on game routes the frame time the user measured at L3 (`unreal-adapter`).
+- **Output:** `review.md` with pass or fix and issues ranked blocker, major or minor, each tied to object IDs. Several supervisors review at once, one aspect each; the aspect list, the round rules and the merge format live in `supervisor`. After `max_rounds` without a pass it stops and asks you.
 
 | Pass | Checks (starting thresholds) |
 | --- | --- |
-| L1 Gray | Every base colour 0.216, no stray textures. Key to fill within half a stop. No large clipped areas. No light leaks. Light budget |
+| L1 Gray (`full_cg`; the fast path in `supervisor` checks less) | Every base colour 0.216, no stray textures. Key to fill within half a stop. No large clipped areas. No light leaks. Light budget |
 | L2 Value | 8 to 10 lighting groups. Non-metals inside sRGB 60 to 240, or a floor exception listed in the L0 brief. Every material instance in a group. Squint test keeps the focal area |
-| L3 Hue | Each colour within 5 sRGB levels of its value. Large surfaces low in saturation. Light temperatures match the brief. Frame time on game routes |
+| L3 Hue | Each colour within 5 sRGB levels of its value. Large surfaces low in saturation. Light temperatures match the brief. On game routes, the frame time the user measured |
 
 ## Art Director
 
@@ -89,16 +90,24 @@ Asks "does it look like the real thing, and does it carry the mood?". Reads the 
 | | Supervisor | Art Director |
 | --- | --- | --- |
 | Looks at | Contact sheet, specs, metrics, stats | Same contact sheet, mood references, palette |
-| Finds | Wrong scale, overlaps, spec and budget breaks, values out of range | Missing real-world detail, wrong wear, weak composition, light mood |
+| Finds | Wrong scale, overlaps, spec and budget breaks, values out of range | Missing real-world detail, wear to note for texturing (never built), weak composition, look and mood |
 | Blocks a gate | Yes, blockers | No |
 
 ## One fix list per round
 
 The manager merges the supervisor's issues, the Art Director notes you marked Do it, and your own notes into one numbered list for the worker, removing duplicates. If two notes conflict, it asks you. Studios do the same: one owner merges feedback, so the artist isn't working from three lists.
 
-## Model picker
+## Models and effort
 
-Switched on in the form or interview (`model_routing`). Workers, the Modeler and the reviewers always stay on Opus. The picker only chooses between Haiku and Sonnet for the rest (indexing, renaming, export batches, stats runs, commits, research, instruction files), moves a task up a tier after two failed reviews, and logs every choice in `routing.yaml`.
+Set per agent in `.claude/agents/*.md` (`house-rules` 13).
+
+| Agents | Model | Effort |
+| --- | --- | --- |
+| Unreal worker, Blender worker, Modeler, supervisor, Art Director, input reviewer | Opus | High for the two workers, the agent default for the rest |
+| Asset Tech, Generator | Sonnet | Medium, low |
+| Researcher, toolbox scanner | Sonnet | Medium, low |
+
+Check that `CLAUDE_CODE_EFFORT_LEVEL` isn't set on your PC: it silently overrides every agent's `effort`.
 
 ## Skills
 
@@ -106,14 +115,14 @@ All in `.claude/skills/`. Credits for adapted skills: `.claude/skills/CREDITS.md
 
 | Stage | Skills |
 | --- | --- |
-| Manager | `scene-pipeline` (with `routes.md`), `model-picker`, `gate-board`, `checkpoint` |
+| Manager | `house-rules`, `scene-pipeline` (with `docs/pipeline/routes.md`), `gate-board`, `checkpoint` |
 | 0 | `scene-intake`, `input-review`, `scene-interview` |
-| 1 | `reference-research`, `workflow-research`, `toolbox-scan` |
+| 1 | `reference-research`, `workflow-research`, `detail-inventory`, `toolbox-scan` |
 | 2 | `layout-2d`, `lighting-brief`, `level-design` (walkable game scenes) |
-| 3 | `blockout` |
+| 3 | `blockout`, `lane-integration`, `scene-lint` |
 | 4 | `modular-kit`, `modeling`, `blender-image-to-3d`, `generated-asset`, `collision-proxy`, `lod-pipeline`, `environment-artist` |
-| 5 | `placement-phases`, `set-dressing`, `geometry-nodes` (Blender routes), `archviz` (CG route) |
+| 5 | `placement-phases`, `set-dressing`, `geometry-nodes` (Blender routes), `scene-lint` |
 | 6–8 | `lighting-passes` |
-| Reviews | `supervisor`, `art-director` |
+| Reviews | `scene-lint`, `supervisor`, `art-director`, `review-pairs` |
 | 9 | `texturing-handoff`, `retro` |
-| Adapters | `unreal-adapter`, `blender-adapter` (tool names, conventions, captures, stats, validation, palette, transfer), `ue5-mcp` (Unreal gotchas), plus Epic's `unreal-mcp` plugin skill |
+| Adapters | `unreal-adapter`, `blender-adapter` (tool names, conventions, captures, stats, validation, palette, transfer), `ue5-mcp` (Unreal gotchas; the Unreal worker reads the digest in `unreal-adapter` and loads `ue5-mcp` only when it needs more), plus Epic's `unreal-mcp` plugin skill |

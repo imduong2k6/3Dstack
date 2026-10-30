@@ -24,7 +24,7 @@ routes: [unreal, blender_unreal]
 - Defaults to change for this pipeline, and why.
 
 ## Gotchas
-- Known bugs, performance traps, version differences.
+- Known bugs, performance traps, version differences. Add a dated line, with the fix that worked, the same day a tool fault is hit (`toolbox-scan` Rules).
 
 ## Don't use it for
 - Cases where another tool or a manual step is better.

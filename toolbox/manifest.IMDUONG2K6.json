@@ -1757,7 +1757,7 @@
   },
   "engine_queries": {
     "date": "2026-10-29",
-    "blender": "queried read-only: 5.2.3 LTS, 24 asset libraries, enabled add-ons listed. Live connection is the old 'MCP for Blender' v1.8 add-on (protocol 14, expected 15), not the Lab mcp 1.0.3. Open file: HongKongAlley_v01.blend.",
+    "blender": "queried read-only: 5.2.3 LTS, 24 asset libraries, enabled add-ons listed. Live connection is the old 'MCP for Blender' v1.8 add-on (protocol 14, expected 15), not the Lab mcp 1.0.3.",
     "unreal": "skipped: Unreal MCP not connected (ECONNREFUSED, port 8000); enabled-plugin and tool lists not queried."
   }
 }

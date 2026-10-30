@@ -7,23 +7,24 @@ New in v5. The short answer to "should more agents work at once?" is yes, but on
 | Lane | Agents | Runs alongside | Why they don't collide |
 | --- | --- | --- | --- |
 | Research (Stage 1) | 2 or 3 researchers, one topic each, plus the toolbox scanner | Each other | Separate output files |
-| Reviews (every review point) | Up to 4 supervisors, one aspect each (scale and walkability; construction logic; light and values; naming, stats and budgets), and the Art Director (look and mood) | Each other | All read-only, one review file each, on the same captures |
+| Reviews (every review point) | Up to 4 supervisors, one aspect each (the aspects are listed in `supervisor`), and the Art Director (look and mood) | Each other | All read-only, one review file each, on the same captures, after `scene-lint` has run |
+| Blockout lanes (Stage 3) | Headless agents, each building its own part file under a lane brief | Each other | Owned ID prefixes and seam owners; `lane-integration` joins them headless on a copy |
 | Asset lane (Stage 4) | Generator, up to 4 Modelers (default 3), 1 or 2 Asset Techs | The level lane | One asset per `.blend`, headless Blender, never the live session |
 | Level lane (Stage 5) | Unreal worker, or the Blender worker on the Blender routes | The asset lane | The only writer in the live editor |
 
 ## What stays single, and why
 
 - **The live Unreal editor has one writer.** Epic's MCP server accepts concurrent calls, but Epic's own skill warns that conflicting changes from several agents can break things and asks for mutations to be serialised. A second editor on the same project would fight over the same assets.
-- **The open Blender session has one writer.** The Blender MCP add-on serves one socket on one port, and the Blender worker owns it.
+- **The open Blender session has one writer.** The Blender MCP add-on serves one socket on one port, and the Blender worker owns it. It gets short jobs: a fresh live worker for each batch of steps, handed `plan/steps.json`, with joining and probing moved to headless agents (`lane-integration`).
 - **Creative calls have one owner:** layout, kit design, the pilots, the lighting passes and art direction. In studios these stay with one person or a lead.
 - **GPU renders.** One GPU renders one thing at a time well, so parallel renders don't finish sooner.
 
 ## The asset lane
 
 1. **Kit plan and trim sheet** (manager, `modular-kit`). `plan/assets.yaml` lists every asset with its source and a batch.
-2. **Generation starts at once.** The Generator submits every `source: generate` job in one go (Magnific for now; your Tripo workflow later) and drops the results in each asset's work folder.
+2. **Generation starts at once.** The Generator submits every `source: generate` job in one go (Tripo Studio in the browser, or Magnific; only when `detail` is `detailed` or `final`) and drops the results in each asset's work folder.
 3. **Pilots, gate K.** One kit piece and one prop: one Modeler builds them, the Asset Tech finishes them, the supervisor and the Art Director review them, and you approve them at K. Nothing is batched before K, the same way studios start with a paid test asset.
-4. **Batch.** The manager splits the remaining assets across up to `parallel.modelers` Modelers by type (kit pieces, props, generated repairs), as VFX teams split work by asset type. A hero asset gets a Modeler to itself.
+4. **Batch.** The manager splits the remaining assets across up to `parallel_modelers` Modelers by type (kit pieces, props, generated repairs), as VFX teams split work by asset type. A hero asset gets a Modeler to itself.
 5. **Finish.** The Asset Tech picks up each mesh as it passes review: collision, LODs where Nanite can't be used, export, and a re-import check.
 6. **Review.** The supervisor reviews finished assets in groups of up to five, one contact sheet each.
 7. **Hand-over.** The level lane imports finished assets in batches between its own steps and swaps them in for their proxies.
@@ -32,18 +33,16 @@ New in v5. The short answer to "should more agents work at once?" is yes, but on
 
 - After G2 the worker places P0 to P4 with the blockout's kit-sized proxies. The grid is locked at G1, so proxies and final pieces share sizes and pivots.
 - P5 to P7 use proxies with the spec's bounding box and clearance zone until the final asset arrives.
-- Placement gates judge position, clearance and story. The look is judged once the final assets are in, and the lighting passes start only when every asset in P0 to P7 is final.
+- Placement gates judge position, clearance and story. The look is judged once the final assets are in, and the lighting passes start only when every asset in P0 to P7 is final (`house-rules` 7).
 
 ## Settings
 
 In `brief.yaml`, set in the interview:
 
 ```yaml
-parallel:
-  modelers: 3        # 1 to 4
-  asset_tech: 1      # 1 or 2
-generation:
-  services: [magnific]   # add tripo when your workflow is in
+parallel_modelers: 3       # 1 to 4
+parallel_asset_tech: 1     # 1 or 2
+generation_services: [magnific]   # add tripo for detailed props
 work_dir: "D:/.../PipelineWork/<slug>"   # .blend and FBX files, outside git
 ```
 

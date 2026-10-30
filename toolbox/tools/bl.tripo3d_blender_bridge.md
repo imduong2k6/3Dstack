@@ -18,7 +18,7 @@ routes: [blender, blender_unreal]
 **What it does:** Receives meshes sent from Tripo Studio ('Send to Blender') over the DCC Bridge; sidebar panel View3D > Tripo Bridge. Paid service; the scanner never signs in.
 
 ## Use it for
-- Detailed placeholder props in full_cg or a detailed blockout only (assets.yaml source generate).
+- Detailed placeholder props in `full_cg`, or when `brief.yaml › detail` is not `massing` (assets.yaml source generate).
 
 ## How to call it
 - View3D sidebar > Tripo Bridge, start the bridge, then 'Send to Blender' in Tripo Studio (browser, driven by the user).
@@ -30,6 +30,7 @@ routes: [blender, blender_unreal]
 ## Gotchas
 - Generated meshes are never final; the Modeler repairs to spec.
 - Needs a Tripo account and credits; keep keys out of the repo.
+- If 'Send to Blender' stalls (the export starts, nothing imports; seen 2026-10-29): in the browser open the top-bar DCC Bridge panel in Tripo Studio, switch Blender on, check it says Connected, then resend. Downloading GLB files is the last resort and needs the user's OK.
 
 ## Don't use it for
 - Hero assets or measured routes (use blender-image-to-3d).

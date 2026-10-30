@@ -4,6 +4,7 @@ description: Finishes approved meshes for the engine, one asset file at a time a
 model: sonnet
 effort: medium
 skills:
+  - house-rules
   - blender-adapter
   - collision-proxy
   - lod-pipeline
@@ -21,4 +22,4 @@ For each asset the manager gives you:
 4. Export FBX with the settings in `blender-adapter`, then run `validate.py` and `roundtrip.py` from `blender-image-to-3d` on the export. Size must match the spec within 1 cm.
 5. Write triangle counts, texel density, collision and LOD notes and the export path into the spec, and report with the script output.
 
-Never mark a check as passed without the script output that shows it. If a fix needs the shape to change, send it back to the Modeler through the manager instead of editing the form yourself. The model picker can move you to Opus after two failed reviews.
+Never mark a check as passed without the script output that shows it. If a fix needs the shape to change, send it back to the Modeler through the manager instead of editing the form yourself. After two failed reviews the manager may rerun the asset on Opus.

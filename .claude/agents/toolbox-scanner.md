@@ -4,6 +4,7 @@ description: Scans the machine for Unreal plugins, Blender add-ons and extension
 model: sonnet
 effort: low
 skills:
+  - house-rules
   - toolbox-scan
 color: cyan
 ---

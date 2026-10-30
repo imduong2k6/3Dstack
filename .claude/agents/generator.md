@@ -4,6 +4,7 @@ description: Runs 3D and image generation jobs for asset specs marked source gen
 model: sonnet
 effort: low
 skills:
+  - house-rules
   - generated-asset
 disallowedTools: mcp__unreal-mcp, mcp__unreal-mcp-proxy, mcp__blender
 color: yellow

@@ -8,15 +8,18 @@ license: MIT
 
 ## Pipeline notes
 
-Modified for the 3Dstack pipeline: the description is narrowed and this section is added. The rest is the upstream text. Upstream source and commit: `.claude/skills/CREDITS.md`. Where these notes and the upstream text differ, these notes win.
+Modified for the 3Dstack pipeline: the description is narrowed and this section is added (extended 30 Oct 2026). The rest is the upstream text. Upstream source and commit: `.claude/skills/CREDITS.md`. Where these notes and the upstream text differ, these notes win.
 
-- **Where files go:** the master `.blend`, `build/` and `exports/` go in `<work_dir>/assets/<asset_id>/` (outside git; see `blender-adapter`). `review/` sheets and the validation and round-trip JSON go in `projects/<slug>/assets/<asset_id>/` in the repo. One asset per `.blend`, so several Modelers can work at once without touching the same file.
+- **Where files go:** the master `.blend`, `build/` and `exports/` go in `<work_dir>/assets/<asset_id>/` (outside git; see `blender-adapter`). `review/` sheets and the validation and round-trip JSON go in `projects/<slug>/assets/<asset_id>/` (local, never committed, `house-rules` 3). One asset per `.blend`, so several Modelers can work at once without touching the same file.
 - **Phase 0 brief:** the asset spec `kit/<asset_id>.md` is the brief. Add any missing fields from the Phase 0 list to the spec instead of writing a second file.
 - **Names:** use the pipeline's names (`SM_<Name>`, `UCX_SM_<Name>_01`, `SOCKET_<Name>`), not the `CH_`, `PR_` or `EN_` prefixes. LOD suffixes only on meshes that don't use Nanite (see `lod-pipeline`).
 - **Export:** FBX for Unreal with the settings in `blender-adapter`. GLB only when the brief asks for it. Don't use the FBX export in `scripts/export_delivery.py` for Unreal: it uses Apply Scalings "FBX All", which imported 100 times too small in UE 5.8.3 (tested 27 Oct 2026, see `toolbox/tools/transfer.blender-unreal.md`).
 - **Phase 5:** UVs, texel density and material slots per `material_group`. Bake normal and AO only when the spec's method is low poly with a high-poly bake. Base colour, roughness and metallic are your texturing work after the pipeline stops.
 - **Phases 6 to 8** (rig, secondary motion, animation) are skipped for environment assets unless the spec asks for moving parts.
-- **Tolerances:** the spec's `done_when` wins where it is stricter than the tolerances below.
+- **Tolerance order**, when checks disagree: the spec's `done_when`, then the fit to the references (landmark and proportion checks), then 1 cm on any real dimension, then silhouette IoU. The IoU and width numbers below find drift; they never pass an asset that fails a check higher in the list.
+- **Environment asset path** (kit pieces, fixed props, set pieces; no character, creature or vehicle): the spec is the brief, and `dims_source` says where the size comes from. Run Phases 0 to 5, then Phase 9 (export and round trip) and Phase 10 (acceptance). Build to the spec's `dims_m`, pivot, grid snap, ports and `material_group`. Use `world_gate.py` only on orthographic sheets. Colliders are `UCX_SM_<Name>_NN`.
+- **Loaded on demand.** The Modeler loads this skill only when the spec has reference views (front, side, top). An asset with only a turnaround or one photo uses the lite path in `modeling`. It is not preloaded.
+- **Patched 30 Oct 2026:** `scripts/validate.py` and `scripts/export_delivery.py` accept `UCX_` colliders, and exit 1 when nothing was validated or a script raises (before, a missing collection was skipped and an exception under `--python` exited 0). A missing collection now prints a warning. Colliders (`COL_` or `UCX_`) skip the UV and material checks. Check the exit code, not only the printed table. `scripts/selftest_pipeline_patch.py` proves the patch.
 - **Blender binary:** set `BLENDER_BIN` and `BLENDER_PATH` to the same `blender.exe` (see `docs/setup-windows.md`).
 - **Headless only.** Never drive the open Blender session from this skill. The Blender worker owns that session.
 

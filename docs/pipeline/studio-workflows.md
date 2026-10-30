@@ -114,7 +114,7 @@ Shared on both: manifold geometry, consistent naming, correct normals, texel den
 | Outsourcing and generation | Generator | Repetitive | Every generation job in a batch at once, credits logged |
 | Lighting artist | Route's worker in the passes, approved by you | Creative | Gray, value, hue, then stop |
 | QA | Supervisor | Repetitive | Explicit verdicts, capture-backed |
-| Pipeline TD | `checkpoint`, `toolbox-scan` | Repetitive | Commits, tags, tool docs |
+| Pipeline TD | `checkpoint`, `toolbox-scan` | Repetitive | Pipeline commits, project save points, tool docs |
 | Matte painter (CG) | Modeler with `fast-cg`, Magnific | Creative | `blender` route |
 | Compositor (CG) | You | Creative | Out of scope |
 

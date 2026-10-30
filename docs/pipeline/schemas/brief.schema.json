@@ -105,7 +105,8 @@
             "replica",
             "faithful",
             "inspired"
-          ]
+          ],
+          "description": "faithful: hero pieces and variants, not the fewest pieces (house rule 6). inspired: keeps the look, free on piece counts. replica is the form's older value and is treated as faithful."
         },
         "mood": {
           "type": "string"
@@ -182,10 +183,6 @@
         "plugins": {
           "type": "string"
         },
-        "model_routing": {
-          "type": "boolean",
-          "default": false
-        },
         "lighting_passes": {
           "type": "boolean",
           "default": true
@@ -193,7 +190,7 @@
         "gen_tripo": {
           "type": "boolean",
           "default": false,
-          "description": "v6. Tripo for detailed props (the tripo-props skill). Used only in full_cg or when the user asks for a detailed blockout; G0 asks the credit budget"
+          "description": "v6. Tripo for detailed props (the tripo-props skill). Used only when detail is detailed or final; the credit question at G0 comes first"
         },
         "gen_magnific_3d": {
           "type": "boolean",
@@ -201,10 +198,6 @@
           "description": "v6. Magnific 3D generation, under the same rule as gen_tripo"
         },
         "gen_images": {
-          "type": "boolean",
-          "default": true
-        },
-        "auto_commit": {
           "type": "boolean",
           "default": true
         },
@@ -327,7 +320,7 @@
             "full_cg"
           ],
           "default": "blockout",
-          "description": "v6. blockout: a detailed, accurate blockout from the references, light and colour free to follow the mood. camera_match: the same, matched to a photo's camera, with landmark fit checks. full_cg: a finished CG scene with measured light and real-world values. Set by the user's prompt; ask at G0 if missing."
+          "description": "v6. blockout: light and colour follow the reference's mood once the modelling is done (neutral until then). camera_match: the same, matched to a photo's camera, with landmark fit checks. full_cg: a finished CG scene with measured light and real-world values. Set by the user's prompt; the interview asks if missing."
         },
         "tier": {
           "type": "string",
@@ -342,6 +335,132 @@
           "type": "boolean",
           "default": false,
           "description": "v6. On only when the prompt asks. Gates are posted for the record and the defaults taken without waiting; the manager still stops for credits beyond the budget, deletions, and scope or route changes."
+        },
+        "detail": {
+          "type": "string",
+          "enum": [
+            "massing",
+            "detailed",
+            "final"
+          ],
+          "default": "detailed",
+          "description": "Defined once in scene-pipeline. massing: volumes at real scale on the kit grid, no small parts, no inventory, generation off. detailed: every feature the references show, built from plan/inventory.yaml. final: detailed plus finished assets from the asset lane. full_cg defaults to final."
+        },
+        "standing_rules": {
+          "type": "array",
+          "description": "Per-project rules from the user, in their words. The manager quotes the list into every lane brief and reviewer prompt.",
+          "items": {
+            "type": "object",
+            "required": [
+              "date",
+              "rule",
+              "from"
+            ],
+            "properties": {
+              "date": {
+                "type": "string",
+                "format": "date"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "from": {
+                "enum": [
+                  "chat",
+                  "form",
+                  "interview",
+                  "board"
+                ]
+              }
+            }
+          }
+        },
+        "lighting_focus": {
+          "type": "string",
+          "description": "deferred freezes colour, contrast and light (rig and exposure stay as they are, reviewers skip light) until the user sends lighting references. Empty: light follows house rule 7."
+        },
+        "light_depth": {
+          "type": "string",
+          "enum": [
+            "direction",
+            "mood",
+            "measured"
+          ],
+          "default": "mood",
+          "description": "How far the lighting brief goes, asked in the interview's process round. Read by lighting-brief. The default is mood, except measured in full_cg."
+        },
+        "starting_point": {
+          "type": "string",
+          "default": "from scratch",
+          "description": "from scratch, or the earlier file to reuse with the parts allowed (kit, layout, props)"
+        },
+        "gate_pacing": {
+          "type": "string",
+          "enum": [
+            "default_path",
+            "wait"
+          ],
+          "default": "default_path",
+          "description": "default_path: start the reversible default while a gate waits, never past the gate. wait: start nothing until the answer. Autopilot is the separate autopilot key."
+        },
+        "review_scope": {
+          "type": "string",
+          "enum": [
+            "visible",
+            "whole_scene"
+          ],
+          "default": "visible",
+          "description": "visible: only what the walk paths and review cameras see (visible_set.json). whole_scene: everything."
+        },
+        "concept_model": {
+          "type": "string",
+          "default": "flux-2",
+          "description": "Model for concept images, made with the user's references and only after the credit question is answered"
+        },
+        "generation_preapproved": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "tripo_browser",
+              "glb_downloads",
+              "headless_blender"
+            ]
+          },
+          "description": "Asked once in the interview: the browser with Tripo signed in, GLB downloads into the work folder, headless Blender. Credits are a separate question."
+        },
+        "walk": {
+          "type": "object",
+          "description": "Walkable scenes: constraints that size the layout before any map is drawn",
+          "properties": {
+            "walk_time_min": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "Minutes to walk the scene end to end"
+            },
+            "footprint_m": {
+              "type": "string",
+              "description": "Width x depth in metres, e.g. 30 x 12"
+            },
+            "junctions": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "levels": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        },
+        "board_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "The Gate Review Board artifact. Published before G0 if empty (gate-board)."
         },
         "budgets": {
           "type": "object",

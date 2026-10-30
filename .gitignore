@@ -1,6 +1,9 @@
 toolbox/scans/
 __pycache__/
 
+# Projects stay local: never committed or pushed (house rule 3)
+projects/
+
 # Third-party reference photos stay in the work folder (public repo)
 projects/*/refs/**/*.jpg
 projects/*/refs/**/*.jpeg
@@ -14,3 +17,18 @@ projects/*/refs/**/*.tiff
 *.fbx
 *.uasset
 *.umap
+
+# Safety net: project folders written at the repo root by mistake (paths in skills are inside projects/<slug>/)
+/reviews/
+/kit/
+/light/
+/parts/
+/handoff/
+/refs/
+/assets/
+/transfer/
+/brief.yaml
+/log.md
+/backlog.md
+/plan/*
+!/plan/toolbox.md

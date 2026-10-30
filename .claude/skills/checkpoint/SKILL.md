@@ -1,15 +1,24 @@
 ---
 name: checkpoint
-description: Commit and push the pipeline project at a save point (end of each phase, lighting pass, or user decision), tag approved gates, and record the engine project's revision. Use it whenever the scene pipeline reaches a save point and auto_commit is on.
+description: Save points for the pipeline. A change to pipeline files (skills, docs, knowledge, feedback, toolbox) is committed and pushed as `[pipeline] <what>`. A project save point (end of each phase, lighting pass or user decision) is a log.md line, the step backup and a plan/steps.json entry, with no git, because projects stay local. Use it whenever the scene pipeline reaches a save point or a pipeline file changes.
 ---
 
 # Checkpoint
 
-Only when `auto_commit: true` in the brief (the default).
+Projects stay local: nothing under `projects/` or the work folder is ever committed, pushed or put in a PR (`house-rules` 3). The two kinds of save point below are never mixed.
 
-1. **Branch:** `scene/<slug>`, one per project. Create it from the default branch on the first save.
-2. **Stage** the project folder, skill feedback files, and compressed captures (PNG or JPEG). Never stage engine binaries unless Git LFS rules exist for them (see `docs/pipeline/data-and-commits.md`).
-3. **Message:** `[<slug>] <gate> r<round> <decision or status>: <short what>`, for example `[hotel-corridor] L2 r1 changes_requested: value pass`.
-4. **Engine revision:** record the Unreal project's commit or changelist and the `.blend` path and save time in `log.md`.
-5. **Push** after every commit. Never force-push. If a push fails, keep the commit, retry with backoff, and if it still fails show it on the board and in chat.
-6. **Tag** approved gates: `<slug>/<gate>`, for example `hotel-corridor/G2`.
+## Project save point
+
+At the end of each phase, each lighting pass and each decision the user sends. No git.
+
+1. **Backup.** A copy of the live file in the phase folder's `backups/` (`house-rules` 4), unless the save point is a decision with no new work.
+2. **Ledger.** One entry in `plan/steps.json` with `step_log.py log` (`blender-adapter`).
+3. **Log line** in `log.md`, always, even when there is nothing to back up: `YYYY-MM-DD HH:MM <who> <gate> r<round> <decision or status>: <what>`, with the backup path. Add the engine revision: the Unreal project's commit or changelist, and the `.blend` path and save time.
+
+## Pipeline commit
+
+When a skill, a doc, a `knowledge/` note, a `feedback/` file or a `toolbox/` file changes.
+
+1. **Stage by path:** `.claude/`, `docs/`, `knowledge/`, `feedback/`, `toolbox/` (not raw scans), `CLAUDE.md`, `README.md`. Never stage `projects/`, captures, engine binaries or the work folder; `git status` shows nothing from them. A lesson from a project reaches `feedback/` only with the user's OK, with private names and places taken out.
+2. **Message:** `[pipeline] <what changed>`, on the working branch.
+3. **Push** after every commit. Never force-push. If a push fails, keep the commit, retry with backoff, and if it still fails tell the user in chat.

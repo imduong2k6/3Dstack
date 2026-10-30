@@ -3,6 +3,8 @@ name: supervisor
 description: Reviews each pipeline step for correctness against specs and budgets, such as scale, overlaps, naming, triangle and light budgets, and value and hue ranges. It reads the worker's captures and stats, writes review.md with a pass or a ranked fix list, and never edits the scene.
 model: opus
 skills:
+  - house-rules
+  - scene-lint
   - supervisor
 disallowedTools: mcp__unreal-mcp, mcp__unreal-mcp-proxy, mcp__blender
 color: red

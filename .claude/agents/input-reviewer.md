@@ -3,6 +3,7 @@ name: input-reviewer
 description: Judges a new scene brief and its references before anything is planned. It tags references by role, builds a coverage matrix, checks scale anchors and conflicts, rates readiness per area, and writes the questions the manager should ask the user in the Stage 0 interview.
 model: opus
 skills:
+  - house-rules
   - input-review
 disallowedTools: mcp__unreal-mcp, mcp__unreal-mcp-proxy, mcp__blender
 color: yellow

@@ -8,10 +8,10 @@ license: MIT
 
 ## Pipeline notes
 
-Modified for the 3Dstack pipeline: the description is narrowed, the metadata block is removed and this section is added. The rest is the upstream text. Upstream source and commit: `.claude/skills/CREDITS.md`. Where these notes and the upstream text differ, these notes win.
+Modified for the 3Dstack pipeline: the description is narrowed, the metadata block is removed and this section is added (updated 30 Oct 2026). The rest is the upstream text. Upstream source and commit: `.claude/skills/CREDITS.md`. Where these notes and the upstream text differ, these notes win.
 
-- Names: `UCX_SM_<Name>_01`, `_02` and so on, matching the render mesh, as in `modeling/references/game-models.md`.
-- Collection: `COL_Collision` inside the asset's own `.blend` (one asset per file), not `COL_Collision_[Asset]`.
+- **One name:** `UCX_SM_<Name>_NN` (`_01`, `_02` and so on), where `SM_<Name>` is the render mesh, as in `modeling/references/game-models.md`. No other collider names: no `UCX_<Name>` without the number, no `COL_` meshes.
+- **Authoring rule 5 is replaced.** The collection is `COL_Collision` inside the asset's own `.blend` (one asset per file), not `COL_Collision_[Asset]`.
 - Props the player can't reach get no collision. Use complex-as-simple only when the spec asks for it.
 - The Unity notes don't apply here.
 

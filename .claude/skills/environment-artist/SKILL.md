@@ -8,12 +8,14 @@ license: MIT
 
 ## Pipeline notes
 
-Modified for the 3Dstack pipeline: the description is narrowed, the metadata block is removed and this section is added. The rest is the upstream text. Upstream source and commit: `.claude/skills/CREDITS.md`. Where these notes and the upstream text differ, these notes win.
+Modified for the 3Dstack pipeline: the description is narrowed, the metadata block is removed and this section is added (updated 30 Oct 2026). The rest is the upstream text. Upstream source and commit: `.claude/skills/CREDITS.md`. Where these notes and the upstream text differ, these notes win.
 
 - **Grid and dimensions** come from `plan/metrics.yaml` and the kit plan. The grid table below is a starting point only.
 - **Nanite first** on Unreal 5.8. The "LODs 50%/25%/10% per module" line applies only to meshes that can't use Nanite (`lod-pipeline`).
 - **Materials:** one master material with an instance per `material_group` (`modular-kit`). Vertex-colour variation only when the brief asks for it.
 - **The link to `../references/asset-pipeline.md`** points at an upstream file that isn't installed. Use `docs/pipeline/stages.md` instead.
+- **Ignore wear and damage** (updated 30 Oct 2026): the "Peeling paint" and "Damage patterns" rows, "Weathering tells climate story", the "Damage variants" trim slot, and decal overlays in `references/modular-kits.md`. Wear is the user's texturing work in every mode (`house-rules` rule 1); write it to `handoff/wear-notes.md`. The other storytelling rows (barricades, personal items, lighting state) are fine.
+- **"Minimum viable kit"** ("Create minimum viable kit before hero pieces", the table in `references/modular-kits.md`) applies only when `brief.yaml › fidelity` is `inspired`. With `faithful`, the kit follows the references: hero pieces and every variant they show, and the count targets in the piece table below are starting points only (`house-rules` rule 6, `modular-kit`).
 
 Modular, scalable environment production for games. Storytelling through space. Performance-conscious.
 

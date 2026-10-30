@@ -18,8 +18,8 @@
 - **Horizontal replaces your v3 request for vertical.** Held upright, a phone shows a horizontal flow one part at a time, so each phase is a card that snaps into place as you swipe. Turned sideways, the phone shows two or three cards at once.
 - **The reviewers' Unreal guard never worked.** It blocked a server called `unreal`, but Epic's server is `unreal-mcp`. The agents now block `unreal-mcp`, `unreal-mcp-proxy` and `blender`.
 - **"Never launch another Blender" blocked parallel work.** The rule is now one writer per live session. Headless Blender on a separate asset file is allowed, which is what lets several Modelers work at once.
-- **Opus for scene work.** The Modelers and both workers stay on Opus as you asked. The new Asset Tech and Generator start on Sonnet because their work is scripted and checked by numbers; the model picker moves them to Opus after two failed reviews. Change one line in their agent files if you want Opus from the start.
-- **Reference photos in a public repo.** Photos, `.blend` and FBX files now stay in the work folder outside git, and only each photo's source link is committed.
+- **Opus for scene work.** The Modelers and both workers stay on Opus as you asked. The new Asset Tech and Generator start on Sonnet because their work is scripted and checked by numbers. Change one line in their agent files if you want Opus from the start.
+- **Reference photos in a public repo.** Photos, `.blend` and FBX files now stay in the work folder outside git, and only each photo's source link is kept in `refs/index.yaml`.
 - **Copied skills competing with ours.** Their descriptions were narrowed so they don't trigger instead of the pipeline's own skills, and each has notes where it disagrees with our rules: Nanite first, collection names, one master material.
 - **Tripo** stays an empty slot in `generated-asset` until you add your own workflow. Magnific is the only generation service for now.
 
@@ -48,7 +48,7 @@
 | Short project picks | Three short choices: Making (scene, object), For (game, CG, not sure), Built in (Unreal; Blender then Unreal; Blender only) | Form |
 | A prompt box with images instead of chips | Project, Context and Lighting each switch between quick options and "Describe with images" (text plus up to 12 images, by drop, paste or upload) | Form |
 | Chat prompt is enough | The intake reads your chat message and images. The form is sent only when three or more required things are missing | `scene-intake` |
-| Opus for the Unreal and Blender workers | Both workers, the new Modeler and both reviewers run on Opus; the model picker can't move them down | `.claude/agents/` |
+| Opus for the Unreal and Blender workers | Both workers, the new Modeler and both reviewers run on Opus | `.claude/agents/` |
 | Toolbox scanner researches docs and only scans new tools | A script with signatures and a manifest per machine; one instruction file per tool from local and online docs; only new or changed tools are researched | `toolbox-scan`, `toolbox/` |
 | Researchers learn from professionals and suggest improvements | Workflow research at Stage 1, problem research when a step fails twice, and a retro at the end with up to 10 ranked suggestions | `workflow-research`, `retro` |
 | Stage 0 interview and a plan to approve | Multiple-choice rounds until nothing important is unclear, then `plan.md`, approved at G0 | `input-review`, `scene-interview` |

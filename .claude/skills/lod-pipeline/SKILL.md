@@ -11,7 +11,7 @@ license: MIT
 Modified for the 3Dstack pipeline: the description is narrowed, the metadata block is removed and this section is added. The rest is the upstream text. Upstream source and commit: `.claude/skills/CREDITS.md`. Where these notes and the upstream text differ, these notes win.
 
 - **Nanite first.** On Unreal 5.8, opaque static meshes use Nanite and get no hand-made LODs. This skill applies only to meshes Nanite doesn't support.
-- **Starting ratios:** LOD0 100%, then about 50%, 25% and 12.5%, as in `modeling/references/game-models.md`. They fall inside the ranges below.
+- **Starting ratios:** LOD0 100%, then about 50%, 25% and 12.5%, as in `modeling/references/game-models.md`. LOD3 at 12.5% sits just above the 5 to 10% range below; go lower when the silhouette holds.
 - **CG route (`blender`):** no LODs.
 
 Intentional LOD chains. Preserve silhouette. Validate reductions.

@@ -8,7 +8,7 @@ sources:
   - C:/Users/Admin/AppData/Roaming/Blender Foundation/Blender/5.2/extensions/blender_org/sun_position/blender_manifest.toml and README.md
   - https://docs.blender.org/manual/en/latest/addons/lighting/sun_position.html
   - Online docs not fetched this run (local descriptors only); verify before relying on version-specific detail.
-pipeline_stages: [lighting-brief, lighting-passes, archviz]
+pipeline_stages: [lighting-brief, lighting-passes]
 routes: [blender]
 ---
 
@@ -23,10 +23,10 @@ routes: [blender]
 - World properties or the 3D viewport sidebar > Sun Position; Sun + Sky or HDRI mode; enter location and time.
 
 ## Settings that matter
-- Set the north offset to match the layout; keep the exposure target from the lighting brief.
+- Set the north offset to match the layout; keep the fixed exposure (`house-rules` 8).
 
 ## Gotchas
-- Not for Unreal (use Sky Atmosphere and Directional Light per the L0 brief).
+- Not for Unreal (use Sky Atmosphere and Directional Light per the lighting brief).
 - Check timezone and scene units before trusting the angle.
 
 ## Don't use it for

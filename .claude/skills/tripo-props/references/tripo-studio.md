@@ -1,6 +1,6 @@
 # Tripo Studio through Claude in Chrome: details and failure modes
 
-From the KWC alley project (22 and 23 Oct 2026). Coordinates below are from one window size and **shifted several times** (1512×807 → 1535×784 → 1535×698 →
+From an earlier project (22 and 23 Oct 2026). The Generator drives Studio; the live worker only imports. Coordinates below are from one window size and **shifted several times** (1512×807 → 1535×784 → 1535×698 →
 2463×1258). Prefer `find` refs; re-`find` after every UI change (refs go stale: "No element found").
 
 ## Studio facts
@@ -65,8 +65,8 @@ field, type the number, **Tab** to commit, `find` it again to read the value →
   `%APPDATA%\Blender Foundation\Blender\5.2\scripts\addons\Tripo3d_Blender_Bridge`
   (`core/ws_server.py` port 60600, keeps only the newest client: "Closing 1 existing client(s)…").
 - Log: `%TEMP%\tripo3d_blender_bridge.log` — lines "Received complete model
-  name", "Renamed imported root", "Successfully imported <task id>". Don't `find` across AppData for it
-  (timed out); ask Blender:
+  name", "Renamed imported root", "Successfully imported <task id>". The Generator reads the file
+  directly. Don't `find` across AppData for it (timed out); the live worker can ask Blender:
 ```python
 import sys
 st = sys.modules["Tripo3d_Blender_Bridge.core.status_manager"].status
@@ -81,6 +81,7 @@ print("".join(open(f, encoding="utf-8", errors="replace").readlines()[-25:]))
 | Symptom | Fix |
 |---|---|
 | Clicking "Send to" does nothing | Hover it; pick "Send to Blender" from the submenu (found by the user). |
+| No "Successfully imported" 90 s after a send | Stall budget: toggle the DCC Bridge switch (Blender off, on) and resend once. Still nothing after another 90 s: GLB for the rest of the batch (SKILL.md section 4, step 5). On an earlier project the stalls cost 87 min from approval to the last import. |
 | "Please open the plugin on DCC Bridge at the top first", or Send silently does nothing although port 60600 listens | Top-bar **DCC Bridge** button → dialog with one switch per DCC (Blender, 3ds Max, Unity, Unreal, Maya, Godot, ZBrush…) → switch **Blender** on (`aria-checked` was false). Page reload did not help. The popover may not show in screenshots; read it with `javascript_tool` (`innerText`, `getBoundingClientRect`). |
 | Bridge connected to another tab / browser | Close the other Studio tab; toggling Blender in this tab makes it the newest client. |
 | `.001` duplicate in Blender | Sent twice while a big model was still transferring. Check the log before resending; delete the duplicate with its mesh, materials and images when `users == 0`. |

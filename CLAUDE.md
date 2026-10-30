@@ -9,4 +9,4 @@ Claude Code pipeline that builds 3D scenes in Unreal Engine 5.8 and Blender 5.2 
 - **Keep the repo free of third-party files.** Don't commit third-party reference photos, `.blend`, `.uasset` or `.fbx` files. Reference photos stay in the work folder; `refs/index.yaml` keeps the source link for each one.
 - **Third-party skills** keep their `LICENSE` (and `NOTICE`) files. Note every change to them in the skill's "Pipeline notes" and in `.claude/skills/CREDITS.md`.
 - **Where the session runs.** Building needs the Unreal and Blender MCP servers on the user's PC. A cloud session (claude.ai/code without Remote Control) can't reach them: say so and stick to planning, research, specs and reviews of uploaded captures.
-- Commit and push to the working branch at each save point, as `checkpoint` describes.
+- Pipeline changes (skills, docs, `knowledge/`, `feedback/`, `toolbox/`) are committed and pushed to the working branch when they change, as `checkpoint` describes. Projects stay local and are never committed (`house-rules` rule 3).

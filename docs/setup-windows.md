@@ -93,7 +93,7 @@ The repo is the package: skills, agents, `.mcp.json` and the plugin setting all 
 | A cloud session in Code, with the repo cloned into Anthropic's cloud | Planning only: intake, interview, research, layout, specs, the retro, and reviews of captures you upload. The cloud can't reach Unreal or Blender on your PC, so `/mcp` shows both servers as failed |
 | Another Claude account | The same three options. Sign in with that account and open the repo. To push commits, connect a GitHub account with write access to this repo. If that account has a Tripo connector or workflow, add `tripo` to `generation_services` in the brief |
 
-If you'd rather keep projects in a different repo, copy `.claude/`, `.mcp.json`, `bin/` and `docs/` into it. A plugin package is possible too, but the agents' tool guards would need the plugin's server names (`mcp__plugin_<plugin>_<server>`), so the plain repo is the safer route.
+To run the pipeline from another folder, copy `.claude/`, `.mcp.json`, `bin/` and `docs/` into it. A plugin package is possible too, but the agents' tool guards would need the plugin's server names (`mcp__plugin_<plugin>_<server>`), so the plain repo is the safer route.
 
 ## Safety
 

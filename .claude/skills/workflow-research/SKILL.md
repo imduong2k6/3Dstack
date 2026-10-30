@@ -1,6 +1,6 @@
 ---
 name: workflow-research
-description: Research how professional environment artists, game studios and VFX teams build a given kind of scene or solve a given problem, then rate each finding by fit and effort and map it to a pipeline stage and skill. It has three modes, Stage 1 project research, problem research when a step keeps failing, and end-of-project retro input. Use it to make this and future projects faster.
+description: Research how professional environment artists, game studios and VFX teams build a given kind of scene or solve a given problem, then rate each finding by fit and effort and map it to a pipeline stage and skill. It has two modes, Stage 1 project research and problem research when a step keeps failing. Use it to make this and future projects faster.
 ---
 
 # Workflow research
@@ -11,7 +11,7 @@ Read `knowledge/` (repo, then `brief.yaml › knowledge_local`) before going onl
 
 ## Mode 1: Stage 1 project research
 
-Only for problems this scene raises that `knowledge/` doesn't cover. Tier S skips it unless the input has such a problem; tier M asks only those questions; tier L runs it in full.
+Run it when `brief.yaml` shows any of these: route `blender_unreal`, generation on (`generation_services` not empty), or `detail` other than `massing`. If none holds, skip it and say so in `log.md`. When it runs, it covers only problems this scene raises that `knowledge/` doesn't cover; tier S keeps to the one or two biggest, tier M asks only those questions, tier L runs it in full.
 
 Question: how do professionals build *this kind of scene* on *this route*? For example "abandoned hotel corridor in UE5 with Lumen", or "rainy Hanoi street at night, Blender only, stills".
 
@@ -25,16 +25,14 @@ Look for:
 
 ## Mode 2: problem research
 
-Triggered by the manager when a step fails review twice for the same reason, or a worker reports a blocker. Question: how do professionals handle *this specific problem*? Examples: "kit seams visible under grazing light", "Lumen light leaks at modular wall joins", "Tripo chair legs too thick". Return one to three concrete fixes with sources, and the one you recommend. When the fix works, write it to `knowledge/` (format in `knowledge/README.md`), or to the private folder if it needs reference photos or client details.
+Starts automatically when the same issue type appears in two review rounds (the same lint rule or the same fix-list category, in the supervisor's or the user's notes), or when a worker reports a blocker. The manager starts it before the next round. Question: how do professionals handle *this specific problem*? Examples: "kit seams visible under grazing light", "Lumen light leaks at modular wall joins", "Tripo chair legs too thick". Return one to three concrete fixes with sources, and the one you recommend. When the fix works, write it to `knowledge/` (format in `knowledge/README.md`), or to the private folder if it needs reference photos or client details.
 
-## Mode 3: retro input
-
-At the end of a project, look up better ways to do the steps that took the most rounds or time (from the `retro` skill's numbers), and add them as suggestions. Every problem solved during the project gets a `knowledge/` note.
+End-of-project research is part of `retro`, not a mode here. Every problem solved during the project still gets a `knowledge/` note.
 
 ## Rating each finding
 
 ```yaml
-# plan/workflow-notes.md (one table), or a plan/pro-tips.md entry in mode 2
+# plan/workflow-notes.md (one table), or a plan/pro-tips.md entry in problem mode
 - finding: Use one 2048 trim sheet for all wall trims, mouldings and door frames
   source: https://80.lv/…
   stage: 4 kit

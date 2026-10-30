@@ -5,7 +5,7 @@ For Tripo and Magnific 3D outputs, scans, and any mesh from outside. Generated m
 ## Always
 
 1. **Keep the source.** Duplicate the import as `<Name>_Source` in a hidden `COL_Ref` collection before you change anything.
-2. **Scale to the spec.** Scale the bounding box to the dimensions in `kit/<asset>.md`, then apply scale. Check one real dimension, such as a seat height or a door width.
+2. **Scale to the spec.** Scale uniformly with one factor taken from the largest side of `dims_m` in `kit/<asset>.md` (for tubes, from the measured diameter, `modeling` step 6), then apply scale. If the three per-axis factors differ by more than 8 %, the generation has the wrong proportions: regenerate or rebuild, don't stretch it. Check one real dimension, such as a seat height or a door width.
 3. **Orient and pivot.** Front faces -Y in Blender. Put the pivot at the bottom centre or the spec's origin.
 4. **Clean up.** Merge by Distance, delete loose parts and floating noise, recalculate normals outward, and fix non-manifold edges and holes (Grid Fill or a patch).
 5. **Strip baked light.** Colour from a generated mesh is reference only. The value and hue passes need clean material groups, so remove the colour or use it only as a guide.
@@ -30,7 +30,7 @@ For Tripo and Magnific 3D outputs, scans, and any mesh from outside. Generated m
 - [ ] No baked-light colour left in the material
 - [ ] Parts split where the real object splits
 - [ ] UVs and texel density meet the project value
-- [ ] Spec records the source (`tripo`, `magnific`, `scan`), the prompt or image used, and the credits spent
+- [ ] Spec records the source (`tripo`, `magnific`, `scan`), the prompt or image used, the credits spent, and a `dims_source` that is not the AI image
 
 ## Sources
 

@@ -46,3 +46,32 @@ Approved by pika at G3 ("2": now, all ten), 29 Oct 2026 00:50Z. Evidence: `proje
 Also: `docs/pipeline/lighting.md` marks the Naughty Dog three-pass wording as a pipeline convention whose source is still to confirm (the retro researcher couldn't find the slides).
 
 Tests: `check_palette.py`, `check_fit.py` and `selftest_light.py` pass headless with Blender 5.2.3. On the corridor pilot's file, `selftest_light.py` with the approved H3 `palette.json` put all 12 groups within 1 level of their grays (letterbox_paint -0.1, matching the +0.1 measured at L3). Its test red, solved by albedo luminance alone, read +12.5 levels through AgX, which is why `solved_hex` comes from the render.
+
+## 2026-10-30: corridor-pilot evidence moved out of `scene-pipeline`
+
+The skill kept these numbers inside its rules. The rules stay in the skill; the evidence lives here.
+
+- Tier: the corridor pilot was tier S work run at tier L and took 9 h 48 min of active time.
+- Start the default while a gate waits: the user took the default 19 times out of 19, and about an hour went to idle waits.
+- Render both when the reviewers disagree: 3 to 5 minutes on the pilot, against 25 to 90 for a review round.
+- Autopilot: with every gate approved at its default (a test of autopilot), the left door's misplacement got through every later gate, so the supervisor's paired-element check runs at every placement review.
+- `gate-board`: typed `createdAt` times on the pilot drifted up to 147 min and broke the retro's wait times, hence the system clock.
+
+## 2026-10-30: skill audit (v7)
+
+Approved by pika on the Skill Audit page, 30 Oct 2026: 49 items, with notes on seven. Evidence: the audit of an earlier project's blockout rounds (repeated defects, lane joins, wear meshes, refused briefs).
+
+| # | Change | Skills and files |
+| --- | --- | --- |
+| 1 | New `house-rules`: 13 standing rules in one place, each with what enforces it; every agent preloads it and other skills point to it | `house-rules`, all agents, most skills |
+| 2 | Projects stay local: nothing under `projects/` is committed or pushed; a project save point is a backup, a `plan/steps.json` entry and a `log.md` line; pipeline commits are `[pipeline] <what>` (user's notes on checkpoint, retro, scene-intake) | `checkpoint`, `retro`, `scene-intake`, `data-and-commits.md`, `.gitignore`, `CLAUDE.md` |
+| 3 | Light stays neutral until blockout and modelling are done, with a light on every model that emits; detailed lighting after that (user's notes on lighting-brief and lighting-passes) | `house-rules` 7, `lighting-brief` (two parts), `lighting-passes`, `blockout`, `placement-phases`, `lighting.md` |
+| 4 | The interview reads the job back in at most 10 lines before plan.md (user's note) | `scene-interview` |
+| 5 | Briefs ask for results and evidence files only; the wording that was refused is gone (user's note on S1) | `house-rules` 10, `lane-integration` |
+| 6 | Checks as code: `scene-lint` (19 checks, `lint.json`, capture refuses on a blocker), `step_log.py`, `check_layout.py`, `check_spec.py`, `kit_joint_test.py`, `measure.py --grid`, `stats.py --expect-file`; palette `gray_on()`/`gray_off()` and a skip report | `scene-lint`, `blender-adapter`, `layout-2d`, `modular-kit` |
+| 7 | New `lane-integration`, `detail-inventory` and `review-pairs` | those skills, `scene-pipeline`, `blockout`, `gate-board` |
+| 8 | Retired `model-picker` and `archviz` (its camera and light facts moved to `blender-adapter`) | `CREDITS.md` |
+
+Checked against the research: making projects local for every project changes the old commit rule (now in `data-and-commits.md`); project text files have no off-machine copy unless the user backs up the work folder. The neutral-light rule widens `lighting.md`'s "placeholder lights only for practicals that drive the composition" to every emitting model. Two read-only reviews (approved items landed; cross-skill consistency) found 28 gaps, all fixed. Not built: the Unreal lint, lookdev and capture fixes (the Unreal MCP was unreachable).
+
+Tests: `selftest_lint.py`, `selftest_adapter.py`, `selftest_validate_mesh.py`, `check_palette.py`, `selftest_check_layout.py`, `check_spec` and `kit_joint_test` self-tests, `selftest_integrate.py`, `selftest_inventory.py`, `selftest_pairs.py`, `check_tripo_cleanup.py` and `selftest_pipeline_patch.py` pass with Blender 5.2.3.

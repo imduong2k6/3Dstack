@@ -1,17 +1,13 @@
 ---
 name: ue5-mcp
 description: >
-  Field manual for driving Unreal Engine 5.7 / 5.8 through MCP. Engine-level
-  gotchas, silent-fail edges, crash patterns, and the call sequences that
-  actually work — applicable regardless of which MCP server you're using
-  (Epic's official ModelContextProtocol plugin, custom servers, or anything
-  else). Auto-trigger when Unreal Engine MCP tools are detected in a session,
-  or when the user mentions Unreal Engine, UE5, Blueprints, Niagara,
-  MetaSound, materials, or any UE editor automation workflow. This skill
-  contains hard-won knowledge from real debugging sessions — most entries
-  trace back to an actual editor crash or hours-long faceplant. Ignoring it
-  when UE5 MCP tools are present will lead to wasted time hitting known dead
-  ends.
+  Field manual for driving Unreal Engine 5.7 / 5.8 through MCP: silent-fail
+  edges, crash patterns and call sequences, server-agnostic. Load it on
+  demand: when an Unreal MCP call fails or does something silently different,
+  or when a task touches Niagara, MetaSound, Sequencer or Movie Render, UMG or
+  Blueprint graphs. Do not load it just because Unreal is mentioned; in the
+  3Dstack pipeline the unreal-adapter skill carries the digest that covers
+  normal work.
 version: 3.3.0
 date: 2026-08-08
 license: MIT
@@ -21,8 +17,14 @@ license: MIT
 
 ## Pipeline notes
 
-Added for the 3Dstack pipeline; the rest is the upstream text (source and commit in `.claude/skills/CREDITS.md`).
+Added for the 3Dstack pipeline; the rest is the upstream text (source and commit in `.claude/skills/CREDITS.md`). The description and these notes were changed on 30 Oct 2026. Where these notes and the upstream text differ, these notes win. Line numbers below are for this file, notes included.
 
+- **When to load it.** The Unreal worker doesn't preload this manual (about 14k tokens, mostly about systems the pipeline doesn't use). `unreal-adapter` carries a 15-line digest of the rules that bite here. Load this file when an Unreal MCP call fails or does something silently different, or when a task touches a system the digest doesn't cover, and read only the ranges below.
+- **Read** (the pipeline's work: static meshes, level actors, lights, materials, captures, import): 44-65 (session checklist), 101-132 (class paths, async work, save before reading), 163-172 and 197-210 (enum strings, the agent side), 244-259 (properties on the RootComponent), 358-373 (crash patterns), 416-441 (identifiers and asset paths), 463-468 (Lumen needs Movable lights), 541-550 (emissive bloom), 565-575 (material compile lag), 1011-1050 (client patterns), 1054-1076 (version differences).
+- **Read when the task needs it:** 624-733 (Sequencer and Movie Render) before any sequence or movie render work; 470-482 (Blueprint instance overrides) if kit pieces are Blueprints; 443-454 and 577-597 (UMG) if the brief has UI.
+- **Skip** (not used here): 68-99 (see contradiction 2), 134-161 and 260-349 (C++ only: change events, graph nodes, property fallback code, undo), 375-410, 484-539, 599-622 (Niagara, MetaSound, audio, UltraDynamicSky, editor sprites), 552-563 (particle materials), 737-787 (transport; the server handles it), 789-828 (see contradiction 1), 832-1009 (writing an MCP server), 1078-1141 (the 5.8-only plugin note, Niagara module split, asset dump shapes), 1143-1199 (anti-patterns that repeat earlier sections), 1203-1225.
+- **Contradiction 1, section 7, Note actors (805-819).** It spawns an `unreal.Note` actor at (0, 0, 9999) per script result, reads the result from its tags, and deletes it. In this pipeline: `execute_tool_script` can't `import unreal`, so the script can't run there (`toolbox/tools/mcp.unreal-mcp.md`); `PipelineTools` tools return their result as a string; and spawning then deleting a stray actor is the §3.2 crash pattern (369-373) and leaves an untagged actor that `stats.py` counts. Return a string or write a JSON file in the work folder. The manual's own last paragraph of that section says to prefer a server-side return value.
+- **Contradiction 2, section 2.1, snake_case (73-99).** It says `set_editor_property` with a snake_case name silently does nothing. This pipeline's scripts use snake_case names throughout (`capture.py`: `capture_component2d`, `texture_target`, `fov_angle`; `stats.py`: `cast_shadows`, `static_mesh`) and were tested in UE 5.8.3 on 27 Oct 2026, so the blanket claim doesn't hold here. Use the names the `unreal` module documents, and keep the manual's advice to read the value back after every write, which would catch a silent no-op. PascalCase applies to C++ reflection and to MCP tools that take reflection names (check `describe_toolset`).
 - **Section 10.1:** Movie Render Graph isn't new in 5.8. Epic's 5.7 documentation already has it as Beta, and the 5.8 release notes move it to Production Ready. The pipeline runs on 5.8, so it is available either way. Details in `toolbox/tools/ue.movierenderpipeline.md`.
 - Drive the editor the way `unreal-adapter` describes: Epic's `unreal-mcp` skill first, one writer, and the `PipelineTools` toolset for captures, stats and layout import.
 

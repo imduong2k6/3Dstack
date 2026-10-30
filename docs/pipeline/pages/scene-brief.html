@@ -148,7 +148,7 @@ const SECTIONS = [
     { k: "must_have", label: "Must have", type: "textarea", ph: "One per line" },
     { k: "must_avoid", label: "Must avoid", type: "textarea", ph: "One per line" }
   ]},
-  { id: "lighting", title: "Lighting", modes: true, help: "Used for the rough light at blockout and for the gray, value and hue passes.", describePh: "Time of day, weather, where the main light comes from, practical lights, the feeling you want. Drop in film stills or photos.", fields: [
+  { id: "lighting", title: "Lighting", modes: true, help: "Used for the neutral light at blockout and for the gray, value and hue passes.", describePh: "Time of day, weather, where the main light comes from, practical lights, the feeling you want. Drop in film stills or photos.", fields: [
     { k: "time_of_day", label: "Time of day", type: "choice", wide: true, def: "golden", opts: [["dawn", "Dawn"], ["day", "Midday"], ["golden", "Golden hour"], ["dusk", "Dusk"], ["night", "Night"], ["interior", "No daylight"]] },
     { k: "weather", label: "Weather or air", type: "text", ph: "clear · overcast · rain · dusty" },
     { k: "key_light", label: "Main light source", type: "text", ph: "sun through west windows" },
@@ -173,12 +173,10 @@ const SECTIONS = [
     { k: "plugins", label: "Plugins or add-ons to prefer", type: "textarea", ph: "Leave empty and the toolbox scan lists what you have." }
   ]},
   { id: "pipeline", title: "Pipeline options", fields: [
-    { k: "model_routing", label: "Automatic model choice", type: "toggle", def: false, help: "Picks Haiku, Sonnet or Opus per task and moves a task up a tier after two failed reviews. Workers stay on Opus." },
     { k: "lighting_passes", label: "Run the gray, value and hue passes", type: "toggle", def: true, help: "After the modular kit and set dressing are in. Stops at the hue pass." },
     { k: "gen_magnific_3d", label: "Magnific 3D for generated props", type: "toggle", def: true },
-    { k: "gen_tripo", label: "Tripo3D, with your own workflow", type: "toggle", def: false, help: "Detailed props for a full CG scene or a detailed blockout (tripo-props skill). When on, Tripo is tried first and Magnific takes over when credits run out." },
+    { k: "gen_tripo", label: "Tripo3D, with your own workflow", type: "toggle", def: false, help: "Detailed props when the detail level is detailed or final (tripo-props skill). When on, Tripo is tried first and Magnific takes over when credits run out." },
     { k: "gen_images", label: "Magnific image generation", type: "toggle", def: true, help: "Missing views, look tests, signage and decal art." },
-    { k: "auto_commit", label: "Commit and push at every save point", type: "toggle", def: true },
     { k: "parallel_modelers", label: "Modelers at once (1 to 4)", type: "number", def: 3, step: 1, help: "After the pilots are approved. Drop to 2 if the PC slows down with Unreal open." },
     { k: "parallel_asset_tech", label: "Asset Techs at once (1 or 2)", type: "number", def: 1, step: 1 },
     { k: "work_dir", label: "Work folder for .blend and FBX files", type: "text", wide: true, mono: true, ph: "D:\\Projects\\SkillTest\\PipelineWork", help: "Outside the repo. Leave empty for a PipelineWork folder next to the Unreal project." },

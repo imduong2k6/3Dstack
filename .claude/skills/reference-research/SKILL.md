@@ -28,19 +28,22 @@ Tier S stops after step 2 unless an object is hidden: the manager does it, with 
 
 ## Rules
 
-- Every number in `plan/metrics.yaml` has `source:` (a link, a book, a knowledge note, or a reference image with its anchor) or `assumed: true` with the reasoning.
+- Every number in `plan/metrics.yaml` has `source:` (a link, a book, a knowledge note, or a reference image with its anchor) or `assumed: true` with a note saying where the number comes from.
 - Prefer manufacturer data, standards and building codes, architectural references (Architects' Data and similar), and measured photos with a scale anchor.
-- Images found online go into `refs/index.yaml` with their link and a proposed role tag. Never use AI images for measurements.
+- Images found online go into `refs/index.yaml` with their link and a proposed role tag. Never use AI images for measurements (`house-rules` rule 11).
 - If two sources disagree, record both and pick one with a reason.
-- **Detail pass.** When the brief puts detail first, research per element category (services, walls, doors and gates, stairs, signage, shop fronts, household spill-over, lighting, litter). Finish with a ranked add list mapped to the map's zones, putting first what a player sees from the walk paths. Collect links; download images only with the user's OK.
+- **Kit scale needs a source first.** A dimension that sets a kit family's scale (conduit and pipe diameters, door leaf, anything repeated 10 or more times) needs a `plan/metrics.yaml` row with `role: kit_scale` and a manufacturer, standard or measured real-photo source before any spec is written (`modular-kit`). An AI image never sizes a kit, and neither does a size read off one. On an earlier project a conduit kit was built at 45 mm to match an AI-sized elbow; real conduit runs 20 to 32 mm.
+- **Detail inventory.** Unless `brief.yaml › detail` is `massing`, the detail pass is the `detail-inventory` skill, run in Stage 1 (it writes `plan/inventory.yaml` and `plan/services.yaml`, with reference crops in `<work_dir>/refs/crops/<row id>.png`), not after the blockout. Collect links; download images only with the user's OK.
+- **Lane briefs cite `metrics.yaml` values** by key, so a lane never re-derives a size.
 
 ```yaml
 # plan/metrics.yaml
 door_leaf_height_m: {value: 2.04, source: "https://…", note: "US residential standard, 6'8\"", role: anchor}
 letterbox_width_m: {value: 0.30, source: "eyeballed, corridor-01, anchor door_leaf_height_m"}
 corridor_width_m:  {value: 1.83, assumed: true, note: "between hotel corridor norms; no anchor in refs"}
+conduit_od_mm:      {value: 25, source: "https://… (manufacturer data sheet)", role: kit_scale}
 ```
 
 ## Output
 
-`plan/research.md` with links, `plan/metrics.yaml`, and new entries in `refs/index.yaml`.
+`plan/research.md` with links, `plan/metrics.yaml`, and new entries in `refs/index.yaml`. A long topic may go to `plan/research/<topic>.md`, with `plan/research.md` as the index that links each one.

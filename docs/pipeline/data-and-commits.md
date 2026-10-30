@@ -2,41 +2,61 @@
 
 ## Project folder
 
-Text files are the source of truth and are committed. The form and the board hold copies that the manager syncs.
+Text files are the source of truth. Projects stay local: nothing under `projects/` is ever committed or pushed (`house-rules` 3). The form and the board hold copies that the manager syncs.
 
 ```text
 projects/<slug>/
   brief.yaml                  # from chat, interview and form; each value records where it came from
-  refs/index.yaml             # role tags, AI flag, source link and work-folder path per image
+  refs/index.yaml             # PureRef group, role tags, AI flag, source link and work-folder path per image
   plan/  plan.md  interview.md  questions.yaml  input-review.md
          research.md  metrics.yaml  workflow-notes.md  pro-tips.md  toolbox.md
+         inventory.yaml  services.yaml       # per zone and wall: what is visible; the connected services network
          lighting-brief.md  layout.json  layout.png  assets.yaml  phases.md  budget.yaml
+         steps.json                          # step ledger: backup, counts and hashes per step (step_log.py)
+         walk.json  visible_set.json  lint_rules.yaml  inventory-check.json   # scene-lint and detail-inventory files
   kit/<asset>.md              # one spec per asset, with method, batch and done_when
-  assets/<asset_id>/          # review sheets, validate.json, roundtrip.json per asset (v5)
-  light/ lights.json  palette.json  cameras.json
+  assets/<asset_id>/          # review sheets, validate.json, roundtrip.json per asset
+  light/ lights.json  palette.json  cameras.json  exposure.json
   transfer/layout.json        # Blender then Unreal route only
   reviews/<gate>-r<n>/        # G2-r1, P3-r2, T-r1, L2-r1 ...
-         contact.png  stats.json  review.md  ad-notes.md  feedback.json
-  handoff/texturing-brief.md  handoff/improvements.md
-  backlog.md  routing.yaml  log.md
+         contact.png  stats.json  lint.json  inventory-count.json  review.md  ad-notes.md  feedback.json
+         fix_issues.json  fix_cams.json  pairs/      # the before/after pairs (review-pairs)
+  handoff/texturing-brief.md  handoff/wear-notes.md  handoff/improvements.md
+  backlog.md  log.md          # log lines: YYYY-MM-DD HH:MM <who> <what>
 ```
 
-Outside git, in `work_dir` (recorded in `log.md`; default `PipelineWork/<slug>` next to the Unreal project):
+In `work_dir` (recorded in `log.md`; default `PipelineWork/<slug>` next to the Unreal project), for the large files:
 
 ```text
 <work_dir>/refs/                     # reference photos from chat, form and your folders
 <work_dir>/assets/<asset_id>/        # <asset_id>.blend, build/, exports/, source/ (generated meshes)
 <work_dir>/<slug>.blend              # Blender scene file on the Blender routes
+<work_dir>/parts/<lane>/             # lane part .blend, manifest.json, report.json (lane-integration)
+<work_dir>/<phase folder>/backups/   # a .blend copy after every step: <file>_<phase>_<nn>_<step>.blend, never deleted
 ```
 
-The repo is public, so reference photos and engine files stay in `work_dir`. `.gitignore` blocks images under `projects/*/refs/` and `.blend`, `.fbx`, `.uasset` and `.umap` files everywhere.
+`.gitignore` ignores `projects/` whole, and `.blend`, `.fbx`, `.uasset` and `.umap` files everywhere. Reference photos stay in `work_dir`; `refs/index.yaml` keeps each photo's source link.
+
+### brief.yaml keys the pipeline adds
+
+Each value records where it came from (chat, form, image, interview, board, default or assumed). Schema: [schemas/brief.schema.json](schemas/brief.schema.json).
+
+| Key | Meaning |
+| --- | --- |
+| `detail` | `massing`, `detailed` or `final`, defined in `scene-pipeline` |
+| `fidelity` | `faithful` (hero pieces and variants, not the fewest pieces) or `inspired` (free on pieces); the form's older `replica` counts as `faithful` |
+| `standing_rules` | `{date, rule, from}` list; quoted into every lane brief and reviewer prompt |
+| `lighting_focus` | `deferred` freezes colour, contrast and light until the user sends lighting references |
+| `light_depth` | `direction`, `mood` or `measured` |
+| `starting_point`, `gate_pacing`, `review_scope`, `concept_model`, `generation_preapproved`, `walk` | The answers from the interview's process round and the walkable-scene constraints |
+| `board_url` | The Gate Review Board artifact; published before G0 if empty |
 
 Shared across projects, at the repo root:
 
 ```text
 toolbox/manifest.<machine>.json   # tools found per machine, with signatures
 toolbox/tools/<tool-id>.md        # instruction file per tool
-feedback/<skill>.md               # lessons per skill; ideas.md, projects.md, CHANGELOG.md
+feedback/<skill>.md               # lessons per skill; ideas.md, projects.md, CHANGELOG.md (committed; project lessons only with your OK and private names removed)
 ```
 
 ## Scene Brief form
@@ -58,11 +78,11 @@ Copy YAML on the form gives the same data as text when the pipeline can't reach 
 | `gates` | `<slug>-<gate>-r<round>` | Manager (`gate-board` skill) | [gate.schema.json](schemas/gate.schema.json) |
 | `feedback` | same as the gate | The board, when you send a decision | [feedback.schema.json](schemas/feedback.schema.json) |
 
-Gate order on the board: G0, G1, G2, P0 to P9, T (Blender then Unreal route only), L1, L2, L3, G3. G0 carries the plan and G3 the improvement suggestions as free `sections`.
+The board is private and may show project captures. Its URL is `brief.yaml › board_url`; if empty, the manager publishes the board before posting G0. Gate order on the board: G0, G1, G2, K, P0 to P9, T (Blender then Unreal route only), L1, L2, L3, G3. G0 carries the plan and G3 the improvement suggestions as free `sections`; every gate carries sections for what is locked and since when and a "Please check" list of at most 8 items, and the before/after pairs as captures.
 
 1. The manager writes `reviews/<gate>-r<n>/` locally, uploads the contact sheet and captures as assets of the board artifact, and writes the gate entry with their URLs.
 2. You answer questions, mark Art Director notes, and send approve, approve with notes, or request changes. Notes are required unless you approve.
-3. When you tell the session to continue (or a `/loop 10m` check runs), the manager reads `feedback/<id>`, sets `pickedUp: true`, saves it as `feedback.json`, and moves on or starts the next round.
+3. When you tell the session to continue (or a `/loop 10m` check runs), the manager reads `feedback/<id>`, sets `pickedUp: true`, saves it as `feedback.json` (a decision given in the thread gets the real time), and moves on or starts the next round. A gate passes only with a supervisor PASS plus your approval; "approved" on a FIX verdict runs the next round on the defaults. Later and Skip notes go to `backlog.md`, wear items to `handoff/wear-notes.md`.
 
 This uses Claude Code's Artifact tools. Without them, gate packs go to `reviews/` as markdown and you reply in the session.
 
@@ -87,23 +107,10 @@ generated: {service: tripo, model: "...", input: refs/form/chair.jpg, credits: 4
 
 Full template: `.claude/skills/modular-kit/SKILL.md`.
 
-## Auto-commit and push
+## Save points and commits
 
-On by default (`auto_commit` in the form).
+Two kinds, never mixed (`checkpoint`).
 
-- **Save points:** end of each phase, each lighting pass, and each decision you send.
-- **Branch:** one per project, `scene/<slug>`. Approved gates get a tag such as `hotel-corridor/G2`.
-- **Message:** `[hotel-corridor] L2 r1 changes_requested: value pass`.
-- **Push** after every commit. Never force-push. A failed push stays local and shows on the board.
-- **What goes here:** skills, docs, `toolbox/`, `feedback/`, and the project folder, with captures as compressed PNG or JPEG. Raw toolbox scans stay local.
-- **Engine files:** Unreal and Blender files are large binaries. Keep the Unreal project in its own repo with Git LFS and file locking, or under Perforce or Diversion, and record its commit or changelist in `log.md`. If binaries do go in this repo, add LFS rules first:
-
-```gitattributes
-*.uasset filter=lfs diff=lfs merge=lfs -text lockable
-*.umap   filter=lfs diff=lfs merge=lfs -text lockable
-*.blend  filter=lfs diff=lfs merge=lfs -text lockable
-*.fbx    filter=lfs diff=lfs merge=lfs -text lockable
-*.exr    filter=lfs diff=lfs merge=lfs -text lockable
-```
-
-GitHub limits LFS storage and bandwidth per account, so check the quota before the first large push.
+- **Project save point:** end of each phase, each lighting pass and each decision you send. A `log.md` line, the step backup and a `plan/steps.json` entry. No git: projects, captures and engine files stay local.
+- **Pipeline commit:** a changed skill, doc, `knowledge/` note, `feedback/` file or `toolbox/` file (raw scans stay local). Message `[pipeline] <what changed>`, on the working branch, pushed after every commit. Never force-push. A failed push stays local and is reported in chat.
+- **Engine files:** Unreal and Blender files are large binaries and never go in this repo. Keep the Unreal project in its own repo with Git LFS and file locking, or under Perforce or Diversion, and record its commit or changelist in `log.md`.

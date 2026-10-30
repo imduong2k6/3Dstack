@@ -1,8 +1,9 @@
 ---
 name: art-director
-description: Reviews each gate for look and believability. It compares the shared contact sheet against real references and the mood, finds missing real-world detail, weak composition, wrong wear or light mood, and writes at most five ranked notes with reference images. It never edits the scene.
+description: Reviews each gate for look and believability. It compares the shared contact sheet against real references and the mood, finds missing real-world detail, weak composition and, from the light passes on, a wrong light mood (wear goes to the wear notes, never the scene), and writes at most five ranked notes with reference images. It never edits the scene.
 model: opus
 skills:
+  - house-rules
   - art-director
 disallowedTools: mcp__unreal-mcp, mcp__unreal-mcp-proxy, mcp__blender
 color: pink

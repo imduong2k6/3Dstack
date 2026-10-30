@@ -1,23 +1,23 @@
 ---
 name: tripo-props
-description: Make detailed placeholder props with Tripo for a pipeline scene - a Magnific turnaround or 3/4 image, re-cropped views, Tripo Studio image-to-3D driven in the user's browser, "Send to Blender" over the DCC Bridge, then clean-up to the spec's size and pivot, an orientation check and the props atlas. Use it when an asset spec has source generate and Tripo is in brief.yaml's generation_services, which happens only in full_cg or a detailed blockout.
+description: Make detailed placeholder props with Tripo for a pipeline scene - a Magnific turnaround or 3/4 image, re-cropped views, Tripo Studio image-to-3D driven in the user's browser by the Generator, "Send to Blender" over the DCC Bridge (GLB download as the fallback), then clean-up to the spec's size and pivot, an orientation check and the props atlas. Use it when an asset spec has source generate and Tripo is in brief.yaml's generation_services, which happens only when detail is detailed or final.
 ---
 
 # Tripo props
 
 Image to 3D placeholder prop, cleaned to its spec and placed. Tripo meshes are **stand-ins**: 1K textures, light clean-up, no baking, no decimation. The user may re-model them later.
 
-**When:** only in `mode: full_cg`, or when the user asks for a detailed blockout (`generated-asset`). A plain blockout's props are simple shapes.
+**When:** only when `brief.yaml › detail` is `detailed` or `final` (`generated-asset`; the mode table is in `scene-pipeline`). With `massing`, the props are simple shapes.
 
-**One owner.** The route's Blender worker drives Tripo: one browser tab, one Blender instance, one generation set-up at a time (Studio itself can run queued jobs). Other agents can write specs and prompts, never touch the Tripo tab, credit spend or the live Blender.
+**Who does what.** The Generator drives Studio and does the downloads: one browser tab, one generation set-up at a time (Studio itself can run queued jobs). The route's Blender worker only imports: it receives the result in the open Blender and runs the scripts (sections 5 to 7). It never opens Studio and never spends credits. Sections 1 to 4 are the Generator's, sections 5 to 7 the live worker's. Nobody else touches the Tripo tab or the credit spend; other agents can write specs and prompts. Browser, GLB downloads into the work folder and headless Blender are approved once at G0 (`house-rules` rule 11).
 
-**The user's:** Tripo sign-in, buying credits, plan changes, anything on an account page. Read the balance Studio shows; never click purchase or upgrade. G0 sets the credit budget (`brief.yaml › budgets.credits_tripo`); plan the polycount and retries before clicking Generate. On the KWC alley project 19 props cost 915 credits (3,200 to 2,285).
+**The user's:** Tripo sign-in, buying credits, plan changes, anything on an account page. Read the balance Studio shows; never click purchase or upgrade. G0 sets the credit budget (`brief.yaml › budgets.credits_tripo`); plan the polycount and retries before clicking Generate. On an earlier project 19 props cost 915 credits (3,200 to 2,285).
 
 ## 0. Before you start
 
-- **Blender:** the scene open, with the Tripo DCC Bridge add-on (`Tripo3d_Blender_Bridge` v1.0.34) running its WebSocket server on `127.0.0.1:60600`. Only one Blender instance can hold the port.
-- **Browser:** the user signed in to `https://studio.tripo3d.ai/workspace/generate` in **one** tab, in Claude in Chrome (load the `anthropic-skills:chrome-browser` skill, then every Chrome tool you need in one `ToolSearch`, `file_upload`, `find` and `javascript_tool` included). The bridge keeps only the newest client, so a second Studio tab disconnects the first.
-- **Spec:** `kit/<asset>.md` with `dims_m`, `pivot` (or mount), collision, and the input prompt.
+- **Blender (the live worker):** the scene open, with the Tripo DCC Bridge add-on (`Tripo3d_Blender_Bridge` v1.0.34) running its WebSocket server on `127.0.0.1:60600`, connected before the batch starts. Only one Blender instance can hold the port.
+- **Browser (the Generator):** the user signed in to `https://studio.tripo3d.ai/workspace/generate` in **one** tab, in Claude in Chrome (load the `anthropic-skills:chrome-browser` skill, then every Chrome tool you need in one `ToolSearch`, `file_upload`, `find` and `javascript_tool` included). The bridge keeps only the newest client, so a second Studio tab disconnects the first.
+- **Spec:** `kit/<asset>.md` with `dims_m`, `dims_source` (the real size, never the AI image), `pivot` (or mount), collision, and the input prompt.
 
 ## 1. Make the input image (Magnific)
 
@@ -58,29 +58,33 @@ bash bin/blender-bg --python-exit-code 1 --python .claude/skills/tripo-props/scr
 
 Details, the JavaScript send and failure modes: [references/tripo-studio.md](references/tripo-studio.md).
 
-## 4. Check, export, send to Blender
+## 4. Check, export, send to Blender (the Generator)
 
 1. **Look at the result in the viewer**, not the thumbnail. Shards or lumps: regenerate with a higher polycount, views re-cropped at one scale, or a single 3/4 image.
 2. **Export:** set File Name to the spec's id (`SM_<Name>`, or `SM_<Name>_v2` when a master of that name exists). The name **resets every time the panel closes**. Set Texture Resolution to **1k**.
 3. **Hover "Send to"**, then click **"Send to Blender"** in its submenu. Clicking "Send to" itself does nothing.
-4. **Wait 25 to 40 s**; Studio shows no progress. Never resend while a big model is still transferring, or you get `.001` duplicates. Check the bridge log for "Successfully imported".
-5. **If nothing arrives:** top bar **DCC Bridge**, switch **Blender** on. The switch can turn itself off between sends.
-6. **Check the name in Blender.** One import arrived under Tripo's own title instead.
+4. **Wait 25 to 40 s**; Studio shows no progress. Never resend while a big model is still transferring, or you get `.001` duplicates. Watch the bridge log (`%TEMP%\tripo3d_blender_bridge.log`, readable as a file) for "Successfully imported".
+5. **Stall budget.** No import 90 s after the click: toggle top bar **DCC Bridge** (switch **Blender** off and on; it can turn itself off between sends) and resend once. Still nothing after another 90 s: switch to **GLB** for the rest of the batch. Export as GLB at 1k and download it to `<work_dir>/assets/<asset_id>/source/` (approved once at G0), and the live worker imports the file. Log the switch in `log.md`. GLB is the fallback, not the default: the next batch tries the bridge first, and making GLB the default needs the user's OK.
+6. **Check the name in Blender** (the live worker). One import arrived under Tripo's own title instead.
 
-## 5. Clean up in Blender (back up first)
+## 5. Clean up in Blender (the live worker; back up first)
 
-An import lands in the active collection, scaled so its largest side is about 1 m, front on −Y, with a material `tripo_mat_<hash>` and packed 1K images. The root may be an Empty with children rather than a mesh.
+The live worker takes a step backup (`house-rules` rule 4), then runs the script. An import lands in the active collection, scaled so its largest side is about 1 m, front on −Y, with a material `tripo_mat_<hash>` and packed 1K images. The root may be an Empty with children rather than a mesh.
 
 ```python
 exec(open(r"<repo>/.claude/skills/tripo-props/scripts/tripo_cleanup.py").read())
-cleanup({"SM_<Name>": (W, H, D, "wall", True)})   # from the spec: W = dims_m[0], D = dims_m[1], H = dims_m[2]
+cleanup({"SM_<Name>": (dims_m, "wall", True)})   # dims_m = the spec's [W, D, H], pasted as it is
 ```
+
+`dims_m` is one triple in the spec's order: X = W, Y = D (off the wall), Z = H. Corrected 30 Oct 2026: the old call took `(W, H, D, mount, collide)`, so a pasted triple swapped depth and height, and the self-check asserted the same swap. The old form now raises; fix any call written before that date.
 
 - Mounts: `wall` = back-face centre on y = 0, `floor` = base centre, `hang` = top centre, `inset` = pass `pivot_min={name: (x, y, z)}`.
 - Pass `rot_x` or `rot_z` (`{name: degrees}`) when the front isn't on −Y; they apply once.
-- `collide` is True on the game routes (it adds a `UCX_` box child) and False on `blender`.
-- It scales per axis to the spec box, merges by distance, recalculates normals, renames to `M_<base>` and `T_<base>_BC|M|N|R`, caps textures at 1024, moves the prop to `COL_Props_Masters`, and asserts the size.
-- Keep the generated proportions when the spec's height would distort the prop; update the spec instead and say so.
+- `collide` is True on the game routes (it adds a `UCX_SM_<Name>_01` box child, the one name in `collision-proxy`; a rerun removes an old `UCX_SM_<Name>`) and False on `blender`.
+- **Scale is uniform by default**: one factor from the governing axis (`"governing": "W"`, `"D"` or `"H"` in the opts; default the axis the spec gives the most length). If the three axes would need factors more than 8 % apart, it raises before it changes anything: the generation has the wrong proportions. Regenerate (higher polycount, views re-cropped at one scale, or a single 3/4 image). Correct `dims_m` only from a sourced measurement (`dims_source`), never from the generated mesh. `scale="per_axis"` (the old stretch) needs a reason written in the spec.
+- **Tubes** (conduit, pipes, poles): add opts as a fourth item, `(dims_m, "wall", False, {"kind": "tube", "diameter_m": 0.045})`. It scales uniformly so the cross-section equals the diameter (default: the spec's two cross-section sizes, which must agree within 2 mm), and it raises unless the result is round within 2 mm. It warns when the length ends up more than 8 % off the spec. Never stretch a tube to a box that includes clips or lips.
+- **`materials="palette"`** (no textures, no atlas): `cleanup(props, materials="palette")` with `{"material_group": "<group>"}` in each prop's opts. Every slot becomes one flat material `M_<group>`, shared by all props of the group, and the Tripo materials and images are removed. Use it when the pipeline stops before texturing, so the value and hue passes get clean groups. The default, `materials="textured"`, keeps the 1K textures.
+- It merges by distance, recalculates normals, moves the prop to `COL_Props_Masters`, and asserts the size. In textured mode it also renames to `M_<base>` and `T_<base>_BC|M|N|R` and caps textures at 1024.
 - Give each material its `material_group` so the lighting passes reach it.
 - Replacing a master: send the new one as `SM_<Name>_v2`, delete the old object, its `UCX_` and its data once nothing uses them, rename, run `cleanup()`, and rebuild the atlas if the old one was on it ([references/blender-side.md](references/blender-side.md)).
 
@@ -97,7 +101,7 @@ The side that faces the camera or the path must be in each `_front.png`. If the 
 
 ## 7. Props atlas (game routes, when materials are capped)
 
-Every import adds a material. When `budgets` caps materials or texture sets, fold the props into one atlas:
+Every import adds a material. When `budgets` caps materials or texture sets, fold the props into one atlas (not with `materials="palette"`, which keeps no textures):
 
 ```python
 exec(open(r"<repo>/.claude/skills/tripo-props/scripts/props_atlas.py").read())
@@ -105,7 +109,7 @@ BASES = ("Meter_kWh", "JunctionBox")   # base names in cell order; append only, 
 build(r"<work_dir>")
 ```
 
-It writes `<work_dir>/textures/props_atlas/` (4 columns of 1024 px cells), copies each original texture to `textures/tripo_src/<base>/` first, keeps existing cells pixel for pixel when it grows, and does nothing on a rerun. `RETOUCH` holds per-prop look fixes; the ones in the file are the KWC alley's. Test first, headless: `bash bin/blender-bg --python-exit-code 1 --python .claude/skills/tripo-props/scripts/tests/test_props_atlas.py -- <out folder>`.
+It writes `<work_dir>/textures/props_atlas/` (4 columns of 1024 px cells), copies each original texture to `textures/tripo_src/<base>/` first, keeps existing cells pixel for pixel when it grows, and does nothing on a rerun. `RETOUCH` holds per-prop look fixes; the ones in the file belong to an earlier project's props. Test first, headless: `bash bin/blender-bg --python-exit-code 1 --python .claude/skills/tripo-props/scripts/tests/test_props_atlas.py -- <out folder>`.
 
 ## Costs per prop
 
@@ -118,4 +122,4 @@ It writes `<work_dir>/textures/props_atlas/` (4 columns of 1024 px cells), copie
 
 ## Report per prop
 
-In the spec's `generated` block and the log: the input route, the polycount asked and the triangles that came back, the final size and mount, UCX or not, the credits spent (Tripo and Magnific), and anything not checked (for example no lit render).
+In the spec's `generated` block and the log: the input route, how it reached Blender (bridge or GLB, and any stall), the polycount asked and the triangles that came back, the final size and mount, UCX or not, the credits spent (Tripo and Magnific), and anything not checked (for example no lit render).
