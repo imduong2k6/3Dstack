@@ -130,7 +130,12 @@ def main():
         if os.path.exists(dst):
             done.append(c["id"])
     meta.update(rendered=done, frames=frames, cycles_spp=spp, size_scale=a.scale)
-    json.dump(meta, open(os.path.join(a.out, "_meta.json"), "w"), indent=1)
+    mp = os.path.join(a.out, "_meta.json")
+    if only and os.path.exists(mp):  # a partial rerun keeps the other frames' notes
+        old = json.load(open(mp))
+        meta["frames"] = {**old.get("frames", {}), **frames}
+        meta["rendered"] = list(dict.fromkeys(old.get("rendered", []) + done))
+    json.dump(meta, open(mp, "w"), indent=1)
     want_ids = [c["id"] for c in spec["cams"] if not only or c["id"] in only]
     print("PAIRS", a.side, "rendered", len(done), "of", len(want_ids), "device", meta["device"], "exposure", meta["view"].get("exposure"))
     low = [k for k, v in frames.items() if v["targets_in_frame"] is not None and v["targets_in_frame"] < 0.5]

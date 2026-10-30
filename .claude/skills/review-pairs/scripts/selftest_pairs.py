@@ -185,6 +185,11 @@ rc, log = py(AFTER, "render_pairs.py", "--cams", fix, "--out", os.path.join(pair
 assert rc == 0, log[-1500:]
 mb, ma = (json.load(open(os.path.join(pairs, s, "_meta.json"))) for s in ("before", "after"))
 assert mb["view"]["exposure"] == ma["view"]["exposure"] == 0.5 and abs(ma["file_view"]["exposure"] - 1.2) < 1e-6 and "exposure" in ma["file_differs"]
+rc, log = py(AFTER, "render_pairs.py", "--cams", fix, "--out", os.path.join(pairs, "after"), "--side", "after", "--scale", "0.5", "--spp", "8",
+             "--match", os.path.join(pairs, "before", "_meta.json"), "--ids", ma["rendered"][0])
+assert rc == 0, log[-1500:]
+m2 = json.load(open(os.path.join(pairs, "after", "_meta.json")))
+assert set(m2["frames"]) == set(ma["frames"]) and set(m2["rendered"]) == set(ma["rendered"]), "a partial rerun dropped other frames from _meta.json"
 pb, pa = pixels(os.path.join(pairs, "before", "I4.png")), pixels(os.path.join(pairs, "after", "I4.png"))
 green = (pb[..., 1] > pb[..., 0] + 0.1) & (pb[..., 1] > pb[..., 2] + 0.1)  # the untouched pillar; Box_A also moved into this frame
 ys = np.nonzero(green)[0]
