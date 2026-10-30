@@ -99,3 +99,15 @@ Found on a dry run of the next round's BEFORE pairs on a copy of an earlier proj
 | A camera renders ortho when it has a scale, keeps its clip, and reads both through a `before:` block, so a camera whose clip changes in the fix shows its old clip on the before side | `render_pairs.py`, `review-pairs` |
 | An ortho plan review camera with a clip, through `fix_cams.py` and `render_pairs.py` | `selftest_pairs.py` |
 
+## 2026-10-30: absolute render paths; review-pairs frame size and aspect
+
+Reported from the next round's BEFORE pairs on an earlier project. With a relative `--out`, `render_pairs.py` rendered nothing and exited MISSING: Blender writes a relative render path under the drive root (`C:\<path>`), not the working folder, so the frames landed on C:. Layout renders and asset fronts from the same project had landed there too. A `review_cam` ignored the issue's own `res_px`, and the in-frame share was measured at the scene's resolution, so a portrait frame read 0.0 while its sheet showed the target framed.
+
+| Change | Files |
+| --- | --- |
+| Every render output path is made absolute where it is set | `capture.py`, `render_layout.py`, `qa_views.py`, and `review_render.py`, `roundtrip.py`, `world_gate.py` (third-party, marked) |
+| An issue's `res_px` overrides the review camera's | `fix_cams.py` |
+| The in-frame share uses the frame's own size | `render_pairs.py` |
+| A review camera changed by a fix: update `cameras.json` with the scene, rerun `fix_cams.py` before the AFTER side (documented; `fix_cams.py` reads `cameras.json` on every run by design) | `review-pairs` |
+| A relative `--out`, an issue `res_px` on a review camera, and a portrait frame's in-frame share | `selftest_pairs.py` |
+

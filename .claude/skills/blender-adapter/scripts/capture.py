@@ -148,7 +148,7 @@ def capture_set(out_dir, cameras, engine="BLENDER_WORKBENCH", width=None, height
                     setattr(o, a, v)
                 r.resolution_x, r.resolution_y = int(w), int(h)
                 scene.camera = cam
-                r.filepath = os.path.join(out_dir, f"{name}.png")
+                r.filepath = os.path.abspath(os.path.join(out_dir, f"{name}.png"))  # Blender reads a relative path from the drive root
                 bpy.ops.render.render(write_still=True)
             finally:
                 for o, a, v in prev:

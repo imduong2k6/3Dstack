@@ -150,7 +150,7 @@ def main():
     cam.rotation_mode = "QUATERNION"
     cam.rotation_quaternion = (-back).to_track_quat("-Z", "Y")
     sil_path = os.path.join(os.path.abspath(a.out), "sil_%s.png" % name)
-    scene.render.filepath = sil_path
+    scene.render.filepath = os.path.abspath(sil_path)  # Pipeline patch 30 Oct 2026: Blender reads a relative render path from the drive root
     bpy.ops.render.render(write_still=True)
     for n, v in saved.items():
         bpy.data.objects[n].hide_render = v

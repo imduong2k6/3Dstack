@@ -116,6 +116,7 @@ def main():
         shown = [bpy.data.objects[n] for n in c.get("show", []) if n in bpy.data.objects]
         for o in shown:
             col.objects.link(o)
+        sc.render.resolution_x, sc.render.resolution_y = W, H  # in_frame reads the frame's aspect from the scene
         bpy.context.view_layer.update()
         frames[c["id"]] = {"targets_in_frame": in_frame(sc, ob, c.get("targets", []))}
         kw = {"color_type": "MATERIAL"} if c["engine"] == "BLENDER_WORKBENCH" else {"samples": spp}

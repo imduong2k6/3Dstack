@@ -36,5 +36,5 @@ bash bin/blender-bg --python .claude/skills/review-pairs/scripts/compose_pairs.p
 ## Notes
 
 - Cycles frames use 64 samples (`--spp`) and the GPU when there is one, for this run only; Workbench frames render in material colour.
-- A camera that itself changed in the fix (a new lens or clip) gets `before: {lens_mm, rot_deg, clip_m, note}` on its issue, and the before side renders with it. A `review_cam` keeps the review camera's clip, and an orthographic one (`type: ortho` in `cameras.json`) its `ortho_scale`.
+- A camera that itself changed in the fix (a new lens or clip) gets `before: {lens_mm, rot_deg, clip_m, note}` on its issue, and the before side renders with it. A `review_cam` keeps the review camera's clip, and an orthographic one (`type: ortho` in `cameras.json`) its `ortho_scale`. It reads the camera from `cameras.json` on every run, so a fix that changes a review camera updates `cameras.json` together with the scene (`scene-lint` `cameras_match` checks both); rerun `fix_cams.py` after that and before the AFTER side. An issue's own `res_px` overrides the camera's.
 - Scripts: `fix_cams.py` (cameras), `render_pairs.py` (one side), `compose_pairs.py` (pairs and framing sheet; Pillow is not in Blender's Python, so it uses `imbuf` and `blf`), `selftest_pairs.py` (synthetic scene, end to end).

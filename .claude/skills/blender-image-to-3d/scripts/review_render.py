@@ -262,7 +262,7 @@ def setup_engine(scene, a, engine, scope, center, extent):
 
 
 def render_to(scene, path):
-    scene.render.filepath = path
+    scene.render.filepath = os.path.abspath(path)  # Pipeline patch 30 Oct 2026: Blender reads a relative render path from the drive root
     bpy.ops.render.render(write_still=True)
     return path
 

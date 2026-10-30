@@ -129,7 +129,7 @@ def main(a):
         scene.render.film_transparent = True
         scene.render.resolution_x = scene.render.resolution_y = a.res
         scene.render.image_settings.color_mode = "RGBA"
-        scene.render.filepath = os.path.join(a.out, "roundtrip_clay_threequarter.png")
+        scene.render.filepath = os.path.abspath(os.path.join(a.out, "roundtrip_clay_threequarter.png"))  # Pipeline patch 30 Oct 2026: Blender reads a relative render path from the drive root
         try:
             bpy.ops.render.render(write_still=True)
             report["render"] = scene.render.filepath

@@ -158,7 +158,7 @@ def build(issue, dg, table, allcams, res, missing):
             return None
         out.update(loc_m=[round(v, 3) for v in c["loc_m"]], rot_deg=[round(v, 3) for v in c["rot_deg"]], lens_mm=c["lens_mm"], sensor_fit=c["sensor_fit"],
                    shift=c["shift"], review_cam=issue["camera"], targets=[])
-        out["res_px"] = c["res_px"] or res
+        out["res_px"] = issue.get("res_px") or c["res_px"] or res
         out.update({k: c[k] for k in ("ortho_scale", "clip_m") if c[k]})  # a plan camera renders ortho, cut where the review camera cuts
         if issue.get("before"):
             out["before"] = issue["before"]

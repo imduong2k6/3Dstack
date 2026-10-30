@@ -9,6 +9,7 @@ Leaves no objects behind unless a "QA_Cam" already exists (then the cleanup remo
 """
 import bpy
 import math
+import os
 from mathutils import Vector
 
 
@@ -45,7 +46,7 @@ def qa(names, out_dir, res=360):
                 cam.location = ctr + off
                 cam_data.ortho_scale = scale * 1.15
                 cam_data.clip_end = 100
-                sc.render.filepath = f"{out_dir}/{n}_{view}.png"
+                sc.render.filepath = os.path.abspath(f"{out_dir}/{n}_{view}.png")  # Blender reads a relative path from the drive root
                 bpy.ops.render.render(write_still=True, scene=sc.name)
             sc.collection.objects.unlink(ob)
             print(n, "size", tuple(round(s, 3) for s in size))

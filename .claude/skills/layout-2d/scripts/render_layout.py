@@ -185,7 +185,7 @@ def main(src, out):
     sc.world = bpy.data.worlds.new("bg")
     sc.world.color = PAPER
     sc.view_settings.view_transform = "Standard"
-    sc.render.filepath = out
+    sc.render.filepath = os.path.abspath(out)  # Blender reads a relative path from the drive root
     bpy.ops.render.render(write_still=True)
     print("layout rendered", out, sc.render.resolution_x, sc.render.resolution_y)
 
