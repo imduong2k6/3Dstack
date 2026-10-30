@@ -8,7 +8,7 @@ blender --background --python scripts/validate.py -- \
   --out CH_Knight/review/validate.json --budget-tris 60000 --max-influences 4 --require-uv
 
 FAIL: negative scale, unweighted or over-influenced vertices on a bound mesh, open collision
-proxies (COL_*), tri budget exceeded, missing UVs with --require-uv.
+proxies (COL_* or UCX_*), tri budget exceeded, missing UVs with --require-uv.
 WARN: unapplied transforms, doubles, loose geometry, ngons, zero-area faces, .001 names,
 non-normalised weights, tiny weights, vertex groups with no bone, unparented sockets.
 Open boundaries are reported, not failed: cloth sheets, hair cards and decals are open by design.
@@ -16,6 +16,8 @@ Open boundaries are reported, not failed: cloth sheets, hair cards and decals ar
 import bpy, bmesh, sys, os, re, json, argparse
 
 NUMERIC_SUFFIX = re.compile(r"\.\d{3}$")
+# Pipeline patch 30 Oct 2026: the pipeline names colliders UCX_SM_<Name>_NN; COL_ is this skill's own prefix
+COLLIDER_PREFIXES = ("COL_", "UCX_")
 
 
 # ARGS
@@ -106,20 +108,23 @@ def mesh_checks(ob, a, dg, report):
             W("%d faces flipped relative to a consistent recalculation" % flipped)
         elif flipped:
             rec["info"]["flipped_vs_recalc"] = flipped
-    if ob.name.startswith("COL_"):
+    is_col = ob.name.startswith(COLLIDER_PREFIXES)  # Pipeline patch 30 Oct 2026: COL_ or UCX_
+    if is_col:
         if boundary or nonmanifold or wire:
             F("collision proxy is not closed")
         if tris > 400:
             W("collision proxy has %d tris, expected a simple shape" % tris)
     bm.free()
 
-    if not me.uv_layers:
+    if is_col:
+        pass  # Pipeline patch 30 Oct 2026: a collider carries no UVs or material
+    elif not me.uv_layers:
         (F if a.require_uv else W)("no UV layer")
     else:
         uv = me.uv_layers.active.data
         outside = sum(1 for l in uv if not (0 <= l.uv.x <= 1 and 0 <= l.uv.y <= 1))
         rec["info"]["uv_loops_outside_0_1"] = outside
-    if not me.materials or all(m is None for m in me.materials):
+    if not is_col and (not me.materials or all(m is None for m in me.materials)):  # Pipeline patch 30 Oct 2026
         W("no material")
     rec["info"]["materials"] = [m.name for m in me.materials if m]
     rec["info"]["modifiers"] = ["%s:%s" % (m.type, m.name) for m in ob.modifiers]
@@ -201,11 +206,13 @@ def socket_checks(ob, report):
 def main(a):
     bpy.ops.wm.open_mainfile(filepath=os.path.abspath(a.blend))
     dg = bpy.context.evaluated_depsgraph_get()
-    objs = []
+    objs, missing = [], []
     for n in [x for x in a.collections.split(",") if x]:
         c = bpy.data.collections.get(n)
         if c:
             objs += list(c.all_objects)
+        else:
+            missing.append(n)  # Pipeline patch 30 Oct 2026: was skipped silently
     seen = set()
     report, total_tris, lod_tris = [], 0, {}
     for ob in objs:
@@ -216,7 +223,7 @@ def main(a):
             t = mesh_checks(ob, a, dg, report)
             m = re.search(r"_LOD(\d+)$", ob.name)
             lod = int(m.group(1)) if m else 0
-            if not ob.name.startswith("COL_"):
+            if not ob.name.startswith(COLLIDER_PREFIXES):  # Pipeline patch 30 Oct 2026
                 lod_tris[lod] = lod_tris.get(lod, 0) + t
         elif ob.type == "ARMATURE":
             armature_checks(ob, report)
@@ -227,7 +234,9 @@ def main(a):
             seen.add(ob.name)
             armature_checks(ob, report)
 
-    summary = {"tris_by_lod": lod_tris, "fail": [], "warn": []}
+    summary = {"tris_by_lod": lod_tris, "fail": [], "warn": ["collection not found: " + n for n in missing]}
+    if not any(r["type"] == "MESH" for r in report):  # Pipeline patch 30 Oct 2026: a pass must have checked something
+        summary["fail"].append("nothing validated: no mesh in collections " + a.collections)
     lod0 = lod_tris.get(0, 0)
     if a.budget_tris and lod0 > a.budget_tris:
         summary["fail"].append("LOD0 tris %d exceed budget %d" % (lod0, a.budget_tris))
@@ -256,4 +265,9 @@ def main(a):
 
 if __name__ == "__main__":
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-    main(parse(argv))
+    try:
+        main(parse(argv))
+    except Exception:  # Pipeline patch 30 Oct 2026: under --python an exception would exit 0
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

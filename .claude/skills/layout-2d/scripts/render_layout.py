@@ -8,6 +8,7 @@ the edge only (for services over a floor); "label_at": [x, y] moves a crowded la
 [bottom, top], printed under the ID. Cameras: {"id", "pos_m", "aim_m", "lens_mm", "sensor_mm"} as a view wedge.
 Callouts: {"n", "at_m": [x, y], "text"} drawn as red numbers, their text listed in the notes box.
 Notes: {"at_m": [x, y], "text"} in a handwritten font (LAYOUT_HAND_FONT, else Ink Free on Windows).
+Runs: {"id", "from", "to"} between two point shapes, drawn as a purple strip (services from check_inventory.py).
 Top level: "title", "grid_m". Later shapes draw on top.
 """
 import json
@@ -67,6 +68,13 @@ def label(text, x, y, z, size, color=INK, align="CENTER", hand=False):
     return ob
 
 
+def strip(name, a, b, half, color, z):
+    d = math.hypot(b[0] - a[0], b[1] - a[1]) or 1
+    nx, ny = -(b[1] - a[1]) / d * half, (b[0] - a[0]) / d * half
+    return add(name, [(a[0] + nx, a[1] + ny), (b[0] + nx, b[1] + ny), (b[0] - nx, b[1] - ny), (a[0] - nx, a[1] - ny)],
+               [[0, 1, 2, 3]], color, z)
+
+
 def tint(c, k=0.35):  # floor-plan fills: the legend colour lifted toward white
     return tuple(v + (1 - v) * k for v in c)
 
@@ -108,12 +116,13 @@ def main(src, out):
         wedge = [(px, py)] + [(px + d * math.cos(yaw + k * half), py + d * math.sin(yaw + k * half)) for k in (-1, 1)]
         add(c["id"], wedge, [[0, 1, 2]], INK, 1.5, outline=True, edge=u * 0.08)
         label(c["id"], px, py - u * 1.2, 2.0, u * 0.75)
+    nodes = {s["id"]: s["point_m"] for s in lay.get("shapes", []) if "point_m" in s}
+    for r in lay.get("runs", []):  # services runs between point shapes, as check_inventory.py --layout-out writes them
+        if r["from"] in nodes and r["to"] in nodes:
+            strip(r["id"], nodes[r["from"]], nodes[r["to"]], u * 0.06, LEGEND["purple"], 1.55)
     path = lay.get("path", [])
     for k, (a, b) in enumerate(zip(path, path[1:])):  # player path: a thin ink strip, S and E at its ends
-        d = math.hypot(b[0] - a[0], b[1] - a[1]) or 1
-        nx, ny = -(b[1] - a[1]) / d * u * 0.1, (b[0] - a[0]) / d * u * 0.1
-        add(f"path{k}", [(a[0] + nx, a[1] + ny), (b[0] + nx, b[1] + ny), (b[0] - nx, b[1] - ny), (a[0] - nx, a[1] - ny)],
-            [[0, 1, 2, 3]], INK, 1.6)
+        strip(f"path{k}", a, b, u * 0.1, INK, 1.6)
     for tag, p in (("S", path[:1]), ("E", path[-1:])):
         for px, py in p:
             circle("path" + tag, px, py, u * 0.5, INK, 1.7)

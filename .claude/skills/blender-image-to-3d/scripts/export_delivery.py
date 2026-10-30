@@ -15,6 +15,8 @@ import bpy, sys, os, re, json, math, argparse, datetime
 from mathutils import Vector
 
 LOD_RE = re.compile(r"_LOD(\d+)$")
+# Pipeline patch 30 Oct 2026: the pipeline names colliders UCX_SM_<Name>_NN; COL_ is this skill's own prefix
+COLLIDER_PREFIXES = ("COL_", "UCX_")
 
 
 # ARGS
@@ -128,6 +130,7 @@ def main(a):
     for n in [x for x in a.collections.split(",") if x and x not in ("REF", "HIGH", "RIG_CTRL")]:
         c = bpy.data.collections.get(n)
         if not c:
+            print("collection not found:", n)  # Pipeline patch 30 Oct 2026: was skipped silently
             continue
         for o in c.all_objects:
             if o.name not in seen and not o.hide_render and not o.name.startswith(("CUT_", "REF_")):
@@ -142,7 +145,7 @@ def main(a):
                 objs.append(mod.object)
                 arms.append(mod.object)
     if not meshes:
-        raise RuntimeError("no meshes in export collections " + a.collections)
+        raise RuntimeError("nothing to export: no meshes in collections " + a.collections)
 
     ext = {"GLB": ".glb", "GLTF": ".gltf", "FBX": ".fbx"}[a.format]
     files = {}
@@ -152,14 +155,14 @@ def main(a):
 
     lods = {}
     for m in meshes:
-        if m.name.startswith("COL_"):
+        if m.name.startswith(COLLIDER_PREFIXES):
             continue
         mm = LOD_RE.search(m.name)
         lods.setdefault(int(mm.group(1)) if mm else 0, []).append(m)
     if a.split_lods and len(lods) > 1:
         for level, ms in sorted(lods.items()):
             extra = arms + [o for o in objs if o.type == "EMPTY"] if level == 0 else arms
-            extra += [m for m in meshes if m.name.startswith("COL_")] if level == 0 else []
+            extra += [m for m in meshes if m.name.startswith(COLLIDER_PREFIXES)] if level == 0 else []
             p = os.path.join(a.out, "%s_LOD%d%s" % (a.name, level, ext))
             export(p, ms + extra, a)
             files["LOD%d" % level] = p
@@ -216,7 +219,7 @@ def main(a):
                      "props": {k: (v if isinstance(v, (int, float, str)) else str(v)) for k, v in o.items()}}
                     for o in objs if o.type == "EMPTY" and o.name.startswith("SOCKET_")],
         "colliders": [{"name": m.name, "shape": m.get("shape", "mesh"), "tris": tri_count(m), "bounds_m": bounds([m])}
-                      for m in meshes if m.name.startswith("COL_")],
+                      for m in meshes if m.name.startswith(COLLIDER_PREFIXES)],
         "animation_contract": "animation-contract.json",
         "inferred_from_no_reference": [s.strip() for s in a.inferred.split(",") if s.strip()],
         "dependencies": [i["filepath"] for i in images if i["filepath"] and not i["packed"]],
@@ -231,4 +234,9 @@ def main(a):
 
 if __name__ == "__main__":
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-    main(parse(argv))
+    try:
+        main(parse(argv))
+    except Exception:  # Pipeline patch 30 Oct 2026: under --python an exception would exit 0
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

@@ -591,7 +591,7 @@ if not REAL:
     check(not rt["changed"] and not rt["files"] and mt() == t1 and counts() == c1, f"retouch after undo not a no-op: {rt}")
     del c8
 
-load("scripts/tripo_cleanup.py")["cleanup"]({"SM_Handcart": (0.95, 1.00, 2.10, "floor", True)})   # must leave an atlased prop alone
+load("scripts/tripo_cleanup.py")["cleanup"]({"SM_Handcart": ((0.95, 2.10, 1.00), "floor", True)})   # must leave an atlased prop alone
 check(bpy.data.materials.get(MAT) and bpy.data.meshes["SM_Handcart"].materials[0].name == MAT
       and tuple(bpy.data.images["T_Props_Atlas_BC"].size) == (W, H2) and counts() == c1,
       "tripo_cleanup changed an atlased prop")

@@ -1,5 +1,5 @@
 """Props atlas, Blender 5.2: the Tripo placeholder props on one material, to keep a game export under its material cap.
-Written and tested on the KWC alley project; BASES and RETOUCH below still hold that project's props.
+Written and tested on an earlier project; BASES and RETOUCH below still hold that project's props.
 
 Live session (the route's Blender worker, through MCP):
     exec(open(r"<repo>/.claude/skills/tripo-props/scripts/props_atlas.py").read())
@@ -24,7 +24,7 @@ props_atlas = cell index and props_atlas_uv = [su, sv, ou, ov] (uv_atlas = uv_tr
 Extending: when some props are already atlased and new ones (own M_<base>) arrived, build() keeps the old
 sheet pixels verbatim (same px from the top-left), adds the new cells, and re-maps the old meshes' UVs when the
 height grew. With nothing pending a second run is a no-op. Never opens or saves a .blend.
-Test: scripts/tests/test_props_atlas.py (it uses the KWC names in BASES and RETOUCH as fixtures). Notes: ../SKILL.md.
+Test: scripts/tests/test_props_atlas.py (it uses the names in BASES and RETOUCH as fixtures). Notes: ../SKILL.md.
 """
 import hashlib
 import json
@@ -36,7 +36,7 @@ import numpy as np
 
 OUT_REL, SRC_REL = ("textures", "props_atlas"), ("textures", "tripo_src")
 MAT, TAG, LAYOUT = "M_Props_Atlas", "props_atlas", "props_atlas_layout.json"
-# the KWC alley's props (the test's fixtures); set BASES to this project's props after exec
+# an earlier project's props (the test's fixtures); set BASES to this project's props after exec
 BASES = ("AC_Split", "AC_Window", "BagHeap", "Basket_Rattan", "Bucket_Plastic", "CartLoad", "Crate_Plastic",
          "DistBoard", "GasCylinder", "Handcart", "JunctionBox", "MeterBox_A", "MeterBox_B", "Meter_kWh", "Sack",
          "Misc_BarberChair", "Misc_EarthGodShrine", "Misc_BirdCage", "Misc_GroceryShelf",

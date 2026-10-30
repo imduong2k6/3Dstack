@@ -1,5 +1,6 @@
 """Headless self-check for palette.py: value, ramp and roughness apply and restore; split_group, rename_group and
-assign (object and faces) undo with restore(groups=True); face assigns on shared meshes are refused; solve_hex.
+assign (object and faces) undo with restore(groups=True); face assigns on shared meshes are refused; solve_hex;
+apply() reports its skips; gray_on() and gray_off() put back the view layer's own override.
 
     bash bin/blender-bg --python .claude/skills/blender-adapter/scripts/check_palette.py -- <repo> <out_dir>
 """
@@ -20,6 +21,10 @@ def mat(name, group):
 
 
 wall, cab, rust, grey = mat('M_wall', 'wall'), mat('M_cable', 'cables'), mat('M_rust', 'rust'), mat('M_grey', 'grey')
+glow, glass, photo = mat('M_glow', 'grey'), mat('M_glass', 'grey'), mat('M_photo', 'grey')
+principled(glow).inputs['Emission Strength'].default_value = 5.0
+principled(glass).inputs['Transmission Weight'].default_value = 1.0
+photo['photo_proj'] = True
 obs = []
 for i in range(3):
     bpy.ops.mesh.primitive_cube_add(location=(i * 3, 0, 1))
@@ -30,13 +35,16 @@ box = obs[2].data
 pal = os.path.join(out, 'palette.json')
 json.dump({'groups': [{'group': 'wall_end', 'value_srgb': 127, 'value_bottom_srgb': 73, 'z_range_m': [0.6, 1.9]},
                       {'group': 'wall_near', 'value_srgb': 92}, {'group': 'cables', 'value_srgb': 50, 'roughness': 0.75},
-                      {'group': 'rust', 'value_srgb': 60}, {'group': 'grey', 'value_srgb': 125}]}, open(pal, 'w'))
+                      {'group': 'rust', 'value_srgb': 60}, {'group': 'grey', 'value_srgb': 125},
+                      {'group': 'unused', 'value_srgb': 80}]}, open(pal, 'w'))
 
 end = split_group(wall, 'wall_end', [obs[0]])
 rename_group(wall, 'wall_near')
 assign(obs[1], rust)
 assign(box, grey, faces=[0, 1])
-apply(pal, mode='value')
+skipped = apply(pal, mode='value')
+assert sorted(skipped) == [['M_glass', 'glass'], ['M_glow', 'emissive'], ['M_photo', 'photo_proj'], ['unused', 'no material has this group']], skipped
+assert all(abs(principled(m).inputs['Base Color'].default_value[0] - 0.2158) < 1e-6 for m in (glow, glass, photo))
 inp = principled(end).inputs['Base Color']
 assert inp.is_linked
 mix = {s.identifier: s for s in end.node_tree.nodes['PAL_mix'].inputs}
@@ -96,4 +104,14 @@ assert 'M_wall_end' not in bpy.data.materials and wall['material_group'] == 'wal
 assert all(o.material_slots[0].link == 'DATA' and o.material_slots[0].material == wall for o in obs)
 assert len(box.materials) == 1 and all(p.material_index == 0 for p in box.polygons)
 assert not any(k.startswith(('orig_', 'pal_')) for m in bpy.data.materials for k in m.keys())
+vl = bpy.context.view_layer                               # gray pass on and off, keeping an override that was there
+vl.material_override = rust
+gray_on()
+gray_on()                                                 # twice still remembers the original
+assert vl.material_override.name == 'PAL_Gray' and abs(principled(vl.material_override).inputs['Base Color'].default_value[0] - 0.216) < 1e-6
+gray_off()
+assert vl.material_override == rust and 'PAL_Gray' not in bpy.data.materials and 'pal_orig_override' not in bpy.context.scene
+vl.material_override = None
+gray_on(); gray_off()
+assert vl.material_override is None
 print('check_palette: pass')

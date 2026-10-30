@@ -4,7 +4,8 @@
     split_group(bpy.data.materials["M_plaster_wall"], "plaster_end", [end_wall])   # optional group changes, recorded
     assign(knob, bpy.data.materials["M_metal_rust"])                              # whole object, or faces=[...] on a mesh
     unassign(mesh_or_object)                                                      # undo one assign()
-    apply(r"<project>/light/palette.json", mode="value")   # or "hue"
+    gray_on(); gray_off()  # gray pass (L1): every view layer's Material Override, then back to what was there
+    skipped = apply(r"<project>/light/palette.json", mode="value")   # or "hue"; [name, reason] for each skip
     restore()              # back to the original colours, roughness and links (the gray at L2)
     restore(groups=True)   # also undo split_group, rename_group and assign: back to the original groups
     solve_hex("#9a6a60", 115)   # scale a picked colour so its luminance equals the group's L2 value
@@ -71,12 +72,60 @@ def _ramp(mat, inp, bottom, top, z_range):
     nt.links.new(sock["Result_Color"], inp)
 
 
+def gray_on(value=0.216):
+    """Gray pass: one Principled BSDF at this linear value (0.216 is sRGB 128) as every view layer's Material Override.
+    The override grays emissive meshes too, so the light comes from each emitter's light in COL_Lights (house-rules 7)."""
+    sc = bpy.context.scene
+    gray = bpy.data.materials.get("PAL_Gray") or bpy.data.materials.new("PAL_Gray")
+    gray.use_nodes = True
+    principled(gray).inputs["Base Color"].default_value = (value, value, value, 1.0)
+    if "pal_orig_override" not in sc:
+        sc["pal_orig_override"] = {vl.name: vl.material_override.name if vl.material_override else "" for vl in sc.view_layers}
+    for vl in sc.view_layers:
+        vl.material_override = gray
+
+
+def gray_off():
+    sc = bpy.context.scene
+    orig = sc.get("pal_orig_override")
+    if orig is None:
+        return
+    for vl in sc.view_layers:
+        vl.material_override = bpy.data.materials.get(orig.get(vl.name, ""))
+    del sc["pal_orig_override"]
+    gray = bpy.data.materials.get("PAL_Gray")
+    if gray and not gray.users:
+        bpy.data.materials.remove(gray)
+
+
+def _skip_reason(mat, g, node):
+    if not g:
+        return "group not in the palette"
+    if not node:
+        return "no Principled BSDF"
+    if mat.get("photo_proj"):
+        return "photo_proj"
+    s, c, t = (node.inputs.get(k) for k in ("Emission Strength", "Emission Color", "Transmission Weight"))
+    if s and c and s.default_value > 0 and (c.is_linked or max(c.default_value[:3]) > 0):
+        return "emissive"
+    if t and (t.is_linked or t.default_value > 0):
+        return "glass"
+    return None
+
+
 def apply(palette_path, mode="value"):
+    """Returns [name, reason] for every tagged material it left alone and every palette group no material carries."""
     groups = {g["group"]: g for g in json.load(open(palette_path))["groups"]}
+    skipped, tagged = [], set()
     for mat in bpy.data.materials:
-        g = groups.get(mat.get("material_group"))
+        if mat.get("material_group") is None:
+            continue
+        tagged.add(mat["material_group"])
+        g = groups.get(mat["material_group"])
         node = principled(mat)
-        if not g or not node or mat.get("photo_proj"):
+        why = _skip_reason(mat, g, node)
+        if why:
+            skipped.append([mat.name, why])
             continue
         inp = node.inputs["Base Color"]
         if "orig_base_color" not in mat:
@@ -99,6 +148,7 @@ def apply(palette_path, mode="value"):
             inp.default_value = (*hex_to_linear(g["hue_hex"]), 1.0)
             if "hue_bottom_hex" in g:
                 _ramp(mat, inp, hex_to_linear(g["hue_bottom_hex"]), hex_to_linear(g["hue_hex"]), g["z_range_m"])
+    return skipped + [[name, "no material has this group"] for name in groups if name not in tagged]
 
 
 def rename_group(mat, group):

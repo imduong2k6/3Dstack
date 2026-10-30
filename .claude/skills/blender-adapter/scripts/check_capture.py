@@ -21,7 +21,7 @@ sc.render.use_compositing = True
 before = (sc.camera, sc.render.use_compositing, im.media_type, im.file_format, im.color_depth, im.color_management,
           sc.view_settings.view_transform, sc.view_settings.exposure, sc.view_settings.use_white_balance, sc.display.shading.color_type, sc.cycles.samples)
 for eng in ('CYCLES', 'BLENDER_WORKBENCH'):
-    capture_set(os.path.join(out, eng), ['CAM_A'], engine=eng, samples=4)
+    capture_set(os.path.join(out, eng), ['CAM_A'], engine=eng, samples=4, lint=False)   # the lint gate has its own test (selftest_adapter.py)
     img = bpy.data.images.load(os.path.join(out, eng, 'CAM_A.png'))
     px = np.array(img.pixels[:]).reshape(-1, 4)[:, :3]
     assert tuple(img.size) == (300, 400), img.size

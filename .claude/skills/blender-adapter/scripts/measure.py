@@ -6,9 +6,17 @@
     level(px, erode(m, 9))                             # median luminance as an sRGB level
 
 Decode path: render against photo, decode both from display (PNG and the photo) with these helpers; render against
-render, compare the EXRs. Luminance is Rec.709 on linear values, re-encoded; luma on encoded values reads saturated
-colours wrong (+3.5 for a real +7.5 at L3 on the corridor pilot).
+render, compare the EXRs. Luminance is Rec.709 on linear values, re-encoded: `luminance_level` is the one luma metric, and
+nothing in the pipeline uses Rec.601 luma on encoded values (it reads saturated colours wrong: +3.5 for a real +7.5 at L3 on
+the corridor pilot).
+
+    grid_stats(px, 3, 3)       # mean, median, clipping and black per cell and overall, same metric (only when the user asks for grid rules)
+
+Headless: bash bin/blender-bg --python measure.py -- <capture.png> [--grid 3x3] [--out stats.json]   (exit 1 if the image cannot be read)
 """
+import os
+import sys
+
 import numpy as np
 
 
@@ -66,3 +74,37 @@ def level(px, mask):
     if not mask.any():
         raise ValueError("empty mask")
     return float(np.median(luminance_level(px)[mask]))
+
+
+def grid_stats(px, rows=3, cols=3):
+    """Luminance statistics of a display-encoded image, overall and per grid cell (row 0 = top), all with luminance_level.
+    clip = any channel at white (>= 254.5 / 255); black = level under 6."""
+    lum = luminance_level(px)
+    h, w = lum.shape
+    clip = (np.asarray(px)[..., :3] >= 254.5 / 255).any(-1)
+    black = lum < 6
+
+    def cells(a, f):
+        return [[round(float(f(a[i * h // rows:(i + 1) * h // rows, j * w // cols:(j + 1) * w // cols])), 2) for j in range(cols)] for i in range(rows)]
+    return {"method": "Rec.709 luminance on linear values, re-encoded to an sRGB level 0..255; grid row 0 = top", "size": [w, h], "rows": rows, "cols": cols,
+            "mean": round(float(lum.mean()), 2), "median": round(float(np.median(lum)), 2),
+            "clip_pct": round(float(clip.mean() * 100), 2), "black_pct": round(float(black.mean() * 100), 2),
+            "grid_mean": cells(lum, np.mean), "grid_median": cells(lum, np.median),
+            "grid_clip_pct": cells(clip, lambda a: a.mean() * 100), "grid_black_pct": cells(black, lambda a: a.mean() * 100)}
+
+
+if any(os.path.basename(x) == "measure.py" for x in sys.argv) and "--" in sys.argv:
+    import json
+    try:
+        a = sys.argv[sys.argv.index("--") + 1:]
+        assert a and os.path.exists(a[0]), f"image not found: {a[0] if a else '(none given)'}"
+        g = a[a.index("--grid") + 1].lower().split("x") if "--grid" in a else ("3", "3")
+        res = grid_stats(load_display(a[0]), int(g[0]), int(g[1]))
+        if "--out" in a:
+            json.dump(res, open(a[a.index("--out") + 1], "w"), indent=1)
+        print("MEASURE", json.dumps(res))
+        _code = 0
+    except Exception as e:
+        print("MEASURE ERROR:", e)
+        _code = 1
+    sys.exit(_code)
