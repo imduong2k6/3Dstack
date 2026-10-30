@@ -225,6 +225,10 @@ tube("Conduit_Open", path((-1.4, 2.95, 2.1), (-1.4, 2.95, 2.4)), radius=0.016)
 # narrow gap on the walk path, an enclosed room with something floating in it
 box("Pillar_N_A", (-4.7, 0.9, 0), (-4.3, 1.4, 2.5))
 box("Pillar_N_B", (-4.7, 0.0, 0), (-4.3, 0.5, 2.5))
+box("Stag_L", (-0.15, 5.0, 0), (0.15, 5.4, 2.2))                                         # 0.4 m left of the path, 0.5 m along from Stag_R: each side alone leaves 1.4 m
+box("Stag_R", (0.35, 3.8, 0), (0.65, 4.2, 2.2))                                          # 0.4 m right of it: no body fits between the two
+box("Apart_L", (2.5, 5.0, 0), (2.8, 5.4, 2.2))                                           # the same pair 1.1 m apart along the path: passes
+box("Apart_R", (3.9, 3.8, 0), (4.2, 4.2, 2.2))
 box("Prop_Sign_Over", (-5.65, 0.55, 1.92), (-5.45, 0.85, 2.0))                          # above the 1.8 m capsule, under the 2.1 m headroom
 tube("Prop_Hose_Over", path((-5.3, 0.82, 2.05), (-4.9, 0.82, 2.05)))                    # thin and parallel to the path, between the head rays
 box("SM_Landing_R", (4.2, 0.8, 0), (5.8, 1.2, 0.2), "COL_P1_Structure")                  # a raised strip with a path along it, and beside it
@@ -275,7 +279,7 @@ J("light/cameras.json", [{"id": "CAM_A", "pos_m": [0, -5, 1.6], "rot_deg": [90, 
                          {"id": "CAM_Gone", "pos_m": [0, 0, 0], "rot_deg": [0, 0, 0]}])
 J("light/lights.json", [{"id": "L_Key", "type": "area", "pos_m": [0, 0, 6], "energy_w": 500}, {"id": "L_Fill", "type": "point", "energy_w": 120}])
 J("light/exposure.json", {"exposure": 1.5, "view_transform": "Standard", "look": "None"})
-J("plan/walk.json", {"paths": {"main": [[-5.8, 0.7], [-3.2, 0.7]], "edge": [[4.3, 1.0, 0.2], [5.7, 1.0]]}})
+J("plan/walk.json", {"paths": {"main": [[-5.8, 0.7], [-3.2, 0.7]], "edge": [[4.3, 1.0, 0.2], [5.7, 1.0]], "stag": [[-2.0, 4.6], [4.5, 4.6]]}})
 backup_ok = os.path.join(out, "step_ok.blend")
 open(backup_ok, "wb").write(b"x")
 J("plan/steps.json", {"version": 1, "steps": [{"n": 1, "backup": backup_ok}, {"n": 2, "backup": os.path.join(out, "step_missing.blend")}]})
@@ -347,6 +351,9 @@ check(sign == {"head"}, f"a sign at 1.92 m is a headroom item, not inside the 1.
 hose = [it for it in pc if "Prop_Hose_Over" in it["object"]]
 check([it["type"] for it in hose] == ["head"] and 2.0 < hose[0]["worst"] < 2.1, f"a thin hose at 2.04 m, off the head rays, is a headroom item: {hose}")
 check(not any("Prop_Hood_Edge" in it["object"] for it in pc), f"2.2 m over its own floor clears, though the sphere reaches it from the raised strip: {pc}")
+stag = [it for it in pc if it["path"] == "stag"]
+check(len(stag) == 1 and stag[0]["type"] == "width" and "Stag_L" in stag[0]["object"] and "Stag_R" in stag[0]["object"] and 0.79 < stag[0]["worst"] < 0.81,
+      f"obstacles on opposite sides 0.5 m apart along the path leave 0.8 m: {stag}")   # and the pair 1.1 m apart passes (nothing else on this path)
 check(any(it["type"] == "width" and "Prop_Shin_A" in it["object"] and "Prop_Shin_B" in it["object"] for it in pc), f"shin-height clutter narrows the path: {pc}")
 
 # cable ends: the hooked run must show its hanging end; two floaters must not vouch for each other

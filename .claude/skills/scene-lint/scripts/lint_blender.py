@@ -883,6 +883,9 @@ def _sphere_hit(g, p, f, rad, hcap, head, isw):
     return None
 
 
+WIDTH_HEIGHTS = (0.35, 0.5, 1.0, 1.7, 1.95)   # heights of the side rays that measure the clear width
+
+
 def check_path_clearance(c):
     r, g = c.rules, c.geo
     paths, _ = L.read_paths(c.paths.get("walk"), c.paths.get("layout"))
@@ -896,7 +899,20 @@ def check_path_clearance(c):
     for pname, pts in paths.items():
         samples = L.walk_samples(g, pts, 0.1)
         found, minw, minh = {}, [9, None], [9, None]
+        arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff([q[0] for q in samples]), np.diff([q[1] for q in samples])))]) if samples else []
+        sides = []  # per sample and height: ((distance, name) to the left, the same to the right), 1.0 m when clear
         for (x, y, dx, dy, f) in samples:
+            side, row = Vector((-dy, dx, 0)), {}
+            for hh in WIDTH_HEIGHTS if f is not None else ():  # shin-height clutter and wall fittings in the headroom narrow the path too
+                pair = []
+                for sgn in (1, -1):
+                    h = g.ray(Vector((x, y, f + hh)), side * sgn, 1.0)
+                    if h and hh > hcap and h[1].dot(side * sgn) > 0:
+                        h = None  # a back face above the capsule: the ray starts inside something overhead, a headroom item
+                    pair.append((h[3], h[2]) if h else (1.0, None))
+                row[hh] = pair
+            sides.append(row)
+        for i, (x, y, dx, dy, f) in enumerate(samples):
             checked += 1
             if f is None:
                 found.setdefault(("floor", "no floor under the path"), []).append((x, y, None))
@@ -913,14 +929,11 @@ def check_path_clearance(c):
                     if h and not isw(h[2]):
                         found.setdefault(("low", h[2]), []).append((x, y, hh))
                         break
-            for hh in (0.35, 0.5, 1.0, 1.7, 1.95):  # shin-height clutter and wall fittings in the headroom narrow the path too
-                w, who = 0.0, []
-                for sgn in (1, -1):
-                    h = g.ray(Vector((x, y, f + hh)), side * sgn, 1.0)
-                    if h and hh > hcap and h[1].dot(side * sgn) > 0:
-                        h = None  # a back face above the capsule: the ray starts inside something overhead, a headroom item
-                    w += h[3] if h else 1.0
-                    who.append(h[2] if h else None)
+            near = [sides[j] for j in range(int(np.searchsorted(arc, arc[i] - r["passage_window_m"] - 1e-9)),
+                                            int(np.searchsorted(arc, arc[i] + r["passage_window_m"] + 1e-9))) if sides[j]]
+            for hh in WIDTH_HEIGHTS:  # a body is as deep as the window is long: the nearest thing on each side within it counts, not only the ones at this station
+                lo, hi = min((row[hh][0] for row in near), key=lambda q: q[0]), min((row[hh][1] for row in near), key=lambda q: q[0])
+                w, who = lo[0] + hi[0], [lo[1], hi[1]]
                 if w < minw[0]:
                     minw = [w, (x, y, hh, who)]
                 if w < r["passage_min_width_m"]:

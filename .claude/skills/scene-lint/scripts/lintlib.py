@@ -36,7 +36,8 @@ DEFAULT_RULES = {
     "cable_end_hardware_m": 0.05,   # a cable end that enters a wall (or any bare surface) needs hardware (box, gland, sleeve...) this close, else it is a dead end
     "conduit_end_tol_m": 0.02, "cap_max_m": 0.4, "vent_pocket_min_m": 0.15,   # a blind pocket shallower than this reads as a vent on solid wall
     "door_min_width_m": 0.91, "door_min_height_m": 2.0,   # same limits as layout-2d/check_layout.py
-    "passage_min_width_m": 0.91, "head_min_m": 2.1, "capsule_radius_m": 0.35, "capsule_height_m": 1.8, "eye_height_m": 1.6,
+    "passage_min_width_m": 0.91, "passage_window_m": 0.35,   # clear width = nearest left plus nearest right within this much path each way (a body depth)
+    "head_min_m": 2.1, "capsule_radius_m": 0.35, "capsule_height_m": 1.8, "eye_height_m": 1.6,
     "size_tol_m": 0.005, "riser_max_m": 0.178, "riser_uneven_max_m": 0.01, "tread_min_m": 0.279, "stair_flight_gap_m": 0.5,
     "camera_pos_tol_m": 0.001, "camera_rot_tol_deg": 0.05, "camera_value_tol": 0.001,
     "light_pos_tol_m": 0.01, "light_power_tol_rel": 0.01, "exposure_tol": 0.001,
