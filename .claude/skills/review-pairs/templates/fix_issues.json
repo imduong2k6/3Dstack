@@ -1,0 +1,21 @@
+{
+ "res_px": [960, 720],
+ "issues": [
+  {"id": "S3", "source": "review.md item 3",
+   "caption": "Four loose cable stubs, 10 to 13 cm long, stand off the left wall at 1.35 to 2.1 m and end on bare wall.",
+   "targets": ["SM_Cable_L_901", "SM_Cable_L_902", "SM_Cable_L_903", "SM_Cable_L_904"],
+   "engine": "WORKBENCH", "fill": 0.7},
+  {"id": "S5", "source": "review.md item 5",
+   "caption": "The vent sits on a solid wall: no opening behind it, nothing for the slats to vent.",
+   "targets": ["SM_Vent_01"], "engine": "WORKBENCH", "fill": 0.5, "from_camera": "CAM_A"},
+  {"id": "S7", "source": "review.md item 7",
+   "caption": "Stair door at the top of the exit stair: no frame and nothing behind it.",
+   "boxes": [[[0.0, 12.0, -0.5], [1.2, 13.0, 2.0]]], "loc_m": [0.55, 10.5, 0.2], "lens_mm": 24, "engine": "WORKBENCH"},
+  {"id": "AD1", "source": "ad-notes.md note 1",
+   "caption": "The end wall reads empty: the reference shows a meter box and two signs there.",
+   "kind": "review_cam", "camera": "CAM_A", "engine": "CYCLES"},
+  {"id": "S9", "source": "review.md item 9",
+   "caption": "Top plan, cut at 1.6 m: rooms 1 and 2 grow about 1.5 times.",
+   "kind": "plan", "centre_xy": [1.25, 1.9], "ortho_scale": 27.5, "cut_z": 1.6, "res_px": [960, 1238], "engine": "WORKBENCH"}
+ ]
+}

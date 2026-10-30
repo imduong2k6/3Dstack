@@ -1,0 +1,17 @@
+{
+ "lane": "north",
+ "collection": "COL_Lane_north",
+ "part": "north.blend",
+ "id_prefix": "NO_",
+ "mode": "append",
+ "parent": "COL_Blockout",
+ "materials": ["M_Concrete", "M_Paint_Cream", "M_Steel_Galv"],
+ "new_materials": [],
+ "instances": [
+  {"name": "NO_Vent_01", "master": "SM_Vent", "loc": [4.2, 0.05, 2.1], "rot_deg": [0, 0, 0], "scale": [1, 1, 1],
+   "props": {"map_id": "W03", "inv_id": "Z1.W03.vent", "phase": "P3", "src": "build"}},
+  {"name": "NO_Vent_02", "master": "SM_Vent", "loc": [5.4, 0.05, 2.1], "rot_deg": [0, 0, 0],
+   "props": {"map_id": "W03", "inv_id": "Z1.W03.vent", "phase": "P3", "src": "build"}},
+  {"name": "NO_Marker_01", "master": "SM_Marker", "loc": [0, 0, 0], "at_origin": true}
+ ]
+}

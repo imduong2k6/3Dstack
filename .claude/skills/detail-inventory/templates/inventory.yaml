@@ -1,0 +1,63 @@
+# plan/inventory.yaml: what the references show, per zone and wall. Written by detail-inventory in Stage 1.
+# Lane briefs quote their rows, set-dressing takes its density from the counts, and scene-lint counts tagged objects
+# against them (built objects carry the row ID in the custom property inv_id). One row per feature type per wall or zone.
+# Keep to the YAML subset check_inventory.py reads: block maps and lists, [flow lists], {flow: maps}, quoted strings.
+# The values below are a generic example, not a scene.
+version: 1
+zones:
+  - id: Z1                          # a shape ID from layout.json
+    name: Service corridor
+    area_m2: 24.0                   # floor area; the dressing density is dressing count / area
+    walls:
+      - id: Z1.W_left               # the wall's layout shape ID, or <zone>.<side>
+        items:
+          - id: Z1.W_left.vent      # unique, starts with the zone ID
+            feature: louvre vent
+            class: fixture          # fixture | surface | dressing (default: fixture)
+            count: 3                # a whole number, or [2, 4] when the references only say "two to four"
+            size_m: [0.40, 0.10, 0.30]      # W x D x H, metres
+            mount: wall             # wall | ceiling | floor | free | inset | hung | surface | pole
+            height_m: 2.1           # bottom edge above the local floor, or [low, high]
+            spacing_m: 1.5
+            ref: {image: corridor-01, crop: refs/crops/Z1.W_left.vent.png, box: [0.52, 0.10, 0.71, 0.24]}
+            source: "corridor-01 (measure); width from metrics vent_width_m"
+            asset: SM_Vent
+            phase: P3               # G2 for the blockout, or P0 to P9
+            confidence: seen        # seen | inferred | assumed (assumed needs a note)
+          - id: Z1.W_left.meter_board
+            feature: meter board
+            count: 1
+            size_m: [0.60, 0.15, 0.40]
+            mount: wall
+            height_m: [1.4, 1.8]
+            ref: {image: corridor-02, crop: refs/crops/Z1.W_left.meter_board.png}
+            source: "corridor-02 (measure), anchor door_leaf_height_m"
+            asset: SM_MeterBoard
+            phase: P3
+            confidence: inferred
+            note: "height read off the door frame beside it"
+      - id: Z1.W_right
+        items:
+          - id: Z1.W_right.paint
+            feature: two-tone wall paint
+            class: surface
+            count: 1
+            size_m: [12.0, 0.01, 2.6]
+            mount: surface
+            ref: {image: corridor-01}
+            source: "corridor-01 (material)"
+            phase: P8
+            confidence: seen
+    items:                          # zone-level rows: floor, ceiling, loose set dressing
+      - id: Z1.crates
+        feature: stacked crates
+        class: dressing
+        count: [4, 6]
+        size_m: [0.60, 0.40, 0.30]
+        mount: floor
+        ref: {image: corridor-03, crop: refs/crops/Z1.crates.png}
+        source: "corridor-03 (mood); crate size from metrics crate_width_m"
+        asset: SM_Crate
+        phase: P6
+        confidence: assumed
+        note: "the photo shows 4 at the far end; the left side is out of frame, so up to 6"

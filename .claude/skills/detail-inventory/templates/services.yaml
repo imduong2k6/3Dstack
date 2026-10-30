@@ -1,0 +1,38 @@
+# plan/services.yaml: the connected network, from supply to fixtures. Written by detail-inventory in Stage 1, drawn on
+# the layout in Stage 2 (same IDs, purple), built in P3. Nothing electrical or plumbed goes in that is not on it.
+# Every node has an anchor with a height. Every run has two real ends. Every size is a metrics key or sourced.
+# The values below are a generic example, not a scene.
+version: 1
+networks:
+  - id: ELEC
+    kind: electric                  # electric | cable | water | drain | gas | ac | data | other
+    supply: SUP01
+    nodes:
+      - {id: SUP01, type: supply, at_m: [0.0, 2.0, 3.6], mount: "pole bracket on the end wall"}
+      - {id: SH01, type: service_head, at_m: [0.2, 2.0, 3.2], mount: wall}
+      - {id: MT01, type: meter, at_m: [0.3, 2.0, 1.5], mount: wall, asset: SM_MeterBox, inv: Z1.W_left.meter_board}
+      - {id: RS01, type: riser, at_m: [0.3, 2.0, 2.4], mount: wall}
+      - {id: DB01, type: board, at_m: [4.0, 0.1, 2.0], mount: wall, asset: SM_DistBoard}
+      - {id: LP01, type: fixture, at_m: [6.0, 1.0, 2.5], mount: ceiling, asset: SM_Batten}
+    runs:
+      - {id: R01, from: SUP01, to: SH01, by: cable, metric: service_cable_od_mm, count: 1}
+      - {id: R02, from: SH01, to: MT01, by: conduit, metric: conduit_od_mm}
+      - {id: R03, from: MT01, to: RS01, by: conduit, metric: conduit_od_mm}
+      - id: R04
+        from: RS01
+        to: DB01
+        by: conduit
+        metric: conduit_od_mm
+        path_m: [[0.3, 2.0, 2.4], [0.3, 0.1, 2.4], [4.0, 0.1, 2.4], [4.0, 0.1, 2.0]]
+        fittings:
+          - {id: F01, type: elbow, at_m: [0.3, 0.1, 2.4], angle_deg: 90}
+          - {id: F02, type: elbow, at_m: [4.0, 0.1, 2.4], angle_deg: 90}
+      - {id: R05, from: DB01, to: LP01, by: cable, dia_mm: 8, source: "manufacturer data sheet, 3-core flex", count: 2, sag_m: 0.05}
+  - id: DATA
+    kind: data
+    supply: SUP02
+    nodes:
+      - {id: SUP02, type: supply, at_m: [0.0, 1.5, 3.4]}
+      - {id: JB01, type: junction, at_m: [3.0, 0.1, 2.6], asset: SM_JunctionBox}
+    runs:
+      - {id: R10, from: SUP02, to: JB01, by: cable, dia_mm: 6, source: "eyeballed, corridor-02, anchor door_leaf_height_m", count: 4, sag_m: 0.08}
