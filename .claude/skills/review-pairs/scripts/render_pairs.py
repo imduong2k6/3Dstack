@@ -103,12 +103,13 @@ def main():
         t = dict(c, **c["before"]) if a.side == "before" and c.get("before") else c
         W, H = (max(16, round(v * a.scale)) for v in c.get("res_px") or spec["res_px"])
         cd = bpy.data.cameras.new("FIXCAM_" + c["id"])
-        cd.lens, cd.sensor_width, cd.sensor_fit = t["lens_mm"], 36.0, t["sensor_fit"]
+        cd.sensor_width, cd.sensor_fit = 36.0, t["sensor_fit"]
         cd.shift_x, cd.shift_y = t["shift"]
-        cd.clip_start, cd.clip_end = 0.05, 300
-        if "ortho_scale" in c:  # top plan: clip_m = [near, far] sets the cut plane
-            cd.type, cd.ortho_scale = "ORTHO", c["ortho_scale"]
-            cd.clip_start, cd.clip_end = c["clip_m"]
+        cd.clip_start, cd.clip_end = t.get("clip_m") or (0.05, 300)  # a plan or review camera's clip sets its cut plane
+        if t.get("ortho_scale"):
+            cd.type, cd.ortho_scale = "ORTHO", t["ortho_scale"]
+        else:
+            cd.lens = t["lens_mm"]
         ob = bpy.data.objects.new("FIXCAM_" + c["id"], cd)
         col.objects.link(ob)
         ob.location, ob.rotation_euler = t["loc_m"], [math.radians(r) for r in t["rot_deg"]]

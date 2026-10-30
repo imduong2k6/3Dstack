@@ -6,7 +6,7 @@
 Runs on a copy of the previous round's backup and saves nothing. An issue is one of
   {"id", "caption", "targets": [object names], "boxes": [[[x0,y0,z0],[x1,y1,z1]]], "engine": "WORKBENCH"|"CYCLES", "fill": 0.7,
    "from_camera": "<review camera id>", "loc_m": [..], "aim_m": [..], "lens_mm": 35, "show": [object names], "res_px": [w, h], "source": "review.md item 4"}
-  {"id", "kind": "review_cam", "camera": "<review camera id>", "caption", "engine", "before": {"lens_mm", "rot_deg", "note"}}
+  {"id", "kind": "review_cam", "camera": "<review camera id>", "caption", "engine", "before": {"lens_mm", "rot_deg", "clip_m", "note"}}
   {"id", "kind": "plan", "centre_xy": [x, y], "ortho_scale": 20, "cut_z": 1.6, "res_px": [w, h], "caption"}
 Without loc_m the camera looks at the targets from the direction of the review camera that sees them best (or the first clear
 side), far enough to fit them, then its lens is fitted so the targets fill `fill` of the frame. With --after, a target that only
@@ -58,14 +58,16 @@ def review_cam(cid, table):
     if cid in table:
         c = table[cid]
         rot = c.get("rot_deg") or [math.degrees(v) for v in (Vector(c["aim_m"]) - Vector(c["pos_m"])).to_track_quat("-Z", "Y").to_euler()]
-        return {"loc_m": c["pos_m"], "rot_deg": rot, "lens_mm": c["lens_mm"], "sensor_fit": c.get("sensor_fit", "AUTO"),
-                "shift": list(c.get("shift", [0.0, 0.0])), "res_px": c.get("res_px")}
+        return {"loc_m": c["pos_m"], "rot_deg": rot, "lens_mm": c.get("lens_mm"), "sensor_fit": c.get("sensor_fit", "AUTO"),
+                "shift": list(c.get("shift", [0.0, 0.0])), "res_px": c.get("res_px"),
+                "ortho_scale": c.get("ortho_scale") if c.get("type") == "ortho" else None, "clip_m": c.get("clip_m")}
     o = bpy.data.objects.get(cid)
     if o is None or o.type != "CAMERA":
         return None
-    r = bpy.context.scene.render
-    return {"loc_m": list(o.matrix_world.translation), "rot_deg": [math.degrees(v) for v in o.matrix_world.to_euler()], "lens_mm": o.data.lens,
-            "sensor_fit": o.data.sensor_fit, "shift": [o.data.shift_x, o.data.shift_y], "res_px": [r.resolution_x, r.resolution_y]}
+    r, d = bpy.context.scene.render, o.data
+    return {"loc_m": list(o.matrix_world.translation), "rot_deg": [math.degrees(v) for v in o.matrix_world.to_euler()], "lens_mm": d.lens,
+            "sensor_fit": d.sensor_fit, "shift": [d.shift_x, d.shift_y], "res_px": [r.resolution_x, r.resolution_y],
+            "ortho_scale": d.ortho_scale if d.type == "ORTHO" else None, "clip_m": [d.clip_start, d.clip_end]}
 
 
 def fit_lens(pts, lo, aim, fill, W, H):
@@ -157,6 +159,7 @@ def build(issue, dg, table, allcams, res, missing):
         out.update(loc_m=[round(v, 3) for v in c["loc_m"]], rot_deg=[round(v, 3) for v in c["rot_deg"]], lens_mm=c["lens_mm"], sensor_fit=c["sensor_fit"],
                    shift=c["shift"], review_cam=issue["camera"], targets=[])
         out["res_px"] = c["res_px"] or res
+        out.update({k: c[k] for k in ("ortho_scale", "clip_m") if c[k]})  # a plan camera renders ortho, cut where the review camera cuts
         if issue.get("before"):
             out["before"] = issue["before"]
         return out

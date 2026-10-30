@@ -128,6 +128,15 @@ json.dump({"cameras": [{"id": "CAM_Main", "pos_m": [3, -5, 1.5], "aim_m": [0, 2,
 json.dump({"res_px": [640, 480], "issues": [issues["issues"][2]]}, open(one, "w"))
 rc, log = py(BEFORE, "fix_cams.py", "--issues", one, "--out", os.path.join(out, "fix_cams_wrapped.json"), "--cameras", wrapped)
 assert rc == 0 and json.load(open(os.path.join(out, "fix_cams_wrapped.json")))["cams"][0]["loc_m"] == [3, -5, 1.5], log[-1500:]
+ortho, one_o, fix_o = (os.path.join(out, n) for n in ("cameras_ortho.json", "fix_issues_ortho.json", "fix_cams_ortho.json"))  # a plan review camera: no lens
+json.dump({"cameras": [{"id": "CAM_Plan", "type": "ortho", "pos_m": [0, 2, 20], "rot_deg": [0, 0, 0], "lens_mm": None, "ortho_scale": 12,
+                        "clip_m": [18.5, 30], "res_px": [320, 240]}]}, open(ortho, "w"))
+json.dump({"res_px": [320, 240], "issues": [{"id": "I8", "kind": "review_cam", "camera": "CAM_Plan", "engine": "WORKBENCH", "caption": "Plan view."}]}, open(one_o, "w"))
+rc, log = py(BEFORE, "fix_cams.py", "--issues", one_o, "--out", fix_o, "--cameras", ortho)
+c8 = json.load(open(fix_o))["cams"][0]
+assert rc == 0 and c8["ortho_scale"] == 12 and c8["clip_m"] == [18.5, 30], log[-1500:]
+rc, log = py(BEFORE, "render_pairs.py", "--cams", fix_o, "--out", os.path.join(out, "pairs_ortho"), "--side", "before", "--scale", "0.5")
+assert rc == 0 and os.path.exists(os.path.join(out, "pairs_ortho", "I8.png")), log[-1500:]
 
 
 def in_frame(blend, cid, names):

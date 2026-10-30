@@ -88,3 +88,14 @@ Found on an earlier project's G2 r3 lint: 154 conduits reported as unreadable, a
 | `status: warn` for a check with only minors | `lint_blender.py`, `scene-lint` |
 
 On the same gate copy: unreadable conduits 154 to 18 (generated elbows), the 4 vents become minor notes (pockets 0.17 to 0.20 m deep), and 3 merged runs that were unreadable now show 7 real open ends, 2.5 to 9 cm short of the wall or roof. Majors 199 to 198, minors 200 to 68; nothing else changed. `selftest_lint.py` gains a short coupling with screw heads, saddle and box names, and a vent in a blind pocket.
+
+## 2026-10-30: review-pairs renders orthographic review cameras
+
+Found on a dry run of the next round's BEFORE pairs on a copy of an earlier project: a `review_cam` issue on a top-down plan camera (`type: ortho` in `cameras.json`, `lens_mm: null`) crashed `render_pairs.py` (it set the lens to None), and every review camera lost its own clip.
+
+| Change | Files |
+| --- | --- |
+| `review_cam` carries the camera's `ortho_scale` (when ortho) and `clip_m`, from the `cameras.json` row or the camera object | `fix_cams.py` |
+| A camera renders ortho when it has a scale, keeps its clip, and reads both through a `before:` block, so a camera whose clip changes in the fix shows its old clip on the before side | `render_pairs.py`, `review-pairs` |
+| An ortho plan review camera with a clip, through `fix_cams.py` and `render_pairs.py` | `selftest_pairs.py` |
+
