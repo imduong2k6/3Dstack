@@ -29,7 +29,7 @@ def load(name):
     return mod
 
 
-stepmod, statsmod, capmod, meas = load("step_log"), load("stats"), load("capture"), load("measure")
+stepmod, statsmod, capmod, meas, layoutmod = load("step_log"), load("stats"), load("capture"), load("measure"), load("export_layout")
 fails = []
 
 
@@ -153,6 +153,29 @@ code, o = run_blender(work, os.path.join(HERE, "stats.py"), "--", "--out", sp, "
 check(code == 1, f"stats CLI must exit 1 on the wrong file, got {code}: {o}")
 code, o = run_blender(work, os.path.join(HERE, "stats.py"), "--", "--out", sp, "--expect-file", work)
 check(code == 0, f"stats CLI exit {code}: {o}")
+
+# ---- export_layout: text objects are rows too (they were skipped without a word) --------------------
+bpy.ops.wm.read_factory_settings(use_empty=True)
+sc = bpy.context.scene
+M = bpy.data.materials.new("M")
+props = bpy.data.collections.new("COL_P5_Props")
+sc.collection.children.link(props)
+crate, outside = box("Crate", (0, 0, 0), (1, 1, 1)), box("Outside", (3, 0, 0), (4, 1, 1))
+cu = bpy.data.curves.new("TXT_Sign", "FONT")
+cu.body = "OPEN"
+sign = bpy.data.objects.new("Sign_Text", cu)
+sign.location = (2, 0, 1)
+crate["map_id"], sign["map_id"] = "C01", "T01"
+for o in (crate, sign):
+    props.objects.link(o)
+sc.collection.objects.unlink(crate)
+layout_json = os.path.join(out, "layout.json")
+layoutmod.export(layout_json)
+rows = {r["name"]: r for r in json.load(open(layout_json))["instances"]}
+check(set(rows) == {"Crate", "Sign_Text"}, f"layout rows: the mesh and the text object, not the one outside COL_P*: {sorted(rows)}")
+check(rows.get("Sign_Text", {}).get("asset") == "TXT_Sign" and rows["Sign_Text"]["map_id"] == "T01" and rows["Sign_Text"]["phase"] == "P5" and rows["Sign_Text"]["loc_m"] == [2.0, 0.0, 1.0],
+      f"text row: {rows.get('Sign_Text')}")
+check(bpy.data.objects["Sign_Text"].type == "FONT", "export_layout leaves the text live")
 
 # ---- measure: one metric, grid_stats ---------------------------------------------
 px = np.zeros((90, 90, 4))

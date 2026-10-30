@@ -16,7 +16,7 @@ OUT = os.path.abspath(sys.argv[sys.argv.index("--") + 1]) if "--" in sys.argv el
 os.makedirs(OUT, exist_ok=True)
 
 
-def build(path, open_collider=False):
+def build(path, open_collider=False, text=False):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     low, col = bpy.data.collections.new("LOW"), bpy.data.collections.new("COLLISION")
     for c in (low, col):
@@ -35,6 +35,14 @@ def build(path, open_collider=False):
     bm.to_mesh(me)
     bm.free()
     col.objects.link(bpy.data.objects.new("UCX_SM_Test_01", me))
+    if text:  # a live text object with a material and a custom property
+        cu = bpy.data.curves.new("TXT_Label", "FONT")
+        cu.body = "OPEN"
+        cu.materials.append(bpy.data.materials.new("M_label"))
+        lab = bpy.data.objects.new("SM_Label", cu)
+        lab.location = (2.0, 0.0, 1.0)
+        lab["label_id"] = "T01"
+        low.objects.link(lab)
     bpy.ops.wm.save_as_mainfile(filepath=path)
 
 
@@ -88,6 +96,27 @@ if rc == 0:
 
 rc, log = run("export_delivery.py", "--blend", good, "--out", os.path.join(OUT, "export_none"), "--name", "SM_Test", "--collections", "NOPE")
 expect(rc == 1 and "collection not found: NOPE" in log, f"export missing collection: exit {rc}")
+
+# a text object is converted to a mesh on the export copy (name, transform, material, custom property), and the source keeps live text
+txt = os.path.join(OUT, "text.blend")
+build(txt, text=True)
+for fmt, ext in (("GLB", ".glb"), ("FBX", ".fbx")):
+    out = os.path.join(OUT, "export_text_" + fmt)
+    rc, log = run("export_delivery.py", "--blend", txt, "--out", out, "--name", "SM_Label", "--format", fmt, "--collections", "LOW,COLLISION", "--no-animation")
+    expect(rc == 0, f"export text {fmt}: exit {rc}\n{log[-800:]}")
+    if rc != 0:
+        continue
+    man = json.load(open(os.path.join(out, "asset-manifest.json")))
+    expect(man["lods"] and sorted(man["lods"][0]["objects"]) == ["SM_Label", "SM_Test"] and man["lods"][0]["tris"] > 12, f"export text {fmt}: manifest lods {man['lods']}")
+    expect(man["materials"] == ["M_label", "M_test"], f"export text {fmt}: materials {man['materials']}")
+    blob = open(os.path.join(out, "SM_Label" + ext), "rb").read()
+    expect(b"SM_Label" in blob and b"label_id" in blob and b"T01" in blob, f"export text {fmt}: name or custom property missing from the file")
+    if fmt == "GLB":
+        js = json.loads(blob[20:20 + int.from_bytes(blob[12:16], "little")])
+        node = next((n for n in js["nodes"] if n["name"] == "SM_Label"), None)
+        expect(node is not None and "mesh" in node, f"export text GLB: node {node}")
+bpy.ops.wm.open_mainfile(filepath=txt)
+expect(bpy.data.objects["SM_Label"].type == "FONT" and bpy.data.objects["SM_Label"].get("label_id") == "T01", "the source file keeps live text")
 
 print("FAIL:\n" + "\n".join(fails) if fails else "selftest_pipeline_patch: all checks passed")
 if fails:

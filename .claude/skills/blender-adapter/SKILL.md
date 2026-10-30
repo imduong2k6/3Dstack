@@ -90,4 +90,4 @@ Adapted from arjun988/blender-skills `archviz` (MIT), retired here. Lenses and p
 ## Export to Unreal
 
 - Meshes: FBX per unique asset (or the Send to Unreal add-on if the toolbox lists it). Tested settings (28 Oct 2026, Blender 5.2.3 to UE 5.8.3): selected objects, scale applied on the object, Apply Scalings **All Local**, Apply Unit on, Forward -Z, Up Y, smoothing Face, custom normals kept. A 1 m cube imports as 100 units. Never use "FBX All" or "FBX Units Scale": both import 100 times too small. Y comes in mirrored with no extra rotation, which `import_layout.py` already matches. The exact call is in `toolbox/tools/transfer.blender-unreal.md`; add custom normals, `UCX_` collision and LODs there once the first kit piece is tested.
-- Layout (route `blender_unreal`): `scripts/export_layout.py` writes `transfer/layout.json` with one row per placed instance.
+- Layout (route `blender_unreal`): `scripts/export_layout.py` writes `transfer/layout.json` with one row per placed instance. A text object (FONT) is one row named after the object, with the text data name as its asset. The FBX for it is the mesh converted on an export copy; the source file keeps live text.

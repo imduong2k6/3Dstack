@@ -78,6 +78,18 @@ def tri_count(o):
     return n
 
 
+def text_to_mesh(objs):
+    # Pipeline patch 30 Oct 2026: the FBX call's object_types has no text and glTF is not sure to take it, so text objects were dropped
+    # without a word. Convert each FONT object to a mesh in this run's session (same object: name, transform, materials and custom
+    # properties stay). The opened .blend is never saved here, so the source file keeps live text.
+    fonts = [o for o in objs if o.type == "FONT"]
+    if fonts:
+        select_only(fonts)
+        bpy.ops.object.convert(target="MESH")
+        print("text objects converted to mesh for the export:", [o.name for o in fonts])
+    return objs
+
+
 def export(path, objs, a):
     select_only(objs)
     if a.format in ("GLB", "GLTF"):
@@ -136,6 +148,7 @@ def main(a):
             if o.name not in seen and not o.hide_render and not o.name.startswith(("CUT_", "REF_")):
                 seen.add(o.name)
                 objs.append(o)
+    text_to_mesh(objs)
     meshes = [o for o in objs if o.type == "MESH"]
     arms = [o for o in objs if o.type == "ARMATURE"]
     for m in meshes:

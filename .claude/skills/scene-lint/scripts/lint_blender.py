@@ -248,7 +248,7 @@ def check_names_tags(c):
             items.append({"object": ob.name, "what": "camera not named CAM_<id>"})
         if (ob.name.startswith("UCX") or "COL_Collision" in cols) and not UCX_NAME.match(ob.name):
             items.append({"object": ob.name, "what": "collision mesh not named UCX_SM_<Name>_NN"})
-        if ob.type != "MESH" or not L.is_rendered(ob, c.off) or cols & set(EXEMPT_FROM_PHASE):
+        if ob.type not in ("MESH", "FONT") or not L.is_rendered(ob, c.off) or cols & set(EXEMPT_FROM_PHASE):
             continue
         phase = ob.get("phase") or any(re.match(r"COL_P\d", x) for x in cols)
         if "phase" in r["required_tags"] and not phase:
@@ -258,7 +258,7 @@ def check_names_tags(c):
                 items.append({"object": ob.name, "what": f"no {tag} tag"})
         if "COL_Blockout" in cols and not ob.get("map_id"):
             items.append({"object": ob.name, "what": "blockout object without a map_id tag"})
-    used = {s.material for ob in c.scene.objects if ob.type == "MESH" and L.is_rendered(ob, c.off) for s in ob.material_slots if s.material}
+    used = {s.material for ob in c.scene.objects if ob.type in ("MESH", "FONT") and L.is_rendered(ob, c.off) for s in ob.material_slots if s.material}
     items += [{"object": m.name, "class": "minor", "what": "material without a material_group property"} for m in sorted(used, key=lambda m: m.name) if not m.get("material_group")]
     c.add("names_tags", "major", n, items)
 
@@ -266,7 +266,7 @@ def check_names_tags(c):
 def check_origin(c):
     r, items, n = c.rules, [], 0
     for ob in c.scene.objects:
-        if ob.type not in ("MESH", "CURVE", "EMPTY") or not L.is_rendered(ob, c.off) or not ob.name in c.view_layer.objects:
+        if ob.type not in ("MESH", "CURVE", "FONT", "EMPTY") or not L.is_rendered(ob, c.off) or not ob.name in c.view_layer.objects:
             continue
         if ob.type == "EMPTY" and not ob.instance_collection:
             continue
@@ -304,7 +304,7 @@ def check_visibility(c):
         elif is_park and not is_rev and in_layer:
             items.append({"object": ob.name, "class": c.sev("visibility_states", "major"),
                           "what": "parked object is still in the view layer (park it by excluding its collection, e.g. COL_Parked)"})
-        elif not is_rev and not is_park and in_layer and ob.type in ("MESH", "CURVE") and ob.display_type in ("TEXTURED", "SOLID"):
+        elif not is_rev and not is_park and in_layer and ob.type in ("MESH", "CURVE", "FONT") and ob.display_type in ("TEXTURED", "SOLID"):
             if rendered and not shown:
                 items.append({"object": ob.name, "class": "major", "what": "renders but is hidden in the viewport: no visibility state allows that"})
             elif not rendered and shown:

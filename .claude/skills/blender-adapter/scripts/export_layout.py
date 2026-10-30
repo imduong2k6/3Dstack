@@ -1,7 +1,10 @@
 """Write transfer/layout.json for the Blender-then-Unreal route (tested headless with bpy 5.2.3; verify in your Blender on the first project).
 
 One row per placed mesh instance in the COL_P* collections. The asset id is the mesh data
-name, which matches the FBX exported once per unique mesh.
+name, which matches the FBX exported once per unique mesh. Text objects (FONT) are rows too, with the text
+data name as the asset id (before 30 Oct 2026 they came out as a "Text/Text" instance row): the FBX for them
+is the mesh converted on an export copy (export_delivery.py does it on its own copy), and the source file
+keeps live text.
 
     exec(open(r"<repo>/.claude/skills/blender-adapter/scripts/export_layout.py").read())
     export(r"<project>/transfer/layout.json")
@@ -16,10 +19,12 @@ def export(path):
     dg = bpy.context.evaluated_depsgraph_get()
     for inst in dg.object_instances:
         ob = inst.object
-        if ob.type != "MESH":
+        if ob.type not in ("MESH", "FONT"):  # pipeline patch 30 Oct 2026: text objects used to be skipped without a word
             continue
         instanced = inst.is_instance and inst.parent is not None
         holder = inst.parent.original if instanced else ob.original
+        if instanced and holder.type == "FONT":  # the depsgraph also lists a text's evaluated mesh as an instance: one row per text object, not two
+            continue
         cols = [c.name for c in holder.users_collection]
         phase = next((c[len("COL_"):] for c in cols if c.startswith("COL_P")), None)
         if not phase:

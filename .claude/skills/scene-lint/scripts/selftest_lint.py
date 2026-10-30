@@ -81,6 +81,17 @@ def box(name, lo, hi, cname="COL_P5_Props", **kw):
     return finish(name, bm, cname, **kw)
 
 
+def text(name, loc, props=None, cname="COL_P5_Props", body="x", size=0.1):
+    """A live text object (FONT) lying on the floor: lint reads it like a mesh."""
+    cu = bpy.data.curves.new(name, "FONT")
+    cu.body, cu.size = body, size
+    ob = bpy.data.objects.new(name, cu)
+    ob.location = loc
+    for k, v in (props or {}).items():
+        ob[k] = v
+    return link(ob, cname)
+
+
 def multibox(name, boxes, cname, **kw):
     bm = bmesh.new()
     for lo, hi in boxes:
@@ -158,6 +169,10 @@ box("Prop_Seat_Allowed", (-5.6, 3.6, 0.015), (-5.2, 4.0, 0.3), props={"seat_ok":
 box("Prop_Touch_B", (-3.005, -5.4, 0.1), (-2.5, -4.9, 0.6))                                # 5 mm into A: inside the tolerance
 box("Prop_At_Origin", (-0.4, -0.2, 0), (-0.1, 0.2, 0.3))                                 # object origin at (0, 0, 0)
 box("Prop_Origin_OK", (0.1, -0.2, 0), (0.4, 0.2, 0.3), props={"origin_ok": 1})
+text("Text_Untagged", (0.0, -5.5, 0), cname="COL_Blockout")                                # no phase tag, no map_id
+text("Text_Tagged", (0.5, -5.5, 0), {"phase": "P5"})
+text("Text_AtOrigin", (0, 0, 0), {"phase": "P5"})                                          # a text object at the world origin
+text("Text_EyeHidden", (1.0, -5.5, 0), {"phase": "P5"}).hide_set(True)                       # renders, hidden in the viewport
 kit = box("SM_Kit_Piece", (-0.1, -0.5, 0), (0.1, -0.3, 0.2), "COL_Kit")
 inst = bpy.data.objects.new("Inst_Prop", None)
 inst.instance_type, inst.instance_collection = "COLLECTION", cols["COL_Kit"]
@@ -324,9 +339,9 @@ has(rep, "faces_no_material", "Prop_NoMat", "Prop_BadIndex", absent=("Prop_Crate
 has(rep, "cameras_match", "CAM_B", "CAM_Gone", "Camera", absent=("CAM_A",))
 has(rep, "lights_match", "L_Fill", absent=("L_Key",))
 check(len(C["exposure_match"]["items"]) == 2, f"exposure: expected exposure and view transform, got {C['exposure_match']['items']}")
-has(rep, "names_tags", "Cube.001", "Bad Name", "Camera", "Prop_Untagged", absent=("Prop_Float", "CAM_A", "Prop_Crate"))
-has(rep, "origin_objects", "Prop_At_Origin", "Inst_Prop", absent=("Prop_Origin_OK", "SM_Floor"))
-has(rep, "visibility_states", "Stub_Review_Bad", "Ref_Box", "Prop_EyeHidden", absent=("Stub_Review_Ok", "Parked_Box"))
+has(rep, "names_tags", "Cube.001", "Bad Name", "Camera", "Prop_Untagged", "Text_Untagged", absent=("Prop_Float", "CAM_A", "Prop_Crate", "Text_Tagged"))
+has(rep, "origin_objects", "Prop_At_Origin", "Inst_Prop", "Text_AtOrigin", absent=("Prop_Origin_OK", "SM_Floor"))
+has(rep, "visibility_states", "Stub_Review_Bad", "Ref_Box", "Prop_EyeHidden", "Text_EyeHidden", absent=("Stub_Review_Ok", "Parked_Box"))
 check(any(it["object"] == "Stub_Review_Bad" and it["class"] == "blocker" for it in C["visibility_states"]["items"]), "review-only visible must be a blocker")
 has(rep, "wear_geometry", "Grime_Band_01", "Stain_Overlay", absent=("SM_Stainless_Tray", "Prop_Dent_Repair"))
 has(rep, "step_backup", "step 2", absent=("step 1",))
