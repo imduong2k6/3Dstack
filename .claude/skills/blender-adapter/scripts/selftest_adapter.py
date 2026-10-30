@@ -180,6 +180,20 @@ shape("Card_Dense", grid(80, 0.1), (0, 0, 0))              # 12,800 triangles on
 shape("Card_Small", grid(40, 0.1), (1, 0, 0))              # 3,200 triangles: flagged before too
 shape("Floor_Coarse", grid(55, 15.0), (30, 0, 0))          # 6,050 quads, flat but 900 m2: a few triangles per m2
 shape("Ball_Dense", lambda bm: bmesh.ops.create_uvsphere(bm, u_segments=100, v_segments=52, radius=0.5), (5, 0, 1))   # over 5,000 triangles, not flat
+
+
+def tubes(bm):  # 5 dense 12 mm cables side by side, lying flat: thin and wide like a card, but not a sheet
+    for k in range(5):
+        prev = None
+        for i in range(401):
+            ring = [bm.verts.new((i * 0.0025, k * 0.03 + 0.006 * np.cos(a), 0.006 * np.sin(a))) for a in np.linspace(0, 2 * np.pi, 12, endpoint=False)]
+            if prev:
+                for j in range(12):
+                    bm.faces.new((prev[j], prev[(j + 1) % 12], ring[(j + 1) % 12], ring[j]))
+            prev = ring
+
+
+shape("Cable_Bundle_Flat", tubes, (10, 0, 0))
 fd = statsmod.write_stats(os.path.join(out, "stats_flat.json"))["flat_dense"]
 check(set(fd) == {"Card_Dense", "Card_Small"} and fd["Card_Dense"]["tris"] > 5000 and fd["Card_Dense"]["tris_per_m2"] > 300000, f"flat_dense: {fd}")
 

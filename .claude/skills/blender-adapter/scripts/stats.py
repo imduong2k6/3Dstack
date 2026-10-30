@@ -89,8 +89,12 @@ def write_stats(path, expect_file=None, strict=True):
                 tr = np.empty(n * 3, np.int32)
                 me.loop_triangles.foreach_get("vertices", tr)
                 tr = tr.reshape(-1, 3)
-                area = float(np.linalg.norm(np.cross(co[tr[:, 1]] - co[tr[:, 0]], co[tr[:, 2]] - co[tr[:, 0]]), axis=1).sum() / 2)
-                if area and n / area > FLAT_TRIS_PER_M2:
+                cr = np.cross(co[tr[:, 1]] - co[tr[:, 0]], co[tr[:, 2]] - co[tr[:, 0]])
+                a2 = np.linalg.norm(cr, axis=1)
+                area = float(a2.sum() / 2)
+                thin = int(np.argmin(np.ptp(co, axis=0)))
+                facing = float(a2[np.abs(cr[:, thin]) > 0.87 * a2].sum() / 2) / area if area else 0.0  # a sheet faces its thin axis; cables lying on a wall don't
+                if area and n / area > FLAT_TRIS_PER_M2 and facing > 0.6:
                     flat_dense[ob.original.name] = {"tris": n, "tris_per_m2": round(n / area)}
         ob.to_mesh_clear()
         for slot in ob.material_slots:
