@@ -709,7 +709,7 @@ def check_through_wall(c):
         if pocket >= r["vent_pocket_min_m"]:
             items.append({**where, "class": "minor", "what": f"sits in a blind pocket {pocket:.2f} m deep in {w.name}, not cut through: fine while the far side is never seen"})
         else:
-            items.append({**where, "what": f"sits on solid {w.name}: {pocket:.3f} m of free depth behind it; cut the opening with an applied boolean, or a pocket at least {r['vent_pocket_min_m']} m deep"})
+            items.append({**where, "what": f"sits on solid {w.name}: {pocket:.3f} m of free depth behind it; cut the opening with an applied boolean (through, where the far side can be seen), or a pocket at least {r['vent_pocket_min_m']} m deep"})
     c.add("through_wall_openings", "major", len(things), items)
 
 
@@ -781,12 +781,32 @@ def check_stairs(c):
     c.add("stair_risers", "major", len(groups), items)
 
 
+def _clearance(g, loc, f, hcap):
+    """Height of a hit over the walker's floor f. Above the capsule, over the floor under the hit if that is lower: over a stair or
+    landing edge a sphere or side ray reaches past the walker's own floor, and an object can clear the floor below it."""
+    clear = loc.z - f
+    if clear > hcap:
+        under = L.floor_under(g, loc.x, loc.y, loc.z)
+        clear = loc.z - (f if under is None else min(f, under))
+    return clear
+
+
+def _sphere_hit(g, p, f, rad, hcap, head, isw):
+    """The nearest object in the sphere at p that breaks clearance, as (kind, name, clearance), or None."""
+    for _, n, loc in sorted((d, n, loc) for n, (d, loc, _) in g.near(p, rad).items() if not isw(n)):
+        clear = _clearance(g, loc, f, hcap)
+        if clear < head:
+            return ("head" if clear > hcap else "capsule"), n, round(clear, 2)
+    return None
+
+
 def check_path_clearance(c):
     r, g = c.rules, c.geo
     paths, _ = L.read_paths(c.paths.get("walk"), c.paths.get("layout"))
     if not paths:
         return c.skip("path_clearance", "no walk.json (and no path in plan/layout.json)")
-    rad, hcap = r["capsule_radius_m"], r["capsule_height_m"]
+    rad, hcap, head = r["capsule_radius_m"], r["capsule_height_m"], r["head_min_m"]
+    sweep = [0.60 + 0.05 * i for i in range(round((head - rad - 0.60) / 0.05) + 1)]  # sphere centres: the top sphere reaches head_min
     stairish = set(r["tokens"]["walkable"])
     isw = lambda n: bool(L.tokens(n) & stairish)
     items, summary, checked = [], {}, 0
@@ -799,11 +819,10 @@ def check_path_clearance(c):
                 found.setdefault(("floor", "no floor under the path"), []).append((x, y, None))
                 continue
             side = Vector((-dy, dx, 0))
-            for hh in [0.60 + 0.05 * i for i in range(int((hcap - 0.60) / 0.05) + 1)]:
-                near = g.near(Vector((x, y, f + hh)), rad)
-                bad = [(d, n) for n, (d, _, _) in near.items() if not isw(n)]
-                if bad:
-                    found.setdefault(("capsule", min(bad)[1]), []).append((x, y, hh))
+            for hh in sweep:
+                hit = _sphere_hit(g, Vector((x, y, f + hh)), f, rad, hcap, head, isw)
+                if hit:
+                    found.setdefault(hit[:2], []).append((x, y, hit[2]))
                     break
             for hh in (0.15, 0.30):
                 for a in range(8):
@@ -811,10 +830,12 @@ def check_path_clearance(c):
                     if h and not isw(h[2]):
                         found.setdefault(("low", h[2]), []).append((x, y, hh))
                         break
-            for hh in (0.5, 1.0, 1.7):
+            for hh in (0.35, 0.5, 1.0, 1.7, 1.95):  # shin-height clutter and wall fittings in the headroom narrow the path too
                 w, who = 0.0, []
                 for sgn in (1, -1):
                     h = g.ray(Vector((x, y, f + hh)), side * sgn, 1.0)
+                    if h and hh > hcap and h[1].dot(side * sgn) > 0:
+                        h = None  # a back face above the capsule: the ray starts inside something overhead, a headroom item
                     w += h[3] if h else 1.0
                     who.append(h[2] if h else None)
                 if w < minw[0]:
@@ -823,17 +844,18 @@ def check_path_clearance(c):
                     found.setdefault(("width", "|".join(str(q) for q in who)), []).append((x, y, round(w, 2)))
                     break
             for off in (0.0, 0.3, -0.3):
-                h = g.ray(Vector((x, y, f + 0.9)) + side * off, Vector((0, 0, 1)), r["head_min_m"] - 0.9)
-                if h:
-                    minh = min(minh, [h[0].z - f, (x, y, off, h[2])], key=lambda q: q[0])
-                    found.setdefault(("head", h[2]), []).append((x, y, round(h[0].z - f, 2)))
+                h = g.ray(Vector((x, y, f + 0.9)) + side * off, Vector((0, 0, 1)), head - 0.9)
+                clear = _clearance(g, h[0], f, hcap) if h else head
+                if clear < head:
+                    minh = min(minh, [clear, (x, y, off, h[2])], key=lambda q: q[0])
+                    found.setdefault(("head", h[2]), []).append((x, y, round(clear, 2)))
                     break
         for (kind, who), pos in found.items():
             what = {"floor": "no floor under the path", "capsule": f"{who} is inside the player capsule",
                     "low": f"{who} blocks at knee height", "width": f"clear width under {r['passage_min_width_m']} m between {who}",
                     "head": f"{who} is under {r['head_min_m']} m overhead"}[kind]
             items.append({"object": who if kind != "floor" else pname, "path": pname, "type": kind, "samples": len(pos), "first_at": v3(pos[0][:2]),
-                          "worst": pos[0][2] if kind in ("width", "head") else None, "what": f"path {pname}: {what} ({len(pos)} samples)"})
+                          "worst": min(p[2] for p in pos) if kind in ("width", "head") else None, "what": f"path {pname}: {what} ({len(pos)} samples)"})
         summary[pname] = {"samples": len(samples), "min_width_m": round(minw[0], 3) if minw[1] else None,
                           "lowest_head_m": round(minh[0], 3) if minh[1] else None}
     c.add("path_clearance", "major", checked, items, extra={"paths": summary})
@@ -893,6 +915,7 @@ def run_lint(project=None, out_dir=None, expect_file=None, only=None, skip=None,
     blockers = [{"check": n, "object": it["object"], "what": it["what"]} for n, ch in c.checks.items() for it in ch["items"] if it["class"] == "blocker"]
     state = L.scene_state()
     rep = {"tool": "scene-lint", "version": VERSION, "file": bpy.data.filepath, "expected_file": expect_file, "created": time.strftime("%Y-%m-%d %H:%M:%S"),
+           "command": sys.argv, "project": project, "inputs": paths,   # so two runs that disagree can be traced to their inputs
            "seconds": round(time.time() - t0, 1), "blender": bpy.app.version_string,
            "scene": {k: state[k] for k in ("objects", "name_hash", "cam_light_hash")},
            "scope": {"visible_set": paths["visible"] if c.vs else None, "solids": len(c.geo.solids),

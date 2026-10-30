@@ -130,7 +130,7 @@ box("SM_Vent_Good", (0.11, 2.9, 1.51), (0.49, 3.3, 1.89), "COL_P3_Services")    
 box("SM_Vent_Bad", (0.1, -3.3, 1.5), (0.5, -2.9, 1.9), "COL_P3_Services")              # through a solid wall
 multibox("SM_Wall_P", [((4.2, -3.2, 0), (5.2, -3.12, 3)), ((4.2, -3.12, 0), (4.5, -3.0, 3)), ((4.9, -3.12, 0), (5.2, -3.0, 3)),
                        ((4.5, -3.12, 0), (4.9, -3.0, 1.5)), ((4.5, -3.12, 1.9), (4.9, -3.0, 3))], "COL_P1_Structure")
-box("SM_Vent_Pocket", (4.52, -3.12, 1.52), (4.88, -2.95, 1.88), "COL_P3_Services")      # in a 0.12 m blind pocket: a minor note
+box("SM_Vent_Pocket", (4.52, -3.12, 1.52), (4.88, -2.95, 1.88), "COL_P3_Services")      # in a 0.12 m blind pocket: under 0.15 m, a major
 box("SM_Door_Ok", (2.0, -1.05, 0), (2.92, -1.0, 2.1))
 box("SM_Door_Narrow", (3.2, -1.05, 0), (3.9, -1.0, 2.1))
 for i, top in enumerate((0.17, 0.34, 0.51, 0.73)):                                       # the last riser is 0.22 m
@@ -190,6 +190,14 @@ tube("Conduit_Open", path((-1.4, 2.95, 2.1), (-1.4, 2.95, 2.4)), radius=0.016)
 # narrow gap on the walk path, an enclosed room with something floating in it
 box("Pillar_N_A", (-4.7, 0.9, 0), (-4.3, 1.4, 2.5))
 box("Pillar_N_B", (-4.7, 0.0, 0), (-4.3, 0.5, 2.5))
+box("Prop_Sign_Over", (-5.65, 0.55, 1.92), (-5.45, 0.85, 2.0))                          # above the 1.8 m capsule, under the 2.1 m headroom
+tube("Prop_Hose_Over", path((-5.3, 0.82, 2.05), (-4.9, 0.82, 2.05)))                    # thin and parallel to the path, between the head rays
+box("SM_Landing_R", (4.2, 0.8, 0), (5.8, 1.2, 0.2), "COL_P1_Structure")                  # a raised strip with a path along it, and beside it
+box("Prop_Hood_Edge", (4.8, 1.22, 2.2), (5.2, 1.5, 2.3))                                 # 2.0 m over the strip, 2.2 m over the floor it hangs above
+box("Prop_Shin_A", (-3.65, 0.24, 0), (-3.45, 0.31, 0.4))                                # 0.78 m apart at shin height only,
+box("Prop_Shin_B", (-3.65, 1.09, 0), (-3.45, 1.16, 0.4))                                # outside the knee reach
+box("SM_DoorGod_L", (2.0, 5.5, 1.2), (2.3, 5.51, 1.75))                                 # prints and soft goods named after the door
+box("SM_EndDoor_Curtain", (2.6, 5.5, 0.3), (3.05, 5.52, 1.88))
 bm = bmesh.new()                                                                           # hollow closed room: outer shell and inverted cavity
 for lo, hi, flip in (((-2.0, 0.8, 0), (-0.8, 2.0, 2.2), False), ((-1.9, 0.9, 0.1), (-0.9, 1.9, 2.1), True)):
     r = bmesh.ops.create_cube(bm, size=1.0)
@@ -232,7 +240,7 @@ J("light/cameras.json", [{"id": "CAM_A", "pos_m": [0, -5, 1.6], "rot_deg": [90, 
                          {"id": "CAM_Gone", "pos_m": [0, 0, 0], "rot_deg": [0, 0, 0]}])
 J("light/lights.json", [{"id": "L_Key", "type": "area", "pos_m": [0, 0, 6], "energy_w": 500}, {"id": "L_Fill", "type": "point", "energy_w": 120}])
 J("light/exposure.json", {"exposure": 1.5, "view_transform": "Standard", "look": "None"})
-J("plan/walk.json", {"paths": {"main": [[-5.8, 0.7], [-3.2, 0.7]]}})
+J("plan/walk.json", {"paths": {"main": [[-5.8, 0.7], [-3.2, 0.7]], "edge": [[4.3, 1.0, 0.2], [5.7, 1.0]]}})
 backup_ok = os.path.join(out, "step_ok.blend")
 open(backup_ok, "wb").write(b"x")
 J("plan/steps.json", {"version": 1, "steps": [{"n": 1, "backup": backup_ok}, {"n": 2, "backup": os.path.join(out, "step_missing.blend")}]})
@@ -291,13 +299,20 @@ check(not any("Prop_Touch" in p for p in pen), f"interpenetration flagged a 5 mm
 has(rep, "through_wall_openings", "SM_Vent_Bad", absent=("SM_Vent_Good",))
 tw = {it["object"]: it for it in C["through_wall_openings"]["items"]}
 check(tw["SM_Vent_Bad"]["class"] == "major", f"vent on solid wall must be major: {tw['SM_Vent_Bad']}")
-check(tw.get("SM_Vent_Pocket", {}).get("class") == "minor" and abs(tw["SM_Vent_Pocket"]["pocket_m"] - 0.12) < 0.01,
-      f"vent in a 0.12 m blind pocket must be a minor note: {tw.get('SM_Vent_Pocket')}")
-has(rep, "door_sizes", "SM_Door_Narrow", absent=("SM_Door_Ok",))
+check(tw.get("SM_Vent_Pocket", {}).get("class") == "major" and abs(tw["SM_Vent_Pocket"]["pocket_m"] - 0.12) < 0.01,
+      f"vent in a 0.12 m blind pocket (under 0.15 m) must be major: {tw.get('SM_Vent_Pocket')}")
+check(rep["command"] == sys.argv and rep["project"] == proj and rep["inputs"]["walk"].endswith("walk.json"), "lint.json records the command and its inputs")
+has(rep, "door_sizes", "SM_Door_Narrow", absent=("SM_Door_Ok", "SM_DoorGod_L", "SM_EndDoor_Curtain"))
 check(any(it["object"] == "SM_Stair_Step" and it.get("riser_max_m") == 0.22 for it in C["stair_risers"]["items"]), f"stair riser: {C['stair_risers']['items']}")
 check(not any("tread" in it["what"] for it in C["stair_risers"]["items"]), "tread depth 0.3 m must pass")
 pc = C["path_clearance"]["items"]
 check(any(it["type"] == "width" for it in pc) and any(it["type"] == "capsule" for it in pc), f"path clearance should flag the 0.4 m gap: {pc}")
+sign = {it["type"] for it in pc if "Prop_Sign_Over" in it["object"]}
+check(sign == {"head"}, f"a sign at 1.92 m is a headroom item, not inside the 1.8 m capsule: {sign}")
+hose = [it for it in pc if "Prop_Hose_Over" in it["object"]]
+check([it["type"] for it in hose] == ["head"] and 2.0 < hose[0]["worst"] < 2.1, f"a thin hose at 2.04 m, off the head rays, is a headroom item: {hose}")
+check(not any("Prop_Hood_Edge" in it["object"] for it in pc), f"2.2 m over its own floor clears, though the sphere reaches it from the raised strip: {pc}")
+check(any(it["type"] == "width" and "Prop_Shin_A" in it["object"] and "Prop_Shin_B" in it["object"] for it in pc), f"shin-height clutter narrows the path: {pc}")
 
 # cable ends: the hooked run must show its hanging end; two floaters must not vouch for each other
 cab = {it["object"]: it for it in C["cable_ends"]["items"]}
@@ -336,7 +351,7 @@ for n, conduit in (("SM_Conduit_Saddle_01", False), ("SM_ConduitBox_Round_1", Fa
 bpy.data.objects.remove(cpl)
 
 # rules file: a project threshold and a severity change take effect
-open(os.path.join(proj, "plan", "lint_rules.yaml"), "w").write("# test\nriser_max_m: 0.25\nseverity:\n  names_tags: minor\ndisable: [wear_geometry]\noverlap_allow:\n  - [a, b]\n")
+open(os.path.join(proj, "plan", "lint_rules.yaml"), "w").write("# test\nriser_max_m: 0.25\nvent_pocket_min_m: 0.1\nseverity:\n  names_tags: minor\ndisable: [wear_geometry]\noverlap_allow:\n  - [a, b]\n")
 rep2 = lint.run_lint(project=proj, out_dir=os.path.join(out, "r2"))
 check(not any(it.get("riser_max_m") for it in rep2["checks"]["stair_risers"]["items"]), "riser_max_m 0.25 should accept 0.22")
 check(rep2["checks"]["stair_risers"]["count"] == 1 and "uneven" in rep2["checks"]["stair_risers"]["items"][0]["what"], "only the uneven-riser minor is left")
@@ -344,6 +359,8 @@ check(rep2["checks"]["names_tags"]["counts"]["major"] == 0 and rep2["checks"]["n
 check("wear_geometry" not in rep2["checks"], "disable list")
 check(not any("Prop_Overlap" in p for p in flagged(rep2, "interpenetration")) and "SM_Vent_Bad" in "".join(flagged(rep2, "interpenetration")), "overlap_allow clears the A/B pair only")
 check(rep2["checks"]["file_path"]["status"] == "skipped", "file_path skipped without --expect-file")
+tw2 = {it["object"]: it for it in rep2["checks"]["through_wall_openings"]["items"]}
+check(tw2["SM_Vent_Pocket"]["class"] == "minor" and tw2["SM_Vent_Bad"]["class"] == "major", "vent_pocket_min_m 0.1 turns the 0.12 m pocket into a note")
 os.remove(os.path.join(proj, "plan", "lint_rules.yaml"))
 
 # visible set: the enclosed float is hidden, and lint then leaves it out

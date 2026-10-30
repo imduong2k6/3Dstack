@@ -33,7 +33,7 @@ DEFAULT_RULES = {
     "penetration_tol_m": 0.02,      # smallest overlap of two solids' boxes (a depth proxy) that counts as interpenetration
     "origin_tol_m": 0.005, "origin_radius_m": 0.5, "origin_max_size_m": 4.0,   # larger objects are structure, authored around the origin
     "cable_anchor_tol_m": 0.05, "cable_entry_tol_m": 0.02, "cable_sag_max_ratio": 0.2,
-    "conduit_end_tol_m": 0.02, "cap_max_m": 0.4, "vent_pocket_min_m": 0.05,
+    "conduit_end_tol_m": 0.02, "cap_max_m": 0.4, "vent_pocket_min_m": 0.15,   # a blind pocket shallower than this reads as a vent on solid wall
     "door_min_width_m": 0.91, "door_min_height_m": 2.0,   # same limits as layout-2d/check_layout.py
     "passage_min_width_m": 0.91, "head_min_m": 2.1, "capsule_radius_m": 0.35, "capsule_height_m": 1.8, "eye_height_m": 1.6,
     "size_tol_m": 0.005, "riser_max_m": 0.178, "riser_uneven_max_m": 0.01, "tread_min_m": 0.279, "stair_flight_gap_m": 0.5,
@@ -70,7 +70,7 @@ DEFAULT_RULES = {
                                    "meter", "board", "junction", "jb"],
                        "door": ["hasp", "padlock", "lock", "handle", "knob", "hinge", "bolt", "latch", "sign", "plate", "bell", "mat", "stop",
                                 "seal", "number", "peephole", "closer", "frame", "box", "light", "lamp", "step", "sill", "paper", "mailbox", "letterbox",
-                                "poster", "sticker", "notice", "label"],
+                                "poster", "sticker", "notice", "label", "curtain", "curtains", "rod", "rail", "god", "gods"],   # door gods are prints on a leaf
                        "wear": ["pipe", "pipes", "tray", "hose", "pan", "tap", "bracket", "clip", "clips"]},   # a drip pipe or a crack-filler tray is a real part
     "overlap_allow": [],            # [[tokenA, tokenB], ...] pairs of tokens whose objects may overlap
 }
@@ -386,6 +386,21 @@ def find_floor(geo, x, y):
             floors.append(h[0].z)
         org = h[0] + Vector((0, 0, -1e-3))
     return min(floors) if floors else None
+
+
+def floor_under(geo, x, y, z):
+    """Height of the first horizontal surface under (x, y) below z, or None. find_floor takes the lowest one, which on a
+    multi-level scene is the level below."""
+    from mathutils import Vector
+    org = Vector((x, y, z - 1e-3))
+    for _ in range(40):
+        h = geo.ray(org, Vector((0, 0, -1)))
+        if h is None:
+            return None
+        if abs(h[1].z) > 0.7:
+            return h[0].z
+        org = h[0] + Vector((0, 0, -1e-3))
+    return None
 
 
 def walk_samples(geo, pts, step):

@@ -111,3 +111,23 @@ Reported from the next round's BEFORE pairs on an earlier project. With a relati
 | A review camera changed by a fix: update `cameras.json` with the scene, rerun `fix_cams.py` before the AFTER side (documented; `fix_cams.py` reads `cameras.json` on every run by design) | `review-pairs` |
 | A relative `--out`, an issue `res_px` on a review camera, and a portrait frame's in-frame share | `selftest_pairs.py` |
 
+## 2026-10-30: scene-lint headroom, widths, door words and vent pockets
+
+Found by the reviewers of an earlier project's third blockout round while using the new lint, and checked against a copy of that file.
+
+- **Reach.** `path_clearance` swept spheres to 1.8 m with a 0.35 m radius, so it reached 2.15 m, above both the 1.8 m capsule it names and the 2.1 m headroom rule. It flagged a sign and a hood that clear 2.1 m. Capping it at the 1.8 m capsule instead lost a real cable at 2.07 m: the cable ran beside the path, between the head rays, and only the spheres could find it. The sweep now reaches `head_min_m`, and a hit above the capsule is a `head` item.
+- **Stair and landing edges.** Spheres and off-axis head rays measured a hit from the walker's floor, even when it hung past a stair or landing edge, over a lower floor. Such a hit is now measured from the floor under it. `find_floor` takes the lowest surface, which on a multi-level scene is the level below, so a new `floor_under` takes the first one.
+- **Widths.** Rays only at 0.5, 1.0 and 1.7 m missed shin-height clutter and wall fittings in the headroom. On the copy, two paths read 1.06 and 1.04 m where the reviewers measured about 0.9 m; they now read 0.92 and 0.93 m.
+- **Rule text.** `placement-phases` asked for a real opening while lint accepted a 0.05 m pocket. Both now say: cut through where the far side can be seen, otherwise a pocket at least 0.15 m deep.
+
+| Change | Files |
+| --- | --- |
+| Sweep to `head_min_m`, floor-relative clearance for spheres and head rays, `worst` is the smallest value | `lint_blender.py`, `lintlib.py` |
+| Width rays at 0.35, 0.5, 1.0, 1.7 and 1.95 m; above the capsule a back face is a headroom item, not a width | `lint_blender.py` |
+| Door words: curtain, rod, rail, god are accessories, not doors | `lintlib.py` |
+| `vent_pocket_min_m` 0.05 to 0.15 | `lintlib.py`, `placement-phases`, `scene-lint` |
+| `lint.json` records `command`, `project` and `inputs` | `lint_blender.py`, `scene-lint` |
+| A hose beside the path, a hood past a raised edge, shin-height clutter, a sign above the capsule, door accessories, a shallow pocket, the recorded inputs | `selftest_lint.py` |
+
+Same copy and inputs, old code against new: 192 majors to 179, 68 minors unchanged, no blocker. The false alarms went (8 door items, a sign and a hood, 2 stair-edge signs, a ceiling edge); the real low cables stayed, now as `head` at 2.07 and 2.08 m. Still open: `cable_ends` is not repeatable, one cable changes between runs of the same code on the same inputs.
+
