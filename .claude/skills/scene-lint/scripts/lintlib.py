@@ -54,7 +54,7 @@ DEFAULT_RULES = {
                    "gland", "lamp", "light", "fixture", "tray", "trunking", "coil", "pole", "hanger", "insulator", "socket", "switch",
                    "panel", "ac", "aircon", "sign", "cage", "connector", "plug", "intercom", "riser", "cleat", "hook", "antenna",
                    "bulb", "holder", "batten", "pipe", "duct",
-                   "service", "terminal", "splitter", "fuse", "cutout"],   # service heads, phone terminals, TV splitters, fuse bases and cut-outs take cable ends
+                   "service", "terminal", "splitter", "tvsplitter", "fuse", "cutout"],   # service heads, phone terminals, TV splitters, fuse bases and cut-outs take cable ends
         "through_wall": ["vent", "louvre", "louver", "fan", "extractor", "grille", "ac", "aircon"],
         "wall": ["wall", "walls", "facade", "partition"],
         "no_end": ["louvre", "louvres", "louver", "louvers", "window", "windows", "grille", "grilles", "shutter", "shutters",
@@ -174,7 +174,8 @@ def load_rules(path=None):
 
 def tokens(name):
     s = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", name)
-    return {t.lower() for t in re.split(r"[_.\-\s]+", s) if t}
+    parts = re.split(r"[_.\-\s]+", name)   # each whole part counts too, so CutOut reads as cutout and TVSplitter as tvsplitter
+    return {t.lower() for t in re.split(r"[_.\-\s]+", s) if t} | {p.lower() for p in parts if p}
 
 
 def kinds_of(ob, rules):
