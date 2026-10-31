@@ -451,7 +451,7 @@ OPTIONAL = ("sockets", "clearance_m", "texture_set", "texel_density_px_m", "serv
 LEGACY_KEYS = {"id": ("asset", True), "material": ("material_group", True), "ends_local": ("ports", False)}
 LEGACY_VALUES = {("source", "build"): "model"}
 PORT_KEYS = {"name", "pos_m", "dir", "kind", "size_m", "role", "note"}
-PORT_ROLES = ("end", "opening", "inset")   # kit_joint_test.py: a joint between pieces; a hole in a face (a bay's door or window); the piece that fills one
+PORT_ROLES = ("end", "opening", "inset", "surface")   # kit_joint_test.py: a joint between pieces; a hole in a face (a bay's door or window); the piece that fills one; the piece that stands on the face round one
 SLOT_KEYS = {"material_group", "texture_set", "uv", "strips", "note"}
 # what the Asset Tech writes under asset_tech (export result); an unlisted key is a warning, not an error
 ASSET_TECH_KEYS = {"fbx", "fbx_open", "fbx_settings", "reimport", "tris", "slots", "ucx_count", "texel_density", "sockets_exported",

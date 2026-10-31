@@ -270,6 +270,37 @@ def test_inset_faults(tmp):
     return specs, bad_blend
 
 
+def test_surface_and_near_square():
+    """A frame that stands on the face round the hole (role surface), its faults, and a near-square frame whose bars end on the other order's outline."""
+    reset()
+    folder = tempfile.mkdtemp()
+    slim = [(-.56, -.5, -.21, -.15, 0, 2.1), (.5, .56, -.21, -.15, 0, 2.1), (-.56, .56, -.21, -.15, 2.1, 2.16)]
+    lip = [(-.5, -.49, -.15, -.14, 0, 2.1), (.49, .5, -.15, -.14, 0, 2.1)]       # over the hole, behind the leaf
+    parts("SM_BayDoor", BAY)
+    parts("SM_Slim", slim + lip)
+    parts("SM_SlimBelly", slim + [(-.52, .52, -.14, -.10, .2, 1.9)])             # 20 mm wider than the hole, inside the wall
+    parts("SM_SlimFlip", slim)
+    front = port("surface_front", [0, -.15, 1.05], [0, -1, 0], D_KIND, [1.0, 2.1], role="surface")
+    bay = write_spec(folder, "SM_BayDoor", door_ports("opening", 1.05, D_KIND, [1.0, 2.1]))
+    good = write_spec(folder, "SM_Slim", [front])
+    rep = kj.run([bay, good])
+    assert rep["pass"] and len(rep["pairs"]) == 2 and not rep["unmated_ports"], texts(rep) + rep["errors"] + rep["unmated_ports"]
+    assert all(r["mode"] == "inset" for r in rep["pairs"]), rep["pairs"]
+    r1 = kj.run([bay, write_spec(folder, "SM_SlimBelly", [front])])
+    assert has(r1, "SM_SlimBelly.surface_front", "inset reaches 20.00 mm outside the opening"), texts(r1)
+    r2 = kj.run([bay, write_spec(folder, "SM_SlimFlip", [dict(front, dir=[0, 1, 0])])])
+    assert has(r2, "surface_front: nothing stands proud of the port plane"), texts(r2)
+    r3 = kj.run([good])
+    assert any("surface_front" in w and "no opening port has its kind" in w for w in r3["warnings"]), r3["warnings"]
+    near_kind = "window_1200x1300"
+    parts("SM_BayNear", [(-.8, -.6, -.15, .15, 0, 2), (.6, .8, -.15, .15, 0, 2), (-.6, .6, -.15, .15, 1.3, 2)])
+    bars = [(x - .01, x + .01, -.15, -.12, .05, 1.25) for x in (-.4, -.2, 0, .2, .4)]   # their ends lie on a 1.3 x 1.2 outline
+    parts("SM_FrameNear", [(-.6, -.55, -.15, -.12, 0, 1.3), (.55, .6, -.15, -.12, 0, 1.3), (-.6, .6, -.15, -.12, 0, .05), (-.6, .6, -.15, -.12, 1.25, 1.3)] + bars)
+    r4 = kj.run([write_spec(folder, "SM_BayNear", door_ports("opening", .65, near_kind, [1.2, 1.3])),
+                 write_spec(folder, "SM_FrameNear", [port("reveal_front", [0, -.15, .65], [0, -1, 0], near_kind, [1.2, 1.3], role="inset")])])
+    assert r4["pieces"][1]["ports"][0]["section_mm"] == [1200.0, 1300.0] and r4["pass"], texts(r4)
+
+
 def test_cli(tmp, good_specs, good_blend, bad_specs, bad_blend):
     def go(blend, specs, out):
         cmd = [bpy.app.binary_path, "--background", "--factory-startup", blend, "--python", os.path.join(HERE, "kit_joint_test.py"), "--", "--specs", *specs, "--out", out]
@@ -308,6 +339,8 @@ def main():
         print("ok every inset fault is reported")
         test_cli_inset(tmp, inset_specs, inset_blend, inset_bad_specs, inset_bad_blend)
         print("ok command line exit codes, inset mode")
+        test_surface_and_near_square()
+        print("ok a surface frame fits round a hole, and a near-square frame reads in its declared order")
     print("SELFTEST kit_joint_test PASS")
 
 

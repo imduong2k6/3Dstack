@@ -28,6 +28,10 @@ port frame lies on the opening's (same direction, the same face), and the pair p
 (centre and section within the tolerance) and nothing of the inset between the host's two faces lies outside the opening (vertices and
 points along its edges; a flange proud of the face is not between them). Openings join only insets, ends only ends.
 
+A piece that stands on the face round a hole (a surface-mounted door frame, a louvre on a wall) has `role: surface`: `pos_m` the hole's
+centre on the face, `dir` the face's outward normal, `size_m` the hole, so its mesh lies on the +dir side of the port. It joins an opening
+of its kind by the same test as an inset; its back beyond the hole stands on the wall and is not read.
+
 Exit 1 when any port or pair fails, or a spec or mesh cannot be used. JSON report with --out; the last stdout line is
 `KIT_JOINT {...}` with the summary, and the lines before it name each failure.
 """
@@ -116,7 +120,11 @@ def rim_of(verts, p, tol_m):
         s = None
         for sw, sh in (p["size"], p["size"][::-1]):
             e = np.abs(np.maximum(np.abs(x) - sw / 2, np.abs(y) - sh / 2))
-            s = e if s is None or (e <= band).sum() > (s <= band).sum() else s
+            k = e <= band
+            if k.any() and abs(np.ptp(x[k]) - sw) <= band and abs(np.ptp(y[k]) - sh) <= band:     # a whole outline: on a near-square piece the bars can crowd the other order's band
+                s = e
+                break
+            s = e if s is None or k.sum() > (s <= band).sum() else s
     return on[s <= band], float(s.min())
 
 
@@ -134,7 +142,9 @@ def check_rim_port(verts, p, tol_mm):
     gap = float(np.min(np.abs(t - plane))) * 1000                  # how far the nearest vertex is off the port plane
     rim, near = rim_of(verts, p, tol_m)
     pr, measured, off = [], [], 0.0
-    if plane < (float(t.min()) + float(t.max())) / 2:
+    if p["role"] == "surface" and float(t.max()) <= plane + tol_m:
+        pr.append("nothing stands proud of the port plane: a surface port's dir is the face's outward normal, into the piece")
+    elif p["role"] != "surface" and plane < (float(t.min()) + float(t.max())) / 2:
         pr.append("dir points into the piece (the mesh lies on the +dir side of the port plane)")
     elif near is None:
         pr.append(f"no mesh vertex on the port plane (the nearest is {gap:.2f} mm off it)")
@@ -389,7 +399,7 @@ def run(specs, assets_dir=None, tol_mm=1.0, pairs=None, kinds=None, skip_missing
     all_ports = [(a, p) for a, pc in pieces.items() for p in pc["ports"] if not kinds or p["kind"] in kinds]
     ends = [x for x in all_ports if x[1]["role"] == "end"]
     holes = [x for x in all_ports if x[1]["role"] == "opening"]
-    fills = [x for x in all_ports if x[1]["role"] == "inset"]
+    fills = [x for x in all_ports if x[1]["role"] in ("inset", "surface")]
     if pairs:
         wanted = []
         for s in pairs:
@@ -406,8 +416,8 @@ def run(specs, assets_dir=None, tol_mm=1.0, pairs=None, kinds=None, skip_missing
         row = {"a": f"{a}.{pa['name']}", "b": f"{b}.{pb['name']}", "kind": pa["kind"]}
         if pa["kind"] != pb["kind"]:
             row.update(ok=False, problems=[f"kinds differ: {pa['kind']} and {pb['kind']}: two ports mate only when the kinds are equal"])
-        elif {pa["role"], pb["role"]} not in ({"end"}, {"opening", "inset"}):
-            row.update(ok=False, problems=[f"{pa['role']} port and {pb['role']} port do not join: ends join ends, an opening joins its inset"])
+        elif {pa["role"], pb["role"]} not in ({"end"}, {"opening", "inset"}, {"opening", "surface"}):
+            row.update(ok=False, problems=[f"{pa['role']} port and {pb['role']} port do not join: ends join ends, an opening joins its inset or surface piece"])
         elif (a, pa["name"]) in bad_ports or (b, pb["name"]) in bad_ports:
             continue
         elif pa["role"] == "end":
@@ -424,9 +434,10 @@ def run(specs, assets_dir=None, tol_mm=1.0, pairs=None, kinds=None, skip_missing
         by = lambda role: [f"{a}.{p['name']}" for a, p in ports if p["role"] == role]
         if len(by("end")) == 1 and not pairs:
             rep["unmated_ports"].append(f"{by('end')[0]} ({kind}) is the only port of its kind: it can only join a copy of itself")
-        for role, other in (("opening", "inset"), ("inset", "opening")):
-            if by(role) and not by(other) and not pairs:
-                rep["unmated_ports"] += [f"{x} ({kind}) is an {role} port and no {other} port has its kind" for x in by(role)]
+        fill = by("inset") + by("surface")
+        for mine, role, other, theirs in ((by("opening"), "opening", "inset", fill), (by("inset"), "inset", "opening", by("opening")), (by("surface"), "surface", "opening", by("opening"))):
+            if mine and not theirs and not pairs:
+                rep["unmated_ports"] += [f"{x} ({kind}) is an {role} port and no {other} port has its kind" for x in mine]
     rep["warnings"] += rep["unmated_ports"]
     failed_ports = [f"{a}.{n}" for a, n in sorted(bad_ports)]
     failed_pairs = [r for r in rep["pairs"] if not r["ok"]]
