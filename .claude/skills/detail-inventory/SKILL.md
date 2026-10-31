@@ -26,6 +26,7 @@ Build `plan/services.yaml` for everything that is connected: electric, cable and
 - Chain: **supply → service head → meters → risers → distribution → runs → fixtures**, in that order, with fittings (elbows, tees, boxes, brackets) on the runs. Arrange it the way the references do (meter boards grouped at stair entries, conduit vertical and horizontal, bundles sagging between brackets).
 - Every node has an anchor `at_m: [x, y, z]` with its height. Every run has two real ends, a `by` (conduit, tray, cable, pipe, duct), a count, and a size that is a `metric:` key from `metrics.yaml` or a `dia_mm` with a `source`. A fixture a network doesn't reach is an error: a lamp needs a conduit, a sink a pipe.
 - A node that fulfils an inventory row names it in `inv`.
+- `linear-runs` builds the runs in P3 and reads a few optional fields (`object` and `dir` on nodes; `strands_mm`, `hang`, `clip_m`, `bend_r_m` and `via_z` on runs). They are listed in its skill.
 - Stage 2: `layout-2d` draws the network as purple shapes with these IDs (`check_inventory.py --layout-out` writes the shapes and runs to merge into `layout.json`).
 
 ## Check

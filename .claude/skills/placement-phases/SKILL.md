@@ -35,6 +35,7 @@ When `brief.yaml › detail` is `detailed` or `final` (mode table in `scene-pipe
 - Repeats are instances, never copies: collection instances in Blender, instanced static meshes or PCG in Unreal.
 - Unreal: PCG and splines for cables, pipes and railings. Blender: geometry nodes, curves with bevel objects, and arrays.
 - **Services plan first.** The plan lives at `plan/services.yaml`, written in Stage 1 by `detail-inventory` and drawn on the map by `layout-2d` in Stage 2: supply, meters, distribution, a run to each unit, then the fixtures, each with an id, position, mount, what it connects to and whether it reuses, moves or is new. Build from it before P3 and before any services in a detailed blockout. Not in lint yet: the supervisor checks that every electrical, conduit or cable object's id is in the plan.
+- **Build runs from their rows.** On the Blender routes, conduit, cable, pipe, downpipe and duct runs are built by `linear-runs` from their `plan/services.yaml` rows: routed along the walls, checked against every solid, with bends, saddles and clips. Never type path points. A run it refuses gets a `path_m` or `via_z` on its row.
 - **Conduit is one system.** Runs are orthogonal and end at a box, a meter, a fixture or a wall entry.
   - Every fitting meets straight conduit at each open end. Lint: `conduit_open_ends`.
   - Saddle clips about every 0.9 m (not in lint yet; the supervisor checks).

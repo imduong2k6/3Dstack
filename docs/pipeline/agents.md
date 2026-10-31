@@ -123,7 +123,7 @@ All in `.claude/skills/`. Credits for adapted skills: `.claude/skills/CREDITS.md
 | 2 | `layout-2d`, `lighting-brief`, `level-design` (walkable game scenes) |
 | 3 | `blockout`, `lane-integration`, `scene-lint` |
 | 4 | `modular-kit`, `modeling`, `blender-image-to-3d`, `generated-asset`, `collision-proxy`, `lod-pipeline`, `environment-artist` |
-| 5 | `placement-phases`, `set-dressing`, `geometry-nodes` (Blender routes), `scene-lint` |
+| 5 | `placement-phases`, `set-dressing`, `geometry-nodes` and `linear-runs` (Blender routes), `scene-lint` |
 | 6–8 | `lighting-passes` |
 | Reviews | `scene-lint`, `supervisor`, `art-director`, `review-pairs` (the clerk runs it) |
 | 9 | `texturing-handoff`, `retro` |

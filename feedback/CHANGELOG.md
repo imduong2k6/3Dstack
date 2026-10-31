@@ -164,3 +164,18 @@ Measured on one fix round of an earlier project: 5 h 12 min, of which the live w
 | `pipeline-clerk` agent | `.claude/agents/pipeline-clerk.md`, `review-pairs`, `gate-board`, `scene-pipeline`, `agents.md`, `README.md` |
 
 Both self-tests pass. On a copy of an earlier project's file, unchanged against itself: `NEW blocker=0 major=0 minor=0 gone=0`, about 11 s. Two test lanes went through the merge test in about 2.4 s, and a prop lifted 3 m came out as the one new major. Not yet run on a real fix round, and the clerk hasn't run at all: a session sees a new agent type only after it restarts.
+
+## 2026-10-30: linear-runs builds service runs from their rows
+
+Asked by the user on 30 Oct 2026 ("Yes, start linear-runs") after the retro of a fix round. In that round, lanes wrote 0.5 to 0.9 M output tokens each, most of it spent working out coordinates. The patch files held 98 to 142 hand-typed points, and every cable through a solid and every dead end came from those points. Market research turned up many tools that sweep a profile along a curve, but none that routes around the scene or checks the result. Built on the `linear-runs` branch so the user can benchmark it against `main`.
+
+- **Builder.** `linear_runs.py` turns a `plan/services.yaml` row into a run. It routes the run along the walls on axis moves, refuses anything that would touch a solid or an earlier run, and bends it at a real radius (at least 12 segments a bend). The ends sit 8 mm inside the anchors. Saddles, clips or clamps go on the wall behind the run at the set spacing, and cable runs that hang follow a catenary. Repeat runs give the same objects, and a blocked run reports what it hit and where.
+- **Guides for the rig.** `emit="guide"` makes hanging runs into `CBL_<id>` curves with end empties, for the cable rig's Curve input or for `cables: guides`.
+- **Open:** conduit is swept as one mesh, while `geometry-nodes` notes say conduit uses the kit. Until a kit mode exists, the manager decides per project.
+
+| Change | Files |
+| --- | --- |
+| New skill and builder, self-test | `linear-runs/SKILL.md`, `scripts/linear_runs.py`, `scripts/selftest_linear_runs.py` |
+| Pointers to it | `placement-phases`, `lane-integration/templates/lane-brief.md`, `detail-inventory`, `geometry-nodes` (pipeline notes), `CREDITS.md`, `scene-pipeline`, `docs/pipeline/agents.md` |
+
+The self-test passes: 31 checks, about 2 s headless, including a lint run that finds nothing on the built runs. Not yet run on a real project file or in a lane.

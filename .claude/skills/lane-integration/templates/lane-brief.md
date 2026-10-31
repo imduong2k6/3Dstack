@@ -63,6 +63,8 @@ From `plan/services.yaml` (your runs, nodes and fittings, with anchors and heigh
 {{rows}}
 ```
 
+Build these runs with `linear-runs` (`LR.build(services, runs=[...])`), not hand-typed points. For a run it reports blocked, add `path_m` or `via_z` to the row and rebuild; report the change.
+
 Counts are the target. Report any row you could not match, with its cause.
 
 ## Standing rules

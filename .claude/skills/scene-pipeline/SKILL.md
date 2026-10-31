@@ -23,7 +23,7 @@ You are the manager: the main session the user talks to. You plan, route, post g
 | 2 | Layout map, services plan and lighting brief | `layout-2d`, `lighting-brief` | You, or a researcher for layout drafts | G1 |
 | 3 | Blockout and neutral light | `blockout`, `lane-integration`, `texturing-handoff` (start) | Route's worker; parallel lanes headless | G2 |
 | 4 | Asset lane: kit plan, generation, pilots, then the batch | `modular-kit`, `modeling`, `blender-image-to-3d`, `generated-asset`, `tripo-props`, `collision-proxy`, `lod-pipeline` | Generator, Modelers (up to `parallel_modelers` at once after K), Asset Tech | K: approve the pilots. Then per asset, by the supervisor |
-| 5 | Level lane: placement P0 to P9, alongside the asset lane | `placement-phases`, `set-dressing` | Route's worker, the only writer in the live editor | P0 to P9 |
+| 5 | Level lane: placement P0 to P9, alongside the asset lane | `placement-phases`, `set-dressing`, `linear-runs` (services, Blender routes) | Route's worker, the only writer in the live editor | P0 to P9 |
 | T | Transfer, Blender then Unreal route only | `blender-adapter`, `unreal-adapter` | Both workers | T |
 | 6–8 | Gray, value and hue passes | `lighting-brief` (detailed part), `lighting-passes` | Route's lighting worker | L1, L2, L3 |
 | 9 | Hand-off and retro | `texturing-handoff`, `retro` | You and a researcher | G3 |
