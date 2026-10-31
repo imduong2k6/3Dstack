@@ -27,12 +27,13 @@ One format for every piece. Check it before the spec goes to a Modeler (it exits
 python .claude/skills/modular-kit/scripts/check_spec.py projects/<slug>/kit/*.md [--metrics projects/<slug>/plan/metrics.yaml] [--services projects/<slug>/plan/services.yaml] [--json] [--out report.json]
 ```
 
-`collision: none` needs its reason in a comment after it or in `collision_reason`.
+`collision: none` needs its reason in a comment after it or in `collision_reason`. A piece that a later spec replaces keeps its file: set `superseded_by` to the replacement and only `asset` and `type` are required (the other keys are still checked when present; nothing is deleted).
 
 ```yaml
 ---
 asset: SM_Office_Wall_Door_A   # same as the file name and the object name
 type: kit                      # kit | prop | hero
+superseded_by: null            # the piece or set that replaces this one (a line, or a list); then no build field is required
 kit: Office                    # null for a prop
 phase: 2                       # first placement phase it appears in
 source: model                  # model | library | generate | unreal_modeling
@@ -53,6 +54,8 @@ clearance_m:
   door_swing: {radius: 0.9, side: +y}
 material_group: [upper_wall, trim, door_frames]
 texture_set: TS_Office_Walls
+slots:                         # optional: one texture set per material slot, when the slots do not share the piece's set
+  - {material_group: trim, texture_set: TS_Office_Trim, uv: "trim strips 512 px/m", strips: [S3, S7]}
 texel_density_px_m: 512
 camera_tier: mid               # hero | mid | far
 budget_tris: 800
@@ -72,6 +75,7 @@ expected_tris: null
 classification: null
 file: null                     # <work_dir>/assets/<asset>/<asset>.blend
 validation: null               # the validate_mesh.py result
+asset_tech: null               # the Asset Tech's export result: fbx, fbx_open, fbx_settings, reimport, tris, slots, ucx_count, texel_density, sockets_exported, lods, nanite, unreal_import
 ---
 The photo crop first, with its landmarks labelled, then notes, reference images and what makes this piece specific.
 ```

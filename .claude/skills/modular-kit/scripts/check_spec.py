@@ -6,8 +6,10 @@
 Checks: required keys; enums (type, source, mount, camera_tier, method); dims_m is three positive numbers [W, D, H];
 dims_source is present and every `metrics.<row>` it names is a row of metrics.yaml; asset equals the file name; collision is
 `UCX_<asset>_NN` or `none` with a reason (`collision_reason: ...`, a value that starts "none: ...", or a comment after it); ports are well formed
-(pos_m, unit dir, kind, size_m); service_id is a node, run or network id in services.yaml; the pivot word is one that
-validate_mesh.py can check. Legacy keys are errors that name the replacement. --migrate renames `id` to `asset` and
+(pos_m, unit dir, kind, size_m); slots are {material_group, texture_set, ...} rows; asset_tech is a mapping; service_id is a node, run
+or network id in services.yaml; the pivot word is one that validate_mesh.py can check. A spec with `superseded_by` (the piece that
+replaces it) needs only `asset` and `type`: nothing is built from it, so the build fields are not required (they are still checked
+when present). Legacy keys are errors that name the replacement. --migrate renames `id` to `asset` and
 `source: build` to `model`, and `material: X` to `material_group: [X]`; `ends_local` needs a person (ports have a kind and a
 section), so it stays an error. --migrate re-reads its own output and writes nothing if the result is not the old data renamed.
 
@@ -443,11 +445,16 @@ REQUIRED = ("asset", "type", "phase", "source", "priority", "count_in_scene", "p
             "pivot", "material_group", "camera_tier", "budget_tris", "collision", "done_when")
 KIT_REQUIRED = ("kit", "snap_grid_m", "ports")
 OPTIONAL = ("sockets", "clearance_m", "texture_set", "texel_density_px_m", "service_id", "landmarks", "generated",
-            "collision_reason", "method", "why", "expected_tris", "classification", "file", "validation")
+            "collision_reason", "method", "why", "expected_tris", "classification", "file", "validation",
+            "slots", "asset_tech", "superseded_by")
 # old key -> (new key, whether --migrate can do it alone)
 LEGACY_KEYS = {"id": ("asset", True), "material": ("material_group", True), "ends_local": ("ports", False)}
 LEGACY_VALUES = {("source", "build"): "model"}
 PORT_KEYS = {"name", "pos_m", "dir", "kind", "size_m", "note"}
+SLOT_KEYS = {"material_group", "texture_set", "uv", "strips", "note"}
+# what the Asset Tech writes under asset_tech (export result); an unlisted key is a warning, not an error
+ASSET_TECH_KEYS = {"fbx", "fbx_open", "fbx_settings", "reimport", "tris", "slots", "ucx_count", "texel_density", "sockets_exported",
+                   "lods", "nanite", "unreal_import", "note"}
 LEVELS = ("error", "warn")
 
 
@@ -494,7 +501,11 @@ def check_spec(data, stem=None, metrics=None, service_ids=None, comments=None):
             err("legacy_value", key, f"`{key}: {old}` is legacy: use `{key}: {new}` (--migrate renames it)", replacement=new, fixable=True)
 
     kit = data.get("type") == "kit"
-    for key in REQUIRED + (KIT_REQUIRED if kit else ()):
+    sup = data.get("superseded_by")
+    superseded = _text(sup) or (isinstance(sup, list) and bool(sup) and all(_text(x) for x in sup))
+    if sup is not None and not superseded:
+        err("type", "superseded_by", "superseded_by is the piece or set that replaces this one (a line, or a list of lines), or null")
+    for key in ("asset", "type") if superseded else REQUIRED + (KIT_REQUIRED if kit else ()):
         if data.get(key) is None and key not in renamed:
             err("missing_key", key, f"required key `{key}` is missing" + (" (a kit piece needs it)" if key in KIT_REQUIRED else ""))
     known = set(REQUIRED) | set(KIT_REQUIRED) | set(OPTIONAL) | set(LEGACY_KEYS)
@@ -527,13 +538,13 @@ def check_spec(data, stem=None, metrics=None, service_ids=None, comments=None):
         err("type", "budget_tris", "budget_tris is a positive whole number")
     if data.get("photos") is not None and not isinstance(data["photos"], list):
         err("type", "photos", "photos is a list of reference crops")
-    elif data.get("photos") == []:
+    elif data.get("photos") == [] and not superseded:
         warn("type", "photos", "photos is empty: the spec has no reference crop")
     if kit and data.get("snap_grid_m") is not None and not (_num(data["snap_grid_m"]) and data["snap_grid_m"] > 0):
         err("type", "snap_grid_m", "snap_grid_m is a positive number of metres")
     if data.get("texel_density_px_m") is not None and not (_num(data["texel_density_px_m"]) and data["texel_density_px_m"] > 0):
         err("type", "texel_density_px_m", "texel_density_px_m is a positive number")
-    if kit and data.get("texture_set") is None:
+    if kit and not superseded and data.get("texture_set") is None:
         warn("missing_key", "texture_set", "texture_set is not set")
 
     d = data.get("dims_m")
@@ -580,7 +591,7 @@ def check_spec(data, stem=None, metrics=None, service_ids=None, comments=None):
     ports = data.get("ports")
     if ports is not None:
         _check_ports(ports, err, warn)
-        if kit and ports == []:
+        if kit and ports == [] and not superseded:
             warn("port", "ports", "a kit piece with no ports never joins anything")
     soc = data.get("sockets")
     if soc is not None:
@@ -591,6 +602,21 @@ def check_spec(data, stem=None, metrics=None, service_ids=None, comments=None):
                 if not (isinstance(s, dict) and _text(s.get("name")) and _vec(s.get("pos_m"), 3)):
                     err("socket", f"sockets[{n}]", "a socket needs a name and pos_m [x, y, z]")
 
+    if data.get("slots") is not None:
+        _check_slots(data["slots"], data.get("material_group"), err, warn)
+    at = data.get("asset_tech")
+    if at is not None:
+        if not isinstance(at, dict):
+            err("type", "asset_tech", "asset_tech is the Asset Tech's result: a mapping (fbx, reimport, tris, ucx_count, ...)")
+        else:
+            for k in sorted(set(at) - ASSET_TECH_KEYS):
+                warn("unknown_key", f"asset_tech.{k}", f"`{k}` is not an asset_tech key the template lists")
+            for k, ok in (("tris", lambda v: _int(v) and v > 0), ("ucx_count", lambda v: _int(v) and v >= 0),
+                          ("slots", lambda v: isinstance(v, list)), ("sockets_exported", lambda v: isinstance(v, list))):
+                if at.get(k) is not None and not ok(at[k]):
+                    err("type", f"asset_tech.{k}", f"asset_tech.{k} is " + {"tris": "a positive whole number", "ucx_count": "a whole number",
+                                                                           "slots": "a list of material names", "sockets_exported": "a list of socket names"}[k])
+
     sid = data.get("service_id")
     if sid is not None:
         if not _text(str(sid)):
@@ -600,7 +626,7 @@ def check_spec(data, stem=None, metrics=None, service_ids=None, comments=None):
     if data.get("landmarks") is not None and not _text(data["landmarks"]):
         err("type", "landmarks", "landmarks is the path of the landmarks json")
 
-    if data.get("source") == "generate" and not isinstance(data.get("generated"), dict):
+    if data.get("source") == "generate" and not isinstance(data.get("generated"), dict) and not superseded:
         err("missing_key", "generated", "source `generate` needs the `generated` block (generated-asset skill)")
     dw = data.get("done_when")
     if dw is not None and not (isinstance(dw, list) and dw and all(_text(x) for x in dw)):
@@ -609,6 +635,29 @@ def check_spec(data, stem=None, metrics=None, service_ids=None, comments=None):
     if et is not None and not (_int(et) and et > 0):
         err("type", "expected_tris", "expected_tris is a positive whole number")
     return out
+
+
+def _check_slots(slots, groups, err, warn):
+    if not isinstance(slots, list):
+        err("slot", "slots", "slots is a list of {material_group, texture_set, uv, strips}")
+        return
+    seen = set()
+    for n, sl in enumerate(slots):
+        where = f"slots[{n}]"
+        if not (isinstance(sl, dict) and _text(sl.get("material_group")) and _text(sl.get("texture_set"))):
+            err("slot", where, "a slot is a mapping with a material_group and a texture_set")
+            continue
+        g = sl["material_group"]
+        if g in seen:
+            err("slot", where, f"material_group `{g}` has two slots")
+        seen.add(g)
+        if isinstance(groups, list) and g not in groups:
+            warn("slot", where, f"material_group `{g}` is not in the spec's material_group list")
+        if sl.get("strips") is not None and not (isinstance(sl["strips"], list) and all(_text(x) for x in sl["strips"])):
+            err("slot", where, "strips is a list of trim strips, or null")
+        extra = sorted(set(sl) - SLOT_KEYS)
+        if extra:
+            warn("slot", where, "unknown slot key " + ", ".join(extra))
 
 
 def _check_ports(ports, err, warn):

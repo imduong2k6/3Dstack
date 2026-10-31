@@ -140,6 +140,56 @@ def test_template():
     assert codes("no front matter here\n")[0] == ["front_matter"] and codes("---\na: 'open\n---\n")[0] == ["parse"]
 
 
+NEW_KEYS = """slots:
+  - {material_group: trim, texture_set: TS_Office_Trim, uv: "trim strips 512 px/m", strips: [S3, S7]}   # frame
+  - {material_group: upper_wall, texture_set: TS_Office_Walls, uv: box 512 px/m, strips: null}
+asset_tech:    # headless
+  fbx: "D:/work/SM_Office_Wall_Door_A.fbx"
+  reimport: "PASS: dims off 0 mm"
+  tris: 44
+  slots: [M_Trim, M_Wall]
+  ucx_count: 3
+  sockets_exported: [SOCKET_door_set]
+  nanite: yes
+"""
+SUPERSEDED = "---\nasset: SM_Old\ntype: kit\nsuperseded_by: \"SM_New_A (1.00), SM_New_B (0.90)\"   # split, kept\n---\nbody\n"
+
+
+def test_new_keys():
+    # slots, asset_tech and superseded_by pass in a full spec
+    full = GOOD.replace("texel_density_px_m: 512\n", "texel_density_px_m: 512\n" + NEW_KEYS, 1).replace("---\nasset:", "---\nsuperseded_by: null\nasset:", 1)
+    e, w, _ = codes(full, metrics={"wall_module": {}}, services={"LP01"})
+    assert e == [] and w == [], (e, w)
+    # an asset marked superseded_by needs no build field: only asset and type
+    e, w, _ = codes(SUPERSEDED, "SM_Old.md")
+    assert e == [] and w == [], (e, w)
+    assert codes(SUPERSEDED.replace('"SM_New_A (1.00), SM_New_B (0.90)"', "[SM_New_A, SM_New_B]"), "SM_Old.md")[0] == []
+    # not superseded: the same file is missing its build fields
+    e, _, _ = codes(SUPERSEDED.replace("superseded_by:", "superseded_by: null #"), "SM_Old.md")
+    assert e.count("missing_key") >= 10, e
+    # a superseded spec that still carries build fields has them checked
+    assert "dims" in codes(SUPERSEDED.replace("---\nbody", "dims_m: [1, 2]\n---\nbody"), "SM_Old.md")[0]
+    # asset and type stay required, and superseded_by must be a line or a list of lines
+    assert codes(SUPERSEDED.replace("type: kit\n", ""), "SM_Old.md")[0] == ["missing_key"]
+    for bad in ("superseded_by: 5", "superseded_by: []", "superseded_by: [a, 3]"):
+        e, _, _ = codes(SUPERSEDED.replace(SUPERSEDED.splitlines()[3], bad), "SM_Old.md")
+        assert "type" in e, (bad, e)
+    # bad slots and asset_tech
+    base = GOOD.replace("texel_density_px_m: 512\n", "texel_density_px_m: 512\n" + NEW_KEYS, 1)
+    for old, new, want in (("texture_set: TS_Office_Trim, ", "", "slot"), ("strips: [S3, S7]", "strips: S3", "slot"),
+                           ("material_group: upper_wall, texture_set", "material_group: trim, texture_set", "slot"),
+                           ("tris: 44", "tris: 0", "type"), ("ucx_count: 3", "ucx_count: -1", "type"), ("slots: [M_Trim, M_Wall]", "slots: M_Trim", "type"),
+                           ("asset_tech:    # headless\n  fbx:", "asset_tech: 5\nx:\n  fbx:", "type"),
+                           ("slots:\n  - {material_group: trim", "slots: 5\nx:\n  - {material_group: trim", "slot")):
+        assert old in base, old
+        e, _, _ = codes(base.replace(old, new, 1))
+        assert want in e, (old, e)
+    _, w, _ = codes(base.replace("material_group: upper_wall, texture_set", "material_group: roof, texture_set", 1))
+    assert w == ["slot"], w
+    _, w, _ = codes(base.replace("nanite: yes", "nanite: yes\n  made_up: 1", 1))
+    assert w == ["unknown_key"], w
+
+
 def test_legacy():
     old = GOOD.replace("asset:", "id:", 1).replace("source: model", "source: build").replace(
         "material_group: [upper_wall, trim, door_frames]", "material: M_Steel   # one slot").replace("ports:\n", "ends_local:\n", 1)
@@ -154,6 +204,7 @@ def test_legacy():
 def test_migrate_and_cli():
     legacy = GOOD.replace("asset:", "id:", 1).replace("source: model", "source: build  # was build").replace(
         "material_group: [upper_wall, trim, door_frames]", "material: M_Steel   # one slot").replace("ports:\n", "ends_local:\n", 1)
+    legacy = legacy.replace("texel_density_px_m: 512\n", "texel_density_px_m: 512\n" + NEW_KEYS, 1)   # the new blocks must not confuse the rename
     with tempfile.TemporaryDirectory() as d:
         proj = os.path.join(d, "proj")
         os.makedirs(os.path.join(proj, "kit"))
