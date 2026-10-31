@@ -274,7 +274,8 @@ def test_surface_and_near_square():
     """A frame that stands on the face round the hole (role surface), its faults, and a near-square frame whose bars end on the other order's outline."""
     reset()
     folder = tempfile.mkdtemp()
-    slim = [(-.56, -.5, -.21, -.15, 0, 2.1), (.5, .56, -.21, -.15, 0, 2.1), (-.56, .56, -.21, -.15, 2.1, 2.16)]
+    slim = [(-.56, -.5, -.21, -.15, 0, 2.1), (.5, .56, -.21, -.15, 0, 2.1), (-.56, .56, -.21, -.15, 2.1, 2.16),
+            (.505, .56, -.22, -.15, .5, 1.0)]                                     # a hinge on the wall 5 mm outside the hole: inside the band, not the ring
     lip = [(-.5, -.49, -.15, -.14, 0, 2.1), (.49, .5, -.15, -.14, 0, 2.1)]       # over the hole, behind the leaf
     parts("SM_BayDoor", BAY)
     parts("SM_Slim", slim + lip)

@@ -120,6 +120,8 @@ def rim_of(verts, p, tol_m):
         s = None
         for sw, sh in (p["size"], p["size"][::-1]):
             e = np.abs(np.maximum(np.abs(x) - sw / 2, np.abs(y) - sh / 2))
+            if p["role"] == "surface":                                  # its back beyond the hole stands on the wall: the ring is what lies round the hole
+                e[(np.abs(x) > sw / 2 + tol_m) | (np.abs(y) > sh / 2 + tol_m)] = np.inf
             k = e <= band
             if k.any() and abs(np.ptp(x[k]) - sw) <= band and abs(np.ptp(y[k]) - sh) <= band:     # a whole outline: on a near-square piece the bars can crowd the other order's band
                 s = e
