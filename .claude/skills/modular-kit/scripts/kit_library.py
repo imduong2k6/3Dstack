@@ -57,16 +57,18 @@ VERSION = 2
 SECTIONS = [
     ("Walls", r"SM_Wall_|SM_Trim_|SM_Slab|SM_Dado|SM_Window"),
     ("Stairs", r"SM_Stair|SM_TreadPlate|KP_TreadPlate|SM_Nosing|SM_StringSkirt|SM_Step|SM_Threshold|SM_Handrail"),
-    ("Doors", r"SM_Door_|SM_Gate|SM_Shutter|KP_Lattice|GTA_|XB_Door|SM_Mailbox"),
+    ("Doors", r"SM_Door_|SM_Gate|SM_Shutter|KP_Lattice|GTA_|XB_Door|SM_Mail"),
     ("Electrical", r"SM_SwitchPlate|SM_Intercom|SM_PhoneTerminal|SM_TVSplitter|SM_ServiceHead|SM_CutOut|SM_FuseBase|SM_Payphone"),
     ("Conduit", r"SM_Conduit"),
     ("Cable hardware", r"SM_Cable|SM_Cleat|SM_InsulatorRack"),
-    ("Pipes and fittings", r"SM_Pipe|SM_Valve|SM_WaterMeter|SM_Downpipe|SM_Flange"),
+    ("Pipes and fittings", r"SM_Pipe|SM_Valve|SM_Water_?Meter|SM_Downpipe|SM_Flange"),
     ("AC", r"SM_AC_|SM_Louvre"),
     ("Meters and boxes", r"SM_Meter|SM_DoorBox|SM_DistBoard|SM_JunctionBox"),
     ("Signs", r"SM_ExitSign|SM_Sign|C_Poster"),
-    ("Lamps", r"SM_Lamp|SM_Tube_Batten|L_Fluo"),
+    ("Lamps", r"SM_Lamp|SM_Tube|SM_Bulb|L_Fluo"),
     ("Floor", r"DV_Gully|SP_Gully|X1_Gully|SM_Gully|SM_GAL_DeckSlat|SM_Floor"),
+    ("Slabs and roofs", r"SM_Ceiling|SM_Soffit|SM_Beam|SM_Roof"),
+    ("Far facades", r"SM_Facade"),
 ]
 FALLBACK_SECTION = "Props"
 SECTION_ORDER = [s for s, _ in SECTIONS] + [FALLBACK_SECTION]
