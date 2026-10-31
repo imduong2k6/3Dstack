@@ -55,7 +55,7 @@ VERSION = 2
 
 # Section of a piece: the first pattern that matches the start of the piece name wins; anything else goes to FALLBACK_SECTION.
 SECTIONS = [
-    ("Walls", r"SM_Wall_|SM_Slab|SM_Dado|SM_Window"),
+    ("Walls", r"SM_Wall_|SM_Trim_|SM_Slab|SM_Dado|SM_Window"),
     ("Stairs", r"SM_Stair|SM_TreadPlate|KP_TreadPlate|SM_Nosing|SM_StringSkirt|SM_Step|SM_Threshold|SM_Handrail"),
     ("Doors", r"SM_Door_|SM_Gate|SM_Shutter|KP_Lattice|GTA_|XB_Door|SM_Mailbox"),
     ("Electrical", r"SM_SwitchPlate|SM_Intercom|SM_PhoneTerminal|SM_TVSplitter|SM_ServiceHead|SM_CutOut|SM_FuseBase|SM_Payphone"),
