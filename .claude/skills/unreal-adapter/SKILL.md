@@ -56,7 +56,7 @@ Section numbers are in `ue5-mcp/SKILL.md`.
 ## Import
 
 - FBX goes through Interchange in UE 5.x. Keep normals from the file (don't recompute) so custom normals survive, turn off generated collision when `UCX_` meshes exist, and enable Nanite for opaque static meshes. Save the working import settings in `toolbox/tools/transfer.blender-unreal.md` after the first test.
-- Check every import: a known edge measured in centimetres, collision shown in wireframe, LODs detected, material slots matching `material_group`.
+- Check every import: a known edge measured in centimetres, collision shown in wireframe, LODs detected, material slots matching `material_group`, sockets matching the spec's `sockets` (the FBX carries them as `SOCKET_` nulls under the mesh; the Unreal side is untested, see `toolbox/tools/transfer.blender-unreal.md`).
 - Transfer route: `scripts/import_layout.py` spawns actors from `transfer/layout.json` and replaces the previous transfer on a re-run.
 
 ## Captures

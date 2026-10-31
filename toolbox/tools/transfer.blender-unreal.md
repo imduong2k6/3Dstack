@@ -18,7 +18,7 @@ routes: [blender_unreal]
 
 ```python
 bpy.ops.export_scene.fbx(
-    filepath=path, use_selection=True, object_types={"MESH"},
+    filepath=path, use_selection=True, object_types={"MESH", "EMPTY"},   # EMPTY carries the SOCKET_ sockets; MESH alone drops them
     apply_scale_options="FBX_SCALE_NONE",   # "All Local", Blender's default
     apply_unit_scale=True,                  # "Apply Unit" on
     axis_forward="-Z", axis_up="Y",         # Blender defaults
@@ -26,7 +26,7 @@ bpy.ops.export_scene.fbx(
     mesh_smooth_type="FACE", use_custom_props=False)
 ```
 
-Scene units: Metric, Unit Scale 1.0. Apply object scale (`transform_apply(scale=True)`) before export.
+Scene units: Metric, Unit Scale 1.0. Apply object scale (`transform_apply(scale=True)`) before export. Select what ships (`use_selection=True`): the piece's root object and `root.children_recursive`, which are its `UCX_` meshes and its `SOCKET_` empties.
 
 **Don't use Apply Scalings "FBX All" or "FBX Units Scale".** Both imported 100 times too small (a 1 m cube came in as 1 cm).
 
@@ -38,6 +38,14 @@ Scene units: Metric, Unit Scale 1.0. Apply object scale (`transform_apply(scale=
 | All Local (`FBX_SCALE_NONE`) | on | **100 x 200 x 300** |
 | FBX Custom Scale (1.0) | on | 100 x 200 x 300 |
 
+## Sockets (`SOCKET_` empties)
+
+A socket is an empty named `SOCKET_<role>`, parented to the piece's root object like its `UCX_` meshes. It goes through the same export call as the mesh with **`EMPTY` in `object_types`**. The call used to list `{"MESH"}` only, which dropped every socket without a word (checked 2026-10-31).
+
+- **Axes:** the mesh's: forward -Z, up Y, no extra rotation for Unreal. Blender 5.2.3 round trip (export, then import into a blank file; the `blender-adapter` self-test runs the call above): position off by 0.0003 mm, rotation off by 0.0 degrees, name and parent kept. In Unreal the socket should sit at the same spot of the imported mesh with the same Y mirror the mesh gets (see Layout transfer). Not tested in Unreal: the editor was down. Check it on the first piece with a socket, and note whether Interchange makes a mesh socket from a `SOCKET_` null.
+- **A hidden socket is lost.** A hidden object (`hide_set(True)` or `hide_viewport`) can't be selected, so it is dropped without a word, for example the sockets of a parked variant. Unhide it in the headless run that exports (the run saves nothing), then select it.
+- Display type and size are not exported (they come back as plain axes, size 1). Custom properties are off (`use_custom_props=False`), so what a socket carries is its name and transform.
+
 ## Unreal import (UE 5.8.3, tested)
 
 `editor_toolset.toolsets.static_mesh.StaticMeshTools.import_file` with `folder_path`, `asset_name`, `source_file` (absolute), defaults otherwise (Interchange FBX pipeline, `combine_meshes` true, no materials). Results on 2026-10-27:
@@ -45,7 +53,7 @@ Scene units: Metric, Unit Scale 1.0. Apply object scale (`transform_apply(scale=
 - `SM_TestCube` (1 m cube, centred): bounds -50..50 on every axis, **100 x 100 x 100 units**, 12 triangles, 1 LOD.
 - `SM_AxisProbe` (1 x 2 x 3 m, corner at the origin, extending +X +Y +Z in Blender): X 0..100, **Y -200..0**, Z 0..300. Axes map straight across with Y mirrored, no extra 90° yaw.
 - Nanite comes in off and there's one material slot (`WorldGridMaterial` with no materials imported). Turn Nanite on for opaque static meshes with `StaticMeshTools.set_nanite_enabled` and assign `MI_` instances after import.
-- Not tested yet: custom normals, `UCX_` collision, LOD groups, sockets. Check them on the first real kit piece and add the result here.
+- Not tested yet in Unreal: custom normals, `UCX_` collision, LOD groups, sockets. Check them on the first real kit piece and add the result here.
 
 ## Layout transfer (tested)
 

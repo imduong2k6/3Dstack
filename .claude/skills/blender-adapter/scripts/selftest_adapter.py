@@ -6,7 +6,9 @@ Ends with ADAPTER SELFTEST OK, or FAILED and exit 1. check_capture.py still test
 """
 import importlib.util
 import json
+import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -286,6 +288,63 @@ capmod.capture_set(os.path.join(out, "cap5"), ["CAM_A"], engine="BLENDER_WORKBEN
 check(os.path.exists(os.path.join(out, "cap5", "CAM_A.png")), "lint=False skips the gate")
 expect_raises(RuntimeError, lambda: capmod.capture_set(os.path.join(out, "cap6"), ["CAM_A", "CAM_Nope"], lint=False), "a missing camera")
 check(not os.path.exists(os.path.join(out, "cap6", "CAM_A.png")), "a missing camera stops before any render")
+
+# ---- FBX export to Unreal: SOCKET_ empties travel with the mesh. The call is the one in toolbox/tools/transfer.blender-unreal.md, run as
+# written. It used to list MESH only and dropped every socket without a word; old_call is that call, the planted defect ----------------
+doc = open(os.path.join(REPO, "toolbox", "tools", "transfer.blender-unreal.md"), encoding="utf-8").read()
+fbx_call = re.search(r"## FBX export.*?```python\n(.*?)```", doc, re.S).group(1)
+old_call = fbx_call.replace('{"MESH", "EMPTY"}', '{"MESH"}')
+check(old_call != fbx_call, "the documented FBX call lists MESH and EMPTY")
+
+
+def socketed():
+    """A piece with its collision and three sockets, one of them hidden (a socket of a parked variant). Returns the piece, the poses
+    of the sockets in the world, and the hidden socket."""
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    piece = box("SM_Socketed", (-0.5, -0.1, 0), (0.5, 0.1, 2.0), mat=False)
+    box("UCX_SM_Socketed_01", (-0.5, -0.1, 0), (0.5, 0.1, 2.0), mat=False).parent = piece
+    socks = {}
+    for name, loc, rot in (("SOCKET_top", (0.0, 0.0, 2.0), (0, 0, 0)), ("SOCKET_hinge", (-0.45, -0.1, 1.0), (math.radians(20), math.radians(30), math.radians(110))),
+                           ("SOCKET_open", (0.45, -0.1, 1.0), (0, 0, math.radians(-40)))):
+        e = bpy.data.objects.new(name, None)
+        e.parent, e.location, e.rotation_euler = piece, loc, rot
+        bpy.context.scene.collection.objects.link(e)
+        socks[name] = e
+    bpy.context.view_layer.update()
+    pose = {n: (e.matrix_world.translation.copy(), e.matrix_world.to_quaternion()) for n, e in socks.items()}
+    socks["SOCKET_open"].hide_set(True)
+    return piece, pose, socks["SOCKET_open"]
+
+
+def export_and_reimport(call, piece, path):
+    """Select the piece and its children, run the call, and read the FBX into a blank Blender: {name: object}."""
+    for o in bpy.data.objects:
+        o.select_set(False)
+    for o in [piece, *piece.children_recursive]:
+        o.select_set(True)
+    exec(call, {"bpy": bpy, "path": path})
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.import_scene.fbx(filepath=path)
+    return {o.name: o for o in bpy.data.objects}
+
+
+piece, pose, hidden = socketed()
+got = export_and_reimport(fbx_call, piece, os.path.join(out, "socketed.fbx"))
+check(set(got) == {"SM_Socketed", "UCX_SM_Socketed_01", "SOCKET_top", "SOCKET_hinge"}, f"fbx: the documented call keeps the mesh, its collision and its visible sockets, and a hidden socket is dropped: {sorted(got)}")
+for n in ("SOCKET_top", "SOCKET_hinge"):
+    if n in got:
+        off = (got[n].matrix_world.translation - pose[n][0]).length * 1000
+        ang = math.degrees(got[n].matrix_world.to_quaternion().rotation_difference(pose[n][1]).angle)
+        check(got[n].type == "EMPTY" and got[n].parent == got["SM_Socketed"] and off < 0.01 and ang < 0.01,
+              f"fbx: {n} comes back an empty under the piece, off by {off:.4f} mm and {ang:.4f} degrees")
+check(all(abs(a - b) < 1e-4 for a, b in zip(got["SM_Socketed"].dimensions, (1.0, 0.2, 2.0))), f"fbx: mesh size {tuple(got['SM_Socketed'].dimensions)}")
+piece, pose, hidden = socketed()
+hidden.hide_set(False)
+check("SOCKET_open" in export_and_reimport(fbx_call, piece, os.path.join(out, "unhidden.fbx")), "fbx: a socket comes through once it is unhidden")
+piece, pose, hidden = socketed()
+hidden.hide_set(False)
+old = export_and_reimport(old_call, piece, os.path.join(out, "mesh_only.fbx"))
+check(set(old) == {"SM_Socketed", "UCX_SM_Socketed_01"}, f"fbx: the MESH-only call drops every socket, which is what this case plants: {sorted(old)}")
 
 print("ADAPTER SELFTEST", "FAILED" if fails else "OK")
 sys.exit(1 if fails else 0)
