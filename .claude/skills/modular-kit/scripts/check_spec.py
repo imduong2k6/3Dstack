@@ -450,7 +450,8 @@ OPTIONAL = ("sockets", "clearance_m", "texture_set", "texel_density_px_m", "serv
 # old key -> (new key, whether --migrate can do it alone)
 LEGACY_KEYS = {"id": ("asset", True), "material": ("material_group", True), "ends_local": ("ports", False)}
 LEGACY_VALUES = {("source", "build"): "model"}
-PORT_KEYS = {"name", "pos_m", "dir", "kind", "size_m", "note"}
+PORT_KEYS = {"name", "pos_m", "dir", "kind", "size_m", "role", "note"}
+PORT_ROLES = ("end", "opening", "inset")   # kit_joint_test.py: a joint between pieces; a hole in a face (a bay's door or window); the piece that fills one
 SLOT_KEYS = {"material_group", "texture_set", "uv", "strips", "note"}
 # what the Asset Tech writes under asset_tech (export result); an unlisted key is a warning, not an error
 ASSET_TECH_KEYS = {"fbx", "fbx_open", "fbx_settings", "reimport", "tris", "slots", "ucx_count", "texel_density", "sockets_exported",
@@ -686,6 +687,8 @@ def _check_ports(ports, err, warn):
             err("port", where, f"dir must have length 1, it has {math.sqrt(sum(x * x for x in p['dir'])):.4f}")
         if not _text(p.get("kind")):
             err("port", where, "kind is missing: two ports mate only when their kinds are equal")
+        if p.get("role") is not None and p["role"] not in PORT_ROLES:
+            err("port", where, f"role must be one of {' | '.join(PORT_ROLES)}, not `{p['role']}`")
         s = p.get("size_m")
         if not (isinstance(s, list) and len(s) in (1, 2) and all(_num(x) and x > 0 for x in s)):
             err("port", where, "size_m must be [d] for round or [w, h] for rectangular, in positive metres")

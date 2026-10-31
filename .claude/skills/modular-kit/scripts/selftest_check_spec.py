@@ -112,7 +112,7 @@ def test_template():
         ("asset: SM_Office_Wall_Door_A ", "asset: SM_Other ", "asset_name"), ("collision: UCX_SM_Office_Wall_Door_A_01", "collision: UCX_SM_Office_Wall_Door_A_1", "collision"),
         ("collision: UCX_SM_Office_Wall_Door_A_01", "collision: UCX_SM_Wall_01", "collision"), ("collision: UCX_SM_Office_Wall_Door_A_01", "collision: none", "collision"),
         ("kind: wall_4m, size_m: [0.15, 3.0]}\n  - {name: end_b", "size_m: [0.15, 3.0]}\n  - {name: end_b", "port"),
-        ("dir: [1, 0, 0]", "dir: [1, 1, 0]", "port"), ("pos_m: [2, 0, 1.5]", "pos_m: [2, 0]", "port"), ("name: end_b", "name: end_a", "port"),
+        ("dir: [1, 0, 0], kind", "dir: [1, 0, 0], role: hole, kind", "port"), ("dir: [1, 0, 0]", "dir: [1, 1, 0]", "port"), ("pos_m: [2, 0, 1.5]", "pos_m: [2, 0]", "port"), ("name: end_b", "name: end_a", "port"),
         ("size_m: [0.15, 3.0]}\n  - {name: end_b", "size_m: [0.15, 3.0, 1]}\n  - {name: end_b", "port"), ("sockets:\n  - {name: hinge_L, pos_m: [-0.45, 0, 0]}", "sockets:\n  - {name: hinge_L}", "socket"),
         ("service_id: null", "service_id: LP99", "service_id"), ("source: model", "source: generate", "missing_key"),
         ("material_group: [upper_wall, trim, door_frames]", "material_group: upper_wall", "type"), ("done_when:\n  - snaps", "done_when: []\nx:\n  - snaps", "type"),
@@ -122,6 +122,9 @@ def test_template():
         assert old in GOOD, old
         e, _, _ = codes(GOOD.replace(old, new, 1), metrics={"wall_module": {}}, services={"LP01"})
         assert want in e, (old, new, want, e)
+    # a port role of opening or inset (a bay's opening and what fills it) is fine
+    for role in ("end", "opening", "inset"):
+        assert codes(GOOD.replace("dir: [1, 0, 0], kind", f"dir: [1, 0, 0], role: {role}, kind", 1))[0] == [], role
     # collision none is fine with a reason in any of the three places
     for edit in ("collision: none\ncollision_reason: under the floor", "collision: \"none: sits behind a wall\"", "collision: none   # too small to matter"):
         e, _, _ = codes(GOOD.replace("collision: UCX_SM_Office_Wall_Door_A_01", edit), metrics={"wall_module": {}})

@@ -45,7 +45,7 @@ dims_source: metrics.wall_module   # required: the plan/metrics.yaml row or a me
 mount: floor                   # floor | wall | hang | inset
 pivot: bottom-center
 snap_grid_m: 0.5               # kit pieces
-ports:                         # kit pieces: every joint, in the piece's local frame
+ports:                         # kit pieces: every joint, in the piece's local frame (role end by default; see Openings and insets)
   - {name: end_a, pos_m: [-2, 0, 1.5], dir: [-1, 0, 0], kind: wall_4m, size_m: [0.15, 3.0]}
   - {name: end_b, pos_m: [2, 0, 1.5], dir: [1, 0, 0], kind: wall_4m, size_m: [0.15, 3.0]}
 sockets:                       # where other things attach; kind: wire for a cable anchor
@@ -87,6 +87,8 @@ bash bin/blender-bg [scene.blend] --python .claude/skills/modular-kit/scripts/ki
 ```
 
 It reads each mesh from the open file, from `<assets-dir>/<asset>/<asset>.blend` or from the spec's `file`, and writes nothing to them.
+
+**Openings and insets.** A door or window in a bay's opening is not an end: the face around the opening is the whole wall face, not an open end. Give the bay's port on a face the opening is cut in `role: opening` (or name it `opening_*`): `pos_m` the opening's centre on that face, `dir` the face's outward normal, `size_m` the opening `[w, h]`. Give the piece that fills it `role: inset` (or name its ports `reveal_*` or `inset_*`) with the same `kind`, and `pos_m` and `size_m` at its own face. `kit_joint_test.py` then reads the opening's rim instead of the face, and joins each opening with each inset of its kind: the inset is moved so its port frame lies on the opening's (same direction), and the pair passes only when the inset's outline is the opening (centre and section within 1 mm) and no vertex or edge of the inset between the bay's two faces lies outside it. A flange proud of the face passes. Every other port is an `end`, and ends join ends only.
 
 **`camera_match` and `full_cg`: the crop comes before research.** Write each spec from the photo crop of that piece, with its landmarks (corners, lid edges, the cell it sits in) labelled and measured in pixels at the review camera. Research text fills only what the crop can't show, such as depth behind a face. On the corridor pilot, 7 spec items written from research text were overridden at K. The landmarks go in `landmarks.json` (format in `blender-adapter/scripts/fit_check.py`); the worker runs `fit_check()` before posting and the supervisor reads its output instead of re-measuring.
 
