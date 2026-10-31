@@ -287,10 +287,13 @@ def geometry_hash(o, memo):
 
 def state_rows(objs):
     """What a patch can change, per object. Two of these make the repeat test; the difference from before is the patch's `changed` list."""
-    memo = {}
+    memo, cols = {}, {}
+    for c in [*bpy.data.collections, *(s.collection for s in bpy.data.scenes)]:   # o.users_collection scans every collection per call
+        for o in c.objects:
+            cols.setdefault(o.as_pointer(), []).append(c.name)
     return {o.name: (tuple(round(v, 5) for row in o.matrix_basis for v in row), o.parent.name if o.parent else None,
                      tuple(s.material.name if s.material else None for s in o.material_slots), o.hide_render, o.hide_viewport,
-                     sorted(c.name for c in o.users_collection), sorted((k, repr(o[k])) for k in o.keys()),
+                     sorted(cols.get(o.as_pointer(), [])), sorted((k, repr(o[k])) for k in o.keys()),
                      [(m.name, m.type) for m in o.modifiers], geometry_hash(o, memo)) for o in objs}
 
 
@@ -307,20 +310,23 @@ def replay_patches(path, lanes, objs, linked=()):
     with open(path, encoding="utf-8") as f:
         exec(compile(f.read(), path, "exec"), ns)
     ids = [p["id"] for p in patches]
+    prev = None   # the state after a patch's second run is the next patch's before
     for p in [p for p in patches if lanes is None or p["lane"] is None or p["lane"] in lanes]:
         if p["lane"] in linked:  # edits to linked data are not saved
             out.append({"id": p["id"], "lane": p["lane"], "ok": False, "detail": "lane is joined by link; patches only persist on appended lanes"})
             continue
         try:  # run it twice in a row: the second run must change nothing
-            before = state_rows(objs())
+            before = prev if prev is not None else state_rows(objs())
             p["fn"](bpy)
             first = state_rows(objs())
             p["fn"](bpy)
-            same = first == state_rows(objs())
+            prev = state_rows(objs())
+            same = first == prev
             changed = sorted(k for k in before.keys() | first.keys() if before.get(k) != first.get(k))
             out.append({"id": p["id"], "lane": p["lane"], "ok": same, "changed": changed,
                         "detail": "" if same else "not repeatable: a second run changed the objects (set values, don't add to them)"})
         except Exception as e:  # a failed patch fails the join
+            prev = None
             out.append({"id": p["id"], "lane": p["lane"], "ok": False, "error": repr(e)})
     out.append({"id": "_unique_ids", "ok": len(ids) == len(set(ids)), "detail": ids})
     return out

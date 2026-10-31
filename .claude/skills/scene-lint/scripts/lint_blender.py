@@ -302,7 +302,7 @@ def check_visibility(c):
         n += 1
         cols = L.parent_collections(ob)
         toks = L.tokens(ob.name).union(*[L.tokens(x) for x in cols])
-        tag = str(ob.get("visibility") or next((col.get("visibility") for col in ob.users_collection if col.get("visibility")), "")).lower()
+        tag = str(ob.get("visibility") or next((col.get("visibility") for col in L.users_collection(ob) if col.get("visibility")), "")).lower()
         is_rev = bool(toks & rev) or tag.replace("_", "-") in ("review-only", "review")
         is_park = bool(toks & park) or tag == "parked" or bool(cols & set(L.PARKED_NAMES))
         in_layer = ob.name in vl.objects
@@ -331,7 +331,7 @@ def check_wear(c):
         if ob.get("wear_ok"):
             continue
         if "wear" in L.kinds_of(ob, c.rules):
-            hit = sorted((L.tokens(ob.name).union(*[L.tokens(col.name) for col in ob.users_collection])) & wear) or ["kind=wear"]
+            hit = sorted((L.tokens(ob.name).union(*[L.tokens(col.name) for col in L.users_collection(ob)])) & wear) or ["kind=wear"]
             items.append({"object": ob.name, "what": f"wear as geometry ({', '.join(hit)}): house rule 1; write it to handoff/wear-notes.md and remove the object (wear_ok on repairs)"})
     c.add("wear_geometry", "blocker", n, items)
 
@@ -416,6 +416,7 @@ def object_island_ends(s, dg, cap_max, strict=False):
     bm.verts.ensure_lookup_table()
     bm.faces.ensure_lookup_table()
     W = lambda v: mw @ v.co
+    R = mw.to_3x3()
     m = np.array(mw)
     P = np.array([tuple(v.co) for v in bm.verts]).reshape(-1, 3) @ m[:3, :3].T + m[:3, 3]
     isl = _islands(bm)
@@ -476,22 +477,26 @@ def object_island_ends(s, dg, cap_max, strict=False):
         outside = [h for e in _ordered(edges) for h in e.link_faces if h not in cl]
         bv = {v for e in edges for v in e.verts}
         pts = [W(v) for v in _ordered(bv)]
-        ext = max((a - b).length for a in pts for b in pts)
-        p = sum(pts, Vector()) / len(pts)
         k = of[f.verts[0].index]
+        # the box's longest side and diagonal bound the span: measure every pair only when the limit falls between them
+        sx, sy, sz = (max(q) - min(q) for q in zip(*pts))
+        side, box = max(sx, sy, sz), (sx * sx + sy * sy + sz * sz) ** 0.5
+        lim = cap_max if strict else min(cap_max, 0.6 * diag[k])
+        ext = side if side > lim else box if box <= lim else max((a - b).length for a in pts for b in pts)
+        p = sum(pts, Vector()) / len(pts)
         if strict:
             rs = [(q - p).length for q in pts]
             if ext > cap_max or len(bv) < 8 or max(rs) - min(rs) > 0.2 * max(rs) or any(v.index not in big for v in bv):
                 continue
         elif ext > cap_max or ext > 0.6 * diag[k]:
             continue
-        nw = (mw.to_3x3() @ n0).normalized()
+        nw = (R @ n0).normalized()
         radial = 0  # at a tube's end the faces beyond the boundary point radially outward from the cap's centre
         for e in edges:
             r = (W(e.verts[0]) + W(e.verts[1])) / 2 - p
             r -= nw * r.dot(nw)
             h = next(h for h in e.link_faces if h not in cl)
-            if r.length > 1e-9 and (mw.to_3x3() @ h.normal).normalized().dot(r.normalized()) > 0.7:
+            if r.length > 1e-9 and (R @ h.normal).normalized().dot(r.normalized()) > 0.7:
                 radial += 1
         if radial < 0.8 * len(edges):
             continue
@@ -1257,6 +1262,14 @@ def diff_baseline(old, path, c):
 
 def run_lint(project=None, out_dir=None, expect_file=None, only=None, skip=None, baseline=None, **files):
     """Run the checks on the open file, write <out_dir>/lint.json and return the report."""
+    L.hold_collections(True)   # the checks change no collection, so one map serves the run
+    try:
+        return _lint(project, out_dir, expect_file, only, skip, baseline, **files)
+    finally:
+        L.hold_collections(False)
+
+
+def _lint(project, out_dir, expect_file, only, skip, baseline, **files):
     t0 = time.time()
     old = load_baseline(baseline) if baseline else None
     paths = resolve_paths(project, expect_file=expect_file, **files)

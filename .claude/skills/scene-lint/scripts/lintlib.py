@@ -195,7 +195,7 @@ def kinds_of(ob, rules):
         return {x.strip().lower() for x in str(k).split(",") if x.strip()}
     own = tokens(ob.name)  # exclusions read the object's own name, so a collection called Boxes cannot hide its conduits
     toks = set(own)
-    for c in ob.users_collection:
+    for c in users_collection(ob):
         toks |= tokens(c.name)
     return {kind for kind, words in rules["tokens"].items()
             if toks & set(words) and not own & set(rules["exclude_tokens"].get(kind, ()))}
@@ -215,8 +215,27 @@ def render_off_collections(scene):
     return off
 
 
+_COLS = None   # object pointer -> its collections, only while a lint run holds the map
+
+
+def hold_collections(on):
+    """Build (on) or drop the map users_collection() reads. Hold it only while no collection membership changes (a lint run)."""
+    global _COLS
+    _COLS = None
+    if on:
+        _COLS = {}
+        for c in [*bpy.data.collections, *(s.collection for s in bpy.data.scenes)]:
+            for o in c.objects:
+                _COLS.setdefault(o.as_pointer(), []).append(c)
+
+
+def users_collection(ob):
+    """ob.users_collection, from the held map when there is one: Blender's property scans every collection on each call."""
+    return ob.users_collection if _COLS is None else _COLS.get(ob.as_pointer(), ())
+
+
 def is_rendered(ob, off):
-    return not ob.hide_render and not all(c.name in off for c in ob.users_collection)
+    return not ob.hide_render and not all(c.name in off for c in users_collection(ob))
 
 
 def layer_collections(view_layer):
@@ -233,7 +252,7 @@ def layer_collections(view_layer):
 
 def parent_collections(ob):
     """Every collection an object sits in and all their parents, by name."""
-    seen, stack = set(), list(ob.users_collection)
+    seen, stack = set(), list(users_collection(ob))
     while stack:
         c = stack.pop()
         if c.name in seen:
