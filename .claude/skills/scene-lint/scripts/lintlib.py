@@ -38,6 +38,9 @@ DEFAULT_RULES = {
     "cable_end_hardware_m": 0.05,   # a cable end that enters a wall (or any bare surface) needs hardware (box, gland, sleeve...) this close, else it is a dead end
     "cable_rigid_depth_max_m": 0.005,   # a cable (centreline or edges) deeper than this inside another solid is a defect (cable_in_rigid)
     "cable_end_zone_m": 0.05,       # the last stretch of a cable that may enter a box, meter or terminal head-on (cable_in_rigid)
+    "cable_bend_min_ratio": 3.8,    # a cable's centreline bends no tighter than this many outside diameters (cable_bend): linear-runs builds 4, less 5 % for measuring
+    "service_wall_offset_m": 0.1,   # a cable, conduit or pipe in the walk zone below head_min_m sits within this of a wall (wall_offset)
+    "walk_zone_m": 1.0,             # the walk zone: this far to either side of a walk path
     "conduit_end_tol_m": 0.02, "cap_max_m": 0.4, "vent_pocket_min_m": 0.15,   # a blind pocket shallower than this reads as a vent on solid wall
     "door_min_width_m": 0.91, "door_min_height_m": 2.0,   # same limits as layout-2d/check_layout.py
     "passage_min_width_m": 0.91, "passage_window_m": 0.35,   # clear width = nearest left plus nearest right within this much path each way (a body depth)

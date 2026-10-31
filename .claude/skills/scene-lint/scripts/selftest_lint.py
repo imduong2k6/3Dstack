@@ -405,6 +405,10 @@ t = C["cable_ends"]["ends"]
 check(t["dead_end"] == 11 and t["terminated"] == 2 and t["attached"] == 33, f"end tally {t}")   # dead: hook, tail, floaters 4, bare entry, sign, window, bundle 2
 check(C["cable_ends"]["checked"] == 15 and C["cable_ends"]["unresolved"] == 1, f"cables checked, unresolved: {C['cable_ends']}")
 has(rep, "cable_sag", "Cable_Droop", absent=("Cable_Ok", "Cable_Bundle"))
+has(rep, "cable_bend", "Cable_Hook", "Cable_Droop", "Cable_Bundle", "Cable_Entry", absent=("Cable_Ok", "Cable_Chain", "Cable_Tail", "Cable_EndsOk", "Cable_Ring"))
+check(C["cable_bend"]["unmeasured"] == ["Cable_Ring"] and C["cable_bend"]["checked"] == 14, f"cable_bend: the closed loop is listed as unmeasured, never a pass: {C['cable_bend']['unmeasured']}, checked {C['cable_bend']['checked']}")
+check(next(it for it in C["cable_bend"]["items"] if it["object"] == "Cable_Bundle")["pieces"] == 2, "cable_bend: two strands of the bundle are kinked")
+has(rep, "wall_offset", "Cable_Hook")
 has(rep, "conduit_open_ends", "Conduit_Open", "Conduit_Merged", absent=("Conduit_Ok",))
 cm = next(it for it in C["conduit_open_ends"]["items"] if it["object"] == "Conduit_Merged")
 check(cm["what"].startswith("1 open end(s)") and "2.2" in cm["what"], f"merged conduit (18 ends): only the short piece is open: {cm['what']}")
@@ -632,6 +636,84 @@ for it in older["checks"]["cable_ends"]["items"]:
 json.dump(older, open(os.path.join(out, "key_old.json"), "w"))
 k3 = lint.run_lint(project=None, out_dir=os.path.join(out, "key3"), only=["cable_ends"], baseline=os.path.join(out, "key_old.json"))
 check(k3["baseline"]["gone"] >= 1 and len(k3["new"]["cable_ends"]) == len(k2["checks"]["cable_ends"]["items"]), f"an older baseline reads as new and gone once: {k3['baseline']}")
+
+# cable_bend and wall_offset, in a fresh small scene so the tallies above stay as they are
+bpy.ops.wm.read_factory_settings(use_empty=True)
+sc = bpy.context.scene
+MAT = bpy.data.materials.new("M_Test")
+MAT["material_group"] = "plaster"
+cols.clear()
+col("COL_P3_Services")
+
+
+def arc_run(cx, cy, z, R, n=24):
+    """A quarter circle of radius R in plan, with straight lead-ins, as world points."""
+    arc = [(cx + R * math.cos(t), cy + R * math.sin(t), z) for t in (math.pi / 2 * i / n for i in range(n + 1))]
+    return [(cx + R, cy - 0.3, z), (cx + R, cy - 0.15, z)] + arc + [(cx - 0.15, cy + R, z), (cx - 0.3, cy + R, z)]
+
+
+S = "COL_P3_Services"
+box("SM_Floor_B", (-8, -8, -0.1), (8, 8, 0), S)
+# bends, away from the walk path: a 2 cm cable at 4 diameters (what linear-runs builds) and at 2, a corner, a 15 degree corner, a bundle with one kinked strand,
+# a 6 cm cable on the arc a 2 cm cable passes (the limit is in diameters), a marked kink, a closed loop
+tube("Cable_Arc_4d", arc_run(0, 6, 1.0, 0.08), radius=0.01)
+tube("Cable_Arc_2d", arc_run(1.5, 6, 1.0, 0.04), radius=0.01)
+tube("Cable_Kink", path((3, 6, 1.0), (3.5, 6, 1.0), (3.5, 6.5, 1.0), n=6), radius=0.01)
+tube("Cable_Gentle", path((5, 6, 1.0), (5.5, 6, 1.0), (5.5 + 0.5 * math.cos(math.radians(15)), 6 + 0.5 * math.sin(math.radians(15)), 1.0), n=6), radius=0.01)
+tube("Cable_Bundle_Kink", [path((-4, 6, 1.0), (-3.2, 6, 1.0), n=4), path((-4, 6, 1.1), (-3.2, 6, 1.1), n=4), path((-4, 6, 1.2), (-3.6, 6, 1.2), (-3.6, 6.4, 1.2), n=4)], radius=0.01)
+tube("Cable_Fat_Arc", arc_run(-6, 6, 1.0, 0.24), radius=0.03)
+tube("Cable_Fat_Tight", arc_run(-7, 3, 1.0, 0.08), radius=0.03)
+tube("Cable_Marked_Kink", path((6, 3, 1.0), (6.5, 3, 1.0), (6.5, 3.5, 1.0), n=6), radius=0.01, props={"bend_ok": 1})
+tube("Cable_Ring", [(4 + 0.3 * math.cos(a), 3 + 0.3 * math.sin(a), 1.0) for a in (2 * math.pi * j / 12 for j in range(12))], closed=True)
+bd = lint.run_lint(project=None, out_dir=os.path.join(out, "bend"), only=["cable_bend"])
+cb = bd["checks"]["cable_bend"]
+tight = {it["object"]: it for it in cb["items"]}
+check(set(tight) == {"Cable_Arc_2d", "Cable_Kink", "Cable_Bundle_Kink", "Cable_Fat_Tight"}, f"cable_bend: tight bends only: {sorted(tight)}")
+check(cb["checked"] == 7 and cb["unmeasured"] == ["Cable_Ring"] and not bd["summary"]["errors"], f"cable_bend: 7 measured, the loop unmeasured: {cb['checked']} {cb['unmeasured']}")
+check(all(it["class"] == "major" and it["what"].startswith("sharp bend: radius ") for it in tight.values()) and tight["Cable_Bundle_Kink"]["pieces"] == 1, "cable_bend is a major, one item per cable")
+# measured: the radius in diameters, from the rings of the mesh
+open(os.path.join(out, "bend_all.yaml"), "w").write("cable_bend_min_ratio: 100\n")
+bd2 = lint.run_lint(project=None, out_dir=os.path.join(out, "bend2"), only=["cable_bend"], rules=os.path.join(out, "bend_all.yaml"))
+ratio = {it["object"]: it["ratio"] for it in bd2["checks"]["cable_bend"]["items"]}
+check(3.95 < ratio["Cable_Arc_4d"] < 4.05 and 1.95 < ratio["Cable_Arc_2d"] < 2.05 and 3.95 < ratio["Cable_Fat_Arc"] < 4.05 and 1.3 < ratio["Cable_Fat_Tight"] < 1.37, f"cable_bend ratios: {ratio}")
+check(ratio["Cable_Kink"] < 1.5 and ratio["Cable_Gentle"] > 7 and "Cable_Marked_Kink" not in ratio, f"cable_bend: a corner is under 1.5 diameters, 15 degrees over 7, bend_ok is skipped: {ratio}")
+open(os.path.join(out, "bend_rules.yaml"), "w").write("cable_bend_min_ratio: 1.5\n")
+bd3 = lint.run_lint(project=None, out_dir=os.path.join(out, "bend3"), only=["cable_bend"], rules=os.path.join(out, "bend_rules.yaml"))
+check({it["object"] for it in bd3["checks"]["cable_bend"]["items"]} == {"Cable_Kink", "Cable_Bundle_Kink", "Cable_Fat_Tight"}, "cable_bend_min_ratio 1.5 lets the 2 diameter arc through")
+# wall offset: a wall 0.7 m from a walk path along y = 0.5 (zone 1 m each side)
+box("SM_Wall_Side", (-4, 1.2, 0), (4, 1.4, 3), S)
+tube("Cable_Hugs", path((-2, 1.17, 1.5), (2, 1.17, 1.5), n=8), radius=0.01)                  # 2 cm off the wall face
+tube("Cable_Off", path((-2, 0.8, 1.5), (2, 0.8, 1.5), n=8), radius=0.01)                     # 0.39 m off it
+tube("Cable_Cross", path((0, 1.17, 1.5), (0, -0.4, 1.5), n=8), radius=0.01)                  # leaves the wall and crosses the walk
+tube("Cable_Overhead", path((-2, 0.8, 2.3), (2, 0.8, 2.3), n=8), radius=0.01)                # an overhead span above 2.1 m
+tube("Conduit_Free", path((1, 0.8, 0), (1, 0.8, 2.0), n=4), radius=0.02)                     # a free-standing run
+tube("Cable_Offset_Ok", path((-2, 0.7, 1.5), (2, 0.7, 1.5), n=8), radius=0.01, props={"offset_ok": 1})
+tube("Cable_Outside", path((-2, -3, 1.5), (2, -3, 1.5), n=8), radius=0.01)                   # outside the zone
+walk = os.path.join(out, "walk_wo.json")
+json.dump({"paths": {"main": [[-3, 0.5], [3, 0.5]]}}, open(walk, "w"))
+wo = lint.run_lint(project=None, out_dir=os.path.join(out, "wo"), only=["wall_offset"], walk=walk)
+w = {it["object"]: it for it in wo["checks"]["wall_offset"]["items"]}
+check(set(w) == {"Cable_Off", "Cable_Cross", "Conduit_Free"} and wo["checks"]["wall_offset"]["checked"] == 4 and not wo["summary"]["errors"],
+      f"wall_offset: the free runs only (4 runs are in the zone below 2.1 m): {sorted(w)} {wo['checks']['wall_offset']['checked']}")
+check(0.35 < w["Cable_Off"]["worst_m"] < 0.45 and 1.5 < w["Cable_Cross"]["worst_m"] < 1.7 and 0.3 < w["Conduit_Free"]["worst_m"] < 0.45
+      and all(it["class"] == "major" and "over 10 cm from any wall" in it["what"] for it in w.values()), f"wall_offset distances: {[(k, v['worst_m']) for k, v in w.items()]}")
+check(0 < w["Cable_Cross"]["points"] < w["Cable_Cross"]["in_zone"], f"the crossing cable is near the wall at one end only: {w['Cable_Cross']}")
+open(os.path.join(out, "wo_rules.yaml"), "w").write("service_wall_offset_m: 0.5\n")
+wo2 = lint.run_lint(project=None, out_dir=os.path.join(out, "wo2"), only=["wall_offset"], walk=walk, rules=os.path.join(out, "wo_rules.yaml"))
+check({it["object"] for it in wo2["checks"]["wall_offset"]["items"]} == {"Cable_Cross"}, "service_wall_offset_m 0.5 passes the runs 0.39 m off the wall")
+# the visible set scopes both checks: an object nobody sees is not judged
+names = [o.name for o in bpy.data.objects]
+vis = os.path.join(out, "vis_wo.json")
+json.dump({"tested": names, "visible": {n: {"cams": []} for n in names if n not in ("Cable_Off", "Cable_Kink")}}, open(vis, "w"))
+wo3 = lint.run_lint(project=None, out_dir=os.path.join(out, "wo3"), only=["wall_offset", "cable_bend"], walk=walk, visible=vis)
+check({it["object"] for it in wo3["checks"]["wall_offset"]["items"]} == {"Cable_Cross", "Conduit_Free"} and "Cable_Kink" not in {it["object"] for it in wo3["checks"]["cable_bend"]["items"]},
+      "wall_offset and cable_bend leave out what the visible set does not hold")
+# no walk path, or no wall, is a skip with its reason, never a pass
+wo4 = lint.run_lint(project=None, out_dir=os.path.join(out, "wo4"), only=["wall_offset"])
+check(wo4["checks"]["wall_offset"]["status"] == "skipped" and "walk" in wo4["summary"]["skipped"]["wall_offset"], "wall_offset without a walk path is skipped")
+bpy.data.objects.remove(bpy.data.objects["SM_Wall_Side"])
+wo5 = lint.run_lint(project=None, out_dir=os.path.join(out, "wo5"), only=["wall_offset"], walk=walk)
+check(wo5["checks"]["wall_offset"]["status"] == "skipped" and "no wall" in wo5["summary"]["skipped"]["wall_offset"], "wall_offset without a wall is skipped")
 
 # the yaml subset reader
 y = lib.parse_yaml("a: 1\nb: [x, y]\nc:\n  d: true\n  e:\n    - p\n    - q\nf: 'z' # note\n")

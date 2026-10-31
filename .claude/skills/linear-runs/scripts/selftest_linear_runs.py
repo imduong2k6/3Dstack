@@ -173,9 +173,9 @@ if "Cable_R3" in S:
     check(abs(float(vs[np.argmin(vs[:, 2]), 0]) - 2.5) < 0.1, "R3's lowest point is mid-span")
 
 # ---- lint on the result ----------------------------------------------------------
-lr = lint.run_lint(out_dir=out, only=["cable_ends", "cable_in_rigid", "conduit_open_ends", "floating"])
+lr = lint.run_lint(out_dir=out, only=["cable_ends", "cable_in_rigid", "cable_bend", "conduit_open_ends", "floating"])
 mine = ("Cable_", "Conduit_", "Saddle_", "Clip_")
-for name in ("cable_ends", "cable_in_rigid", "conduit_open_ends", "floating"):
+for name in ("cable_ends", "cable_in_rigid", "cable_bend", "conduit_open_ends", "floating"):   # cable_bend: the builder bends a cable at 4 diameters, the lint limit is 3.8
     ch = lr["checks"].get(name, {})
     items = [it for it in ch.get("items", []) if any(m in it["object"] for m in mine)]
     check(ch.get("status") != "error" and not items, f"lint {name}: {ch.get('status')}, {len(items)} item(s) on built runs"

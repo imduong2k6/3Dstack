@@ -50,7 +50,7 @@ The `detail-inventory` row as it is (`from`, `to`, `by`, `metric` or `dia_mm` wi
 
 - **Routes** a run along its wall, ceiling or floor on straight axis moves, offset from the surface by its radius plus 2 mm. It picks the shortest route with the fewest bends that keeps a surface behind it, and tries over or under whatever blocks it. Rigid runs first, then cables, so each cable goes around the conduit already built.
 - **Refuses** a run that would touch any solid outside its two anchors (five rays along every segment, corners tested for being inside), or a run already built.
-- **Bends** at the radius (default 4 times the outside diameter for conduit and cable, 1.5 for pipes, 1 for ducts; at least 12 segments a bend, no facet over 8 degrees). A bend squeezed by a short straight is built tighter and listed in the warnings.
+- **Bends** at the radius (default 4 times the outside diameter for conduit and cable, 1.5 for pipes, 1 for ducts; at least 12 segments a bend, no facet over 8 degrees). A bend squeezed by a short straight is built tighter and listed in the warnings. `scene-lint`'s `cable_bend` reads a cable's radius back from the mesh and flags anything under 3.8 diameters (4 less 5 % for measuring), so a squeezed cable bend shows in both.
 - **Ends** each run 8 mm inside its anchor, so lint reads it as attached.
 - **Supports**: saddles on conduit, clips on cable, clamps on pipes and ducts, one within 0.15 m of each end of each straight (0.08 m for clips) and at the spacing between, each one on the surface found behind the run. All supports of a run share one mesh. Default spacing: conduit 0.9 m (`placement-phases`), cable 0.3 m, pipe 1.2 m, downpipe and duct 1.5 m. Change them with `clip_m` from a sourced metrics row.
 - **Hangs** cable runs with `hang` or `sag_m` as catenaries between their points. The longest span sags `sag_m` (default 3 % of it) and shorter spans less, as at equal tension. Hanging runs get no supports.
@@ -68,7 +68,7 @@ With `brief.yaml › cables: rig` or `guides`, build hanging runs with `emit="gu
 - every saddle and clip sits on a wall;
 - the hanging span sags to its target;
 - a repeat build and the command line give the same vertices;
-- lint finds nothing on the result (`cable_ends`, `cable_in_rigid`, `conduit_open_ends`, `floating`).
+- lint finds nothing on the result (`cable_ends`, `cable_in_rigid`, `cable_bend`, `conduit_open_ends`, `floating`).
 
 ```bash
 bash bin/blender-bg --python-exit-code 1 --python .claude/skills/linear-runs/scripts/selftest_linear_runs.py -- <out_dir>

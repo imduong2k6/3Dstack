@@ -23,6 +23,7 @@ import bmesh
 import bpy
 import numpy as np
 from mathutils import Euler, Vector
+from mathutils.kdtree import KDTree
 
 HERE = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else None
 if HERE:
@@ -856,6 +857,108 @@ def check_cable_in_rigid(c):
     c.add("cable_in_rigid", "major", sum(1 for s in cables if c.scoped(s.name) and not s.ob.get("overlap_ok")), items, extra={"hosts": len(hosts), "pairs_inside": pairs})
 
 
+BEND_ARM = 2   # a bend is judged over at most this many cable diameters each side of a point: a corner between long straights is a bend over that length
+
+
+def _neighbours(n, tris):
+    """Neighbours of every vertex along the triangles' edges, as (start of each vertex's list, the lists)."""
+    e = np.unique(np.sort(tris[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1).astype(np.int64) @ [n, 1])   # one key per edge
+    a, b = e // n, e % n
+    src, dst = np.concatenate([a, b]), np.concatenate([b, a])
+    order = np.argsort(src, kind="stable")
+    return np.searchsorted(src[order], np.arange(n + 1)), dst[order]
+
+
+def _tube_centreline(verts, nbr, lab, j, p, out):
+    """Centreline of the round tube piece j (lab == j) from its end (p, out): ring k is the vertices k edges from the end cap (the
+    vertices on the cap's plane), its centre their mean. -> (centres, diameter), or None when the piece does not read as a round tube:
+    no flat cap to start from, a ring that is not round, rings of very different size."""
+    mine = np.flatnonzero(lab == j)
+    front = mine[np.abs((verts[mine] - p) @ out) <= 1e-4]
+    if len(front) < 3:
+        return None
+    start, to = nbr
+    level = np.full(len(verts), -1)
+    level[front] = 0
+    k = 0
+    while len(front):   # a ring at a time: the unvisited neighbours of the last one
+        k += 1
+        cnt = start[front + 1] - start[front]
+        nb = to[np.repeat(start[front] - np.cumsum(cnt) + cnt, cnt) + np.arange(cnt.sum())]
+        front = np.unique(nb[level[nb] < 0])
+        level[front] = k
+    lv = level[mine]
+    if lv.min() < 0:
+        return None
+    v, m = verts[mine], int(lv.max()) + 1
+    centres = np.stack([np.bincount(lv, v[:, i], m) for i in range(3)], 1) / np.bincount(lv, minlength=m)[:, None]
+    dist = np.linalg.norm(v - centres[lv], axis=1)
+    on = dist > 0.2 * (np.bincount(lv, dist, m) / np.bincount(lv, minlength=m))[lv]   # the centre vertex of a fan cap is not on the ring
+    n_on = np.bincount(lv[on], minlength=m)
+    radius = np.bincount(lv[on], dist[on], m) / np.maximum(n_on, 1)
+    hi, lo = np.zeros(m), np.full(m, np.inf)
+    np.maximum.at(hi, lv[on], dist[on])
+    np.minimum.at(lo, lv[on], dist[on])
+    full = n_on >= 3
+    if m < 3 or full.sum() < 2 or np.any((hi - lo)[full] > 0.3 * radius[full]) or radius[full].max() > 1.5 * radius[full].min():
+        return None
+    return centres, 2 * float(np.median(radius[full]))
+
+
+def _tightest_bend(centres, d):
+    """(radius in diameters, point) of the tightest bend of a centreline. At every interior point the turning angle theta over its two
+    neighbouring segments, each counted up to BEND_ARM diameters long, gives the radius arm / theta: for the rings of a smooth arc that
+    is the arc's radius, for a corner between two long straights it is the arm over the angle, so a kink always reads as a tight bend."""
+    pts, keep = centres.tolist(), [0]
+    for i in range(1, len(pts)):
+        if math.dist(pts[i], pts[keep[-1]]) >= d / 8:   # rings closer than this are noise, not a bend
+            keep.append(i)
+    c = centres[keep]
+    if len(c) < 3:
+        return math.inf, None
+    seg = np.diff(c, axis=0)
+    ln = np.linalg.norm(seg, axis=1)
+    theta = np.arccos(np.clip(np.einsum("ij,ij->i", seg[:-1], seg[1:]) / (ln[:-1] * ln[1:]), -1, 1))
+    arm = np.minimum(ln[:-1], BEND_ARM * d) + np.minimum(ln[1:], BEND_ARM * d)
+    ratio = np.where(theta > 1e-3, arm / (2 * np.maximum(theta, 1e-3)) / d, np.inf)
+    i = int(ratio.argmin())
+    return float(ratio[i]), c[i + 1]
+
+
+def check_cable_bend(c):
+    r = c.rules
+    cables = [s for s in c.geo.of_kind("cable") if s.ob.type in ("MESH", "CURVE") and len(s.tris)]
+    if not cables:
+        return c.skip("cable_bend", "no object is a cable with a surface (tag kind=cable or name one)")
+    limit, items, checked, unmeasured = r["cable_bend_min_ratio"], [], 0, set()
+    for s in cables:
+        if not c.scoped(s.name) or s.ob.get("bend_ok"):
+            continue
+        lab, nbr, tight, measured = _pieces(len(s.verts), s.tris), None, [], 0   # a strand of a bundle is judged on its own
+        for ends, vs in c.cable_ends(s)[0]:
+            j = int(lab[np.argmin(((s.verts - vs[0]) ** 2).sum(1))])
+            nbr = nbr or _neighbours(len(s.verts), s.tris)
+            line = _tube_centreline(s.verts, nbr, lab, j, np.array(ends[0][0]), np.array(ends[0][1]))
+            if line is None:
+                unmeasured.add(s.name)
+                continue
+            measured += 1
+            ratio, at = _tightest_bend(*line)
+            if ratio < limit:
+                tight.append((ratio, at, line[1]))
+        checked += measured > 0
+        if not measured:
+            unmeasured.add(s.name)   # a closed loop, a cap that is not flat, a mesh that is not a round tube: not a pass
+        if tight:
+            ratio, at, dia = min(tight, key=lambda t: t[0])
+            items.append({"object": s.name, "ratio": round(ratio, 2), "diameter_m": round(dia, 4), "pieces": len(tight), "at": v3(at),
+                          "what": f"sharp bend: radius {ratio:.1f} diameters ({ratio * dia * 100:.1f} cm on a {dia * 1000:.0f} mm cable) near {v3(at)}, limit {limit:g}"
+                                  f"{f' ({len(tight)} strands)' if len(tight) > 1 else ''}; ease it to a radius of at least {limit * dia * 100:.1f} cm",
+                          "seen_by": c.seen_by(s.name)})
+    items.sort(key=lambda it: it["ratio"])
+    c.add("cable_bend", "major", checked, items, extra={"limit": limit, "unmeasured": sorted(unmeasured)})
+
+
 def _touching(a, b, tol, cache):
     key = (a.name, b.name)
     if key in cache:
@@ -1201,12 +1304,68 @@ def check_path_clearance(c):
     c.add("path_clearance", "major", checked, items, extra={"paths": summary})
 
 
+def check_wall_offset(c):
+    r, g = c.rules, c.geo
+    paths, _ = L.read_paths(c.paths.get("walk"), c.paths.get("layout"))
+    if not paths:
+        return c.skip("wall_offset", "no walk.json (and no path in plan/layout.json)")
+    kinds = {"cable", "conduit", "tube"}
+    runs = [s for s in g.solids.values() if s.kinds & kinds and "wall" not in s.kinds and len(s.verts) and c.scoped(s.name) and not s.ob.get("offset_ok")]
+    walls = [s for s in g.of_kind("wall") if len(s.tris) and not s.kinds & kinds]
+    if not runs:
+        return c.skip("wall_offset", "no service run in scope (cable, conduit, pipe, duct: tag kind=cable, conduit or tube, or name it)")
+    if not walls:
+        return c.skip("wall_offset", "no wall (tag kind=wall or name it)")
+    samples = np.array([(x, y, f) for pts in paths.values() for (x, y, _dx, _dy, f) in L.walk_samples(g, pts, 0.1) if f is not None]).reshape(-1, 3)
+    if not len(samples):
+        return c.skip("wall_offset", "no floor under the walk paths")
+    off, zone, top = r["service_wall_offset_m"], r["walk_zone_m"], r["head_min_m"]
+    tree = KDTree(len(samples))   # the walk samples in plan: the nearest one to a point gives its distance to the path and the floor to measure from
+    for i, (x, y, _) in enumerate(samples):
+        tree.insert((x, y, 0.0), i)
+    tree.balance()
+    lo, hi = np.array([w.lo for w in walls]) - off, np.array([w.hi for w in walls]) + off
+    near_wall = lambda p, reach: min([h[3] for w in walls for h in [w.bvh.find_nearest(Vector(p), reach)] if h[0] is not None], default=reach)
+    items, checked = [], 0
+    for s in runs:
+        pts = _edge_samples(s, 0.05, np.zeros(len(s.verts), int))[0]   # a point every 5 cm: a long edge has no vertex in its middle
+        box = (pts[:, 0] >= samples[:, 0].min() - zone) & (pts[:, 0] <= samples[:, 0].max() + zone) & (pts[:, 1] >= samples[:, 1].min() - zone) & (pts[:, 1] <= samples[:, 1].max() + zone)
+        pts = pts[box]
+        if not len(pts):
+            continue
+        cell = np.round(pts / 0.02).astype(np.int64)
+        cell -= cell.min(0)
+        pts = pts[np.unique((cell[:, 0] * 4_000_037 + cell[:, 1]) * 4_000_037 + cell[:, 2], return_index=True)[1]]   # one point per 2 cm cell
+        near = [tree.find((x, y, 0.0)) for x, y in pts[:, :2]]
+        dist, floor = np.array([h[2] for h in near]), samples[[h[1] for h in near], 2]
+        pts = pts[(dist <= zone) & (pts[:, 2] - floor <= top)]   # in the walk zone, and not an overhead span
+        if not len(pts):
+            continue
+        checked += 1
+        far = np.ones(len(pts), bool)
+        for i, w in enumerate(walls):
+            for k in np.flatnonzero(far & np.all((pts >= lo[i]) & (pts <= hi[i]), axis=1)):
+                if w.bvh.find_nearest(Vector(pts[k]), off)[0] is not None:
+                    far[k] = False
+        idx = np.flatnonzero(far)
+        if len(idx):
+            sel = idx[::max(1, len(idx) // 200)]   # how far, to 5 m, for a spread of the far points
+            ds = [near_wall(pts[k], 5.0) for k in sel]
+            worst, at = max(ds), pts[sel[int(np.argmax(ds))]]
+            items.append({"object": s.name, "points": int(len(idx)), "in_zone": int(len(pts)), "worst_m": round(float(worst), 2), "at": v3(at),
+                          "what": f"{len(idx)} of {len(pts)} points in the walk zone below {top:g} m are over {off * 100:g} cm from any wall (up to {worst:.2f} m, at {v3(at)}): "
+                                  f"run it along a wall or lift it above {top:g} m",
+                          "seen_by": c.seen_by(s.name)})
+    items.sort(key=lambda it: -it["worst_m"])
+    c.add("wall_offset", "major", checked, items, extra={"zone_m": zone, "offset_m": off})
+
+
 CHECKS = [("file_path", check_file_path), ("faces_no_material", check_faces_no_material), ("cameras_match", check_cameras),
           ("lights_match", check_lights), ("exposure_match", check_exposure), ("names_tags", check_names_tags),
           ("origin_objects", check_origin), ("visibility_states", check_visibility), ("wear_geometry", check_wear),
-          ("step_backup", check_steps), ("cable_ends", check_cables), ("cable_in_rigid", check_cable_in_rigid), ("conduit_open_ends", check_conduit_ends),
+          ("step_backup", check_steps), ("cable_ends", check_cables), ("cable_in_rigid", check_cable_in_rigid), ("cable_bend", check_cable_bend), ("conduit_open_ends", check_conduit_ends),
           ("floating", check_float_and_overlap), ("through_wall_openings", check_through_wall), ("door_sizes", check_doors),
-          ("stair_risers", check_stairs), ("path_clearance", check_path_clearance)]
+          ("stair_risers", check_stairs), ("path_clearance", check_path_clearance), ("wall_offset", check_wall_offset)]
 # a function may write several checks (cable_ends + cable_sag, floating + interpenetration); the key is what --only/--skip name
 
 
