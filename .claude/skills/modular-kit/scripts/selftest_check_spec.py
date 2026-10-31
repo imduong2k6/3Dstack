@@ -96,6 +96,7 @@ def test_pivot():
     assert cs.pivot_anchor("center") == {"x": "center", "y": "center", "z": "center"}
     assert cs.pivot_anchor("grid-corner") == {"x": "min", "y": "min", "z": "min"}
     assert cs.pivot_anchor("bottom") == {"z": "min"}
+    assert cs.pivot_anchor("bottom-left-front") == {"x": "min", "y": "min", "z": "min"}   # the facade modules' pivot (references/facade-pcg.md): bottom-left of the outer face, outer face -Y
     assert cs.pivot_anchor("open-end-centre-on-axis") is None and cs.pivot_anchor("top-bottom") is None
 
 

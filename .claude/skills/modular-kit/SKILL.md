@@ -19,6 +19,8 @@ The kit plan comes first; the Modeler builds pieces from the specs with the `mod
 
 For piece roles and counts, grid starting points and storytelling details, read the `environment-artist` skill (its pipeline notes say what to ignore).
 
+**Walls from modules.** When the scene has many walls of a few heights, build them from storey-class modules and a pattern per wall (an Unreal PCG graph or Geometry Nodes places them) instead of one whole-height piece per wall: storey classes measured from the blockout, the pivot rule, plain modules with a scalable filler, corners, bays with sockets, a module CSV and per-wall patterns with a fit check. Read `references/facade-pcg.md`.
+
 ## Asset spec (`kit/<asset>.md`)
 
 One format for every piece. Check it before the spec goes to a Modeler (it exits 1 on any error; `--migrate` renames the old `id`, `source: build` and `material` keys in place and leaves `ends_local` for a person):
