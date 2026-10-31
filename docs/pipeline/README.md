@@ -86,6 +86,7 @@ After G2 two lanes run at once: the asset lane builds kit pieces and props headl
 | [studio-workflows.md](studio-workflows.md) | How game and VFX studios staff and run environment work, and what v4 took from it |
 | [data-and-commits.md](data-and-commits.md) | Project folder layout, `brief.yaml` keys, data contracts for the form and board, save points and commits |
 | [improvements.md](improvements.md) | What changed in v5 and v4, suggestions, and what still needs a test |
+| [map/](map/) | Source of the Pipeline Map artifact, where pipeline changes are requested and tracked, and how to rebuild it |
 | [schemas/](schemas/) | JSON Schemas for the brief, gate entries, feedback, the palette and the toolbox manifest |
 | [examples/](examples/) | The hotel corridor example used on the board |
 

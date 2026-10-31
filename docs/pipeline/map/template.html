@@ -1,0 +1,597 @@
+<title>3Dstack Pipeline Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout concept: the pipeline drawn the way layout-2d draws a scene: a metre grid, an ID on every shape, one working surface per view. */
+:root{
+  --bg:#EDF0F3;--surface:#FBFCFD;--sunk:#E2E7EC;--ink:#17212B;--muted:#55636F;--line:#C6CFD7;
+  --accent:#0A6A94;--accent-ink:#FFFFFF;--gate:#B9500A;
+  --real:#1B7548;--real-bg:#DDF0E5;--pilot:#2A68A8;--pilot-bg:#DEE9F5;--parts:#946200;--parts-bg:#F6EBCD;--none:#AE3442;--none-bg:#F7E0E2;
+  --lane-a:#DCEEF0;--lane-l:#E5E5F4;--lane-r:#E9ECEF;
+  --display:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;--body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;--mono:"IBM Plex Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11171D;--surface:#192129;--sunk:#222C35;--ink:#E5EBF0;--muted:#9BA9B5;--line:#33404C;
+  --accent:#62BCE4;--accent-ink:#0B1A22;--gate:#F19A55;
+  --real:#58C994;--real-bg:#17352A;--pilot:#83B5EB;--pilot-bg:#1B2E44;--parts:#E3B654;--parts-bg:#3A2F12;--none:#F2909A;--none-bg:#40202A;
+  --lane-a:#17292E;--lane-l:#1F2238;--lane-r:#1D252C;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11171D;--surface:#192129;--sunk:#222C35;--ink:#E5EBF0;--muted:#9BA9B5;--line:#33404C;
+  --accent:#62BCE4;--accent-ink:#0B1A22;--gate:#F19A55;
+  --real:#58C994;--real-bg:#17352A;--pilot:#83B5EB;--pilot-bg:#1B2E44;--parts:#E3B654;--parts-bg:#3A2F12;--none:#F2909A;--none-bg:#40202A;
+  --lane-a:#17292E;--lane-l:#1F2238;--lane-r:#1D252C;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3,h4{font-family:var(--display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,5vw,44px);font-weight:700;letter-spacing:.005em}
+h2{font-size:28px;font-weight:700;margin-bottom:6px}
+h3{font-size:22px;font-weight:600}
+h4{font-size:13px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:14px 0 4px}
+p{margin:0 0 8px}
+code{font:12.5px/1.4 var(--mono);overflow-wrap:anywhere}
+.head{padding-block:26px 14px}
+.head .lede{max-width:72ch;margin-top:8px}
+.head .counts{color:var(--muted);font-size:14px;margin-top:6px}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--surface);border-block:1px solid var(--line)}
+.bar .wrap{display:flex;flex-direction:column;gap:6px;padding-block:8px}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:thin}
+.tabs button{font:600 15px var(--display);letter-spacing:.02em;white-space:nowrap;background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:5px 9px;cursor:pointer}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tools input{flex:1 1 200px;min-width:0;font:14px var(--body);padding:5px 9px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:3px}
+.btn{font:600 14px var(--body);padding:5px 12px;border-radius:3px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.55;cursor:default}
+.msg{font-size:13px;color:var(--muted);flex:1 1 100%}
+.msg:empty{display:none}
+[hidden]{display:none!important}
+main{padding-block:10px 80px}
+.view{display:flex;flex-direction:column;gap:14px}
+.view h3{margin-top:14px}
+.intro{max-width:75ch}
+.fig{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:3px}
+.figscroll{overflow-x:auto}
+.fig svg{display:block;width:100%;max-width:1400px;margin-inline:auto;height:auto;color:var(--ink)}
+.fig figcaption{padding:9px 12px;font-size:14px;color:var(--muted);border-top:1px solid var(--line);max-width:100%}
+.lnk{all:unset;color:var(--accent);text-decoration:underline;cursor:pointer}
+.lnk:focus-visible{outline:2px solid var(--accent)}
+/* SVG classes */
+.n rect{fill:var(--surface);stroke:currentColor;stroke-width:1.1}
+.n .t{font:600 14px var(--display);fill:currentColor;letter-spacing:.01em}
+.n .s{font:11.5px var(--body);fill:var(--muted)}
+.n .id{font:10px var(--mono);fill:var(--muted)}
+.n[data-go]{cursor:pointer}
+.n[data-go]:hover rect,.n[data-go]:focus rect{stroke-width:2.4}
+.n[data-go]:focus,.g:focus{outline:none}
+.n.plain rect{fill:var(--sunk);stroke:var(--line)}
+.n.st-real rect{fill:var(--real-bg);stroke:var(--real)}
+.n.st-pilot rect{fill:var(--pilot-bg);stroke:var(--pilot)}
+.n.st-parts rect{fill:var(--parts-bg);stroke:var(--parts)}
+.n.st-none rect{fill:var(--none-bg);stroke:var(--none)}
+.g polygon{fill:var(--surface);stroke:var(--gate);stroke-width:2}
+.g .gt{font:700 13px var(--display);fill:var(--gate)}
+.g{cursor:pointer}
+.g:hover polygon,.g:focus polygon{stroke-width:3.4}
+.g.st-parts polygon{stroke-dasharray:5 3}
+.a{fill:none;stroke:currentColor;stroke-width:1.2}
+.a.bad{stroke:var(--none)}
+.al{font:11.5px var(--body);fill:var(--muted)}
+.band rect{fill:var(--lane-r);stroke:var(--line)}
+.band.lane-a rect{fill:var(--lane-a)}
+.band.lane-l rect{fill:var(--lane-l)}
+.band .bt,.bt{font:600 13px var(--display);fill:var(--muted);letter-spacing:.02em}
+/* tables */
+.tw{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:3px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+table.wide{min-width:860px}
+th,td{padding:7px 10px;text-align:left;vertical-align:top;border-top:1px solid var(--line)}
+thead th{border-top:0;font:600 12px var(--display);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);background:var(--sunk)}
+tbody th{font-weight:600}
+td:last-child{width:1%;white-space:nowrap}
+.note{color:var(--muted);font-size:14px}
+/* items */
+.stage,.dec,.item,.skill{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:12px 14px;min-width:0}
+.stage header,.dec header,.item header,.skill header{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-bottom:6px}
+.stage h3{margin:0;flex:1 1 220px;font-size:23px}
+.rail{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.rail-g{display:flex;gap:6px;align-items:center}
+#tree-vp{overflow:auto;height:calc(100vh - 170px);min-height:440px;border:1px solid var(--line);border-radius:3px;background:var(--surface);cursor:grab;--line2:var(--muted)}
+#tree-vp.drag{cursor:grabbing;user-select:none}
+#tree-vp:focus-visible{outline:2px solid var(--accent)}
+#tree{display:flex;align-items:flex-start;width:max-content;padding:34px 24px 24px 16px;--sy:56px;--w:300px}
+.col{position:relative;flex:none;padding:8px 26px 0 0}
+.col::before{content:"";position:absolute;top:var(--sy);left:0;right:0;border-top:1.5px solid var(--line2)}
+.root::before{left:60px}
+.root .sp,.end .sp{width:200px}
+.end{padding-right:0}
+.end::before{right:auto;width:12px}
+.sp{position:relative;box-sizing:border-box;width:280px;height:96px;margin-left:12px;padding:8px 10px;border:1.5px solid var(--line2);border-radius:3px;background:var(--sunk);display:flex;flex-direction:column;justify-content:space-between;user-select:none}
+.sp::before{content:"";position:absolute;left:-10px;top:40px;border:6px solid transparent;border-left:8px solid var(--line2);border-right:0}
+.root .sp::before,.loop>.col:nth-child(2) .sp::before{display:none}
+.sp::after{content:"";position:absolute;left:16px;top:100%;height:14px;border-left:1.5px solid var(--line2)}
+.closed .sp::after,.end .sp::after,.root .sp::after{display:none}
+.sp-real{background:var(--real-bg);border-color:var(--real)}
+.sp-pilot{background:var(--pilot-bg);border-color:var(--pilot)}
+.sp-parts{background:var(--parts-bg);border-color:var(--parts)}
+.sp-none{background:var(--none-bg);border-color:var(--none)}
+.sp.gate{border:2px solid var(--gate)}
+.sp-t{display:flex;gap:8px;align-items:center;font:600 16px/1.15 var(--display);color:var(--ink)}
+.sp-n{margin:0;font-size:12.5px;color:var(--muted)}
+.sp-f{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+.sp-f .st{margin-right:auto}
+.gd{flex:none;width:44px;height:29px}
+.gd polygon{fill:var(--surface);stroke:var(--gate);stroke-width:1.6}
+.gd text{font:700 12px var(--display);fill:var(--gate)}
+.tg{all:unset;box-sizing:border-box;width:24px;height:24px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--ink);text-align:center;font:600 15px/22px var(--mono);cursor:pointer}
+.tg::before{content:"−"}
+.closed .tg::before{content:"+"}
+.tg:focus-visible{outline:2px solid var(--accent)}
+.closed>.kids{display:none}
+.closed>.sp{width:200px}
+.closed>.sp .st{display:none}
+#tree.searching .closed>.kids{display:flex}
+.kids{display:flex;margin-top:14px}
+.kid{position:relative;flex:none;box-sizing:border-box;width:320px;padding:14px 8px 0 12px}
+.kid::before{content:"";position:absolute;top:0;left:0;right:0;border-top:1.5px solid var(--line2)}
+.kid:first-child::before{left:28px}
+.kid:last-child::before{right:auto;width:28px}
+.kid:first-child:last-child::before{display:none}
+.kid::after{content:"";position:absolute;top:0;left:28px;height:14px;border-left:1.5px solid var(--line2)}
+.snode{display:flex;gap:6px;align-items:flex-start;justify-content:space-between;box-sizing:border-box;min-height:56px;padding:8px 10px;margin-bottom:0;border:1.5px solid var(--line2);border-radius:3px;background:var(--sunk);position:relative}
+.snode::after{content:"";position:absolute;left:15px;top:100%;height:10px;border-left:1.5px solid var(--line2)}
+.snode+.leafs{padding-top:10px}
+.leafs{margin-left:16px;padding-left:14px}
+.leaf{position:relative;padding-bottom:8px}
+.leaf::before{content:"";position:absolute;left:-14px;top:0;bottom:0;border-left:1.5px solid var(--line2)}
+.leaf::after{content:"";position:absolute;left:-14px;top:15px;width:12px;border-top:1.5px solid var(--line2)}
+.leaf:last-child::before{bottom:auto;height:15px}
+.lbox{padding:6px 9px 7px;border:1px solid var(--line);border-left-width:3px;border-radius:3px;background:var(--bg);font-size:13.5px;line-height:1.4}
+.lbox p{margin:0 0 4px}
+.lbox p:last-child{margin-bottom:0}
+.lbox ul{margin:0;padding-left:16px}
+.lbox li{margin-bottom:3px}
+.lbox .who{font-size:12.5px}
+.lk{display:block;margin-bottom:2px;font:600 11px var(--display);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.k-does{border-left-color:var(--accent)}
+.k-checks{border-left-color:var(--real)}
+.k-finds,.k-asks{border-left-color:var(--pilot)}
+.k-fail{border-left-color:var(--none)}
+.k-gap{border-left-color:var(--parts);background:var(--parts-bg)}
+.blinks{font-size:12.5px;color:var(--muted)}
+.fork{position:relative;flex:none;display:flex;flex-direction:column;gap:64px}
+.track{position:relative;display:flex;align-items:flex-start;padding-bottom:14px;border-radius:3px}
+.track>.col:last-of-type{flex:1 0 auto}
+.lane-a{background:var(--lane-a)}
+.lane-l{background:var(--lane-l)}
+.loop{background:var(--lane-r);margin-left:70px}
+.trk-l{position:absolute;left:12px;top:-27px;margin:0;font:600 13px var(--display);color:var(--ink);white-space:nowrap}
+.trk-l span{font:12.5px var(--body);color:var(--muted);margin-left:6px}
+.fork>.track::before,.fork>.track::after{content:"";position:absolute;border-left:1.5px solid var(--line2);z-index:0}
+.fork>.track::before{left:0}
+.fork>.track::after{right:0}
+.fork>.track:first-child::before,.fork>.track:first-child::after{top:var(--sy);bottom:-64px}
+.fork>.track:last-child::before,.fork>.track:last-child::after{top:0;height:var(--sy)}
+@media (max-width:640px){#tree-vp{height:72vh}}
+.head.compact{padding-block:10px 8px;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 16px}
+.head.compact h1{font-size:26px}
+.head.compact .lede{display:none}
+.head.compact .counts{margin:0}
+#v-map{gap:8px}
+@media (min-width:1500px){
+  .bar .wrap{flex-direction:row;align-items:center;gap:16px}
+  .bar .tabs{flex:1 1 auto;min-width:0}
+  .bar .tools{flex:0 1 560px}
+  #v-stages,#v-decisions,#v-ideas{display:grid;grid-template-columns:repeat(auto-fill,minmax(640px,1fr));align-items:start}
+  #v-stages>#st-gates,#v-decisions>h2,#v-decisions>.intro,#v-ideas>h2,#v-ideas>.intro{grid-column:1/-1}
+  #v-roadmap .grp{display:grid;grid-template-columns:repeat(auto-fill,minmax(560px,1fr));align-items:start}
+  #v-roadmap .grp>h3,#v-roadmap .grp>.note{grid-column:1/-1}
+}
+.crow{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:8px 12px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.crow time{font:12.5px var(--mono);color:var(--muted)}
+.crow b{font-weight:600;flex:1 1 300px}
+.crow p{flex:1 1 100%;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.crow .from{flex:1 1 100%;font-size:12.5px;color:var(--muted)}
+#changes-list,#notes-list{display:flex;flex-direction:column;gap:8px}
+.nrow .reply{margin-top:6px;padding:5px 9px;border-left:3px solid var(--accent);background:var(--sunk);border-radius:2px}
+.dec h3{margin:0 0 8px;font-size:21px}
+.sn{font:700 26px var(--display);color:var(--accent);min-width:1.2em}
+.who{color:var(--muted)}
+.io{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 24px}
+ul{margin:0 0 6px;padding-left:18px}
+.plainlist li{margin-bottom:3px}
+.myview{background:var(--sunk);padding:8px 11px;border-radius:3px;margin:12px 0 0}
+.gl{font:700 13px var(--display);color:var(--gate);border:1.5px solid var(--gate);padding:0 7px;border-radius:2px;white-space:nowrap}
+.gl.none{color:var(--muted);border-color:var(--line);font-weight:500}
+.st{font:500 12px var(--body);padding:1px 7px;border-radius:2px;white-space:nowrap;display:inline-block}
+.st-real{color:var(--real);background:var(--real-bg)}
+.st-pilot{color:var(--pilot);background:var(--pilot-bg)}
+.st-parts{color:var(--parts);background:var(--parts-bg)}
+.st-none{color:var(--none);background:var(--none-bg)}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+td .chips{display:inline-flex}
+.chip{font:12.5px var(--mono);padding:1px 7px;border:1px solid var(--line);border-radius:2px;background:var(--bg);color:var(--accent);cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip.rc{font-weight:500}
+code.file{padding:1px 7px;border:1px solid var(--line);border-radius:2px;background:var(--bg)}
+.cb{margin-left:auto;font:500 12px var(--body);padding:1px 8px;border:1px solid var(--line);border-radius:2px;background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap}
+.cb:hover{color:var(--accent);border-color:var(--accent)}
+.cb[data-state="draft"]{color:var(--gate);border-color:var(--gate);font-weight:600}
+.cb[data-state="saved"]{color:var(--real);border-color:var(--real);font-weight:600}
+.iid{font:600 13px var(--mono);color:var(--accent)}
+.tch{font-size:12.5px;color:var(--muted)}
+.rs{font:500 12px var(--body);padding:1px 7px;border-radius:2px}
+.rs-ok{color:var(--real);background:var(--real-bg)}
+.rs-test{color:var(--parts);background:var(--parts-bg)}
+.rs-later{color:var(--muted);background:var(--sunk)}
+.you{font-size:12.5px;color:var(--muted)}
+.wt{font-weight:500}
+.wh{font-size:13px;color:var(--muted)}
+.yn{font-size:14px;border-left:0;background:var(--sunk);padding:5px 9px;border-radius:2px}
+.moved{font-size:14px;background:var(--real-bg);padding:5px 9px;border-radius:2px}
+.kvs{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);margin:4px 0 0}
+.kv b{font-weight:600;margin-right:3px}
+.rec{background:var(--sunk);padding:8px 11px;border-radius:3px}
+.warn{background:var(--parts-bg);padding:8px 11px;border-radius:3px}
+.ct{font:500 14px var(--mono);color:var(--muted)}
+.grp{display:flex;flex-direction:column;gap:8px}
+.gh{margin-top:18px;padding-bottom:3px;border-bottom:1px solid var(--line)}
+.skills{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
+@media(max-width:420px){.skills{grid-template-columns:1fr}}
+.nm{font-size:14px;font-weight:500}
+.tag{font-size:12px;padding:0 6px;background:var(--sunk);border-radius:2px;color:var(--muted)}
+.t-game{color:var(--pilot);background:var(--pilot-bg)}
+.t-cg{color:var(--none);background:var(--none-bg)}
+.b-rule{color:var(--gate);background:transparent;border:1px solid var(--gate)}
+.meta{font-size:12.5px;color:var(--muted)}
+.split{font-size:13.5px;padding:4px 8px;background:var(--sunk);border-radius:2px;margin:0}
+.split-split b{color:var(--gate)}
+.split-merge b,.split-slim b,.split-script b{color:var(--accent)}
+.split-leave{color:var(--muted);background:transparent;padding-inline:0}
+.cl{font:500 12px var(--body);padding:1px 7px;border-radius:2px}
+.cl-blocker{color:var(--none);background:var(--none-bg)}
+.cl-major{color:var(--parts);background:var(--parts-bg)}
+.cl-minor{color:var(--muted);background:var(--sunk)}
+.sh{margin-top:16px}
+.sh .lnk{font:500 14px var(--mono);text-transform:none;letter-spacing:0}
+.legend,.gaps{list-style:none;padding:0;display:flex;flex-direction:column;gap:6px}
+.gaps li{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:8px 12px;display:block}
+.gaps .cb{float:right;margin-left:8px}
+/* comment panel */
+.panel{position:fixed;z-index:20;right:0;bottom:0;width:min(420px,100%);background:var(--surface);border:1px solid var(--line);border-bottom:0;border-right:0;box-shadow:0 -6px 24px rgba(10,20,30,.25);padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:8px}
+.panel h4{margin:0;text-transform:none;letter-spacing:0;font-size:17px;color:var(--ink);padding-right:60px}
+.panel .x{position:absolute;right:max(12px,env(safe-area-inset-right,0px));top:9px}
+.pick{display:flex;flex-wrap:wrap;gap:4px}
+.pick button{font:500 13px var(--body);padding:3px 10px;border:1px solid var(--line);border-radius:2px;background:var(--bg);color:var(--ink);cursor:pointer}
+.pick button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.panel textarea,#general{width:100%;min-height:90px;font:14px/1.45 var(--body);padding:7px 9px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:3px;resize:vertical}
+.panel .hint{font-size:12.5px;color:var(--muted)}
+#notes-list{display:flex;flex-direction:column;gap:6px}
+.nrow{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:8px 12px}
+.nrow b{font-weight:600}
+.nrow .vv{font-size:12px;color:var(--muted);margin-left:6px}
+.nrow p{margin:3px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.hide{display:none!important}
+.flash{animation:fl 1.4s ease-out}
+@keyframes fl{0%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.flash{animation:none}}
+#copybox{width:100%;min-height:120px;font:12px var(--mono);background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+</style>
+
+<div class="wrap head">
+  <h1>3Dstack Pipeline Map</h1>
+  <p class="lede">Every stage, gate, route, agent, skill, script, file and rule in one place, with what has really run marked honestly. Check it, and press Comment on anything you'd change. Your comments stay as drafts on this device until you press Save feedback.</p>
+  <p class="counts">{{N_SKILLS}} skills, {{N_WORDS}} words · {{N_AGENTS}} agents · {{N_SCRIPTS}} scripts · 23 lint checks · {{N_ROAD}} roadmap items, {{N_DO}} marked do on your board · 11 open decisions. {{CHECKED}}.</p>
+</div>
+
+<div class="bar"><div class="wrap">
+  <div class="tabs" role="tablist" aria-label="Views" id="tabs">
+    <button role="tab" data-t="map">Map</button><button role="tab" data-t="stages">Stages and gates</button><button role="tab" data-t="loops">Loops</button>
+    <button role="tab" data-t="routes">Routes and modes</button><button role="tab" data-t="agents">Agents</button><button role="tab" data-t="skills">Skills</button>
+    <button role="tab" data-t="scripts">Scripts and checks</button><button role="tab" data-t="files">Files</button><button role="tab" data-t="rules">Rules</button>
+    <button role="tab" data-t="status">What has run</button><button role="tab" data-t="roadmap">Roadmap</button><button role="tab" data-t="decisions">Decisions</button>
+    <button role="tab" data-t="ideas">My suggestions</button><button role="tab" data-t="notes">Your comments <span id="n-count"></span></button><button role="tab" data-t="changes">Changes <span id="c-count"></span></button>
+  </div>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Search everything, for example lint, Tripo, inventory" aria-label="Search everything">
+    <button class="btn" id="copy" type="button">Copy all as text</button>
+    <button class="btn pri" id="save" type="button" disabled>Save feedback</button>
+    <span class="msg" id="msg" role="status"></span>
+  </div>
+</div></div>
+
+<main class="wrap">
+  <section class="view" id="v-map">
+    <div class="rail">
+      <div class="rail-g" role="group" aria-label="Zoom"><button type="button" class="btn" id="z-out" aria-label="Zoom out">−</button><span id="z-val" class="note">100 %</span><button type="button" class="btn" id="z-in" aria-label="Zoom in">+</button></div>
+      <button type="button" class="btn" id="t-all" aria-pressed="true">Hide all sub-nodes</button>
+      <div class="chips" aria-label="Jump to"><button type="button" class="chip" data-go="map" data-jump="bl-S0">Stage 0</button><button type="button" class="chip" data-go="map" data-jump="bl-S1">1</button><button type="button" class="chip" data-go="map" data-jump="bl-S2">2</button><button type="button" class="chip" data-go="map" data-jump="bl-S3">3</button><button type="button" class="chip" data-go="map" data-jump="bl-A1">4 Assets</button><button type="button" class="chip" data-go="map" data-jump="bl-P·">5 Level</button><button type="button" class="chip" data-go="map" data-jump="bl-T">Transfer</button><button type="button" class="chip" data-go="map" data-jump="bl-L1">Light</button><button type="button" class="chip" data-go="map" data-jump="bl-S9">Hand-off</button><button type="button" class="chip" data-go="map" data-jump="bl-R1">Review loop</button></div>
+    <ul class="legend" style="flex-direction:row;flex-wrap:wrap;gap:4px 12px;margin:0 0 0 auto">
+      <li><span class="st st-real">Ran on a real project</span></li><li><span class="st st-pilot">Ran on the pilot only</span></li><li><span class="st st-parts">Parts tested</span></li><li><span class="st st-none">Not built</span></li><li><span class="gl">G2</span> a gate you answer, depending on tier</li>
+    </ul>
+    </div>
+    <div id="tree-vp" tabindex="0" role="region" aria-label="The pipeline as a horizontal tree, from your prompt on the left to sign-off on the right. Each block has sub-nodes under it saying what it does, checks, researches and writes."><div id="tree">{{TREE}}</div></div>
+    <p class="note">It reads left to right, one long line. The two lanes run at the same time after G2, so they are drawn as two tracks over the same stretch. Drag the background or use the scrollbars to move, and Shift + wheel scrolls sideways. Stage 3's detail has been absorbing Stage 5 on the real project (see <button type="button" class="lnk" data-go="decisions" data-jump="r-D5">D5</button>).</p>
+    <div class="intro">
+      <h3>The shortest honest reading</h3>
+      <p>The Blender route works from prompt to sign-off, proven on one small pilot, and its first half on one large project. The Unreal route is a plan with tested scripts, not a working route. Checking is mostly code. Building is mostly agents typing numbers, and that is where the time goes.</p>
+      <p>Start with <button type="button" class="lnk" data-go="decisions">Decisions</button> and <button type="button" class="lnk" data-go="ideas">My suggestions</button> if you only have ten minutes.</p>
+    </div>
+  </section>
+  <section class="view" id="v-stages" hidden>{{STAGES}}</section>
+  <section class="view" id="v-loops" hidden>
+    <h2>The three loops everything repeats</h2>
+    <h3>Review round</h3>{{REVIEWFIG}}
+    <h3>Lanes and the live editor</h3>{{LANEFIG}}
+    <div class="intro"><h4>Other loops</h4>
+    <ul><li><b>Asset:</b> spec, Modeler, Asset Tech, supervisor per five, finished assets go to the level lane between its steps.</li>
+    <li><b>Research on trouble:</b> same reason failed twice, or a worker is blocked: <code>workflow-research</code> in problem mode, one to three fixes, one recommended.</li>
+    <li><b>Session start:</b> read <code>house-rules</code>, <code>log.md</code>, latest feedback, <code>backlog.md</code>, run <code>step_log.py diff</code>, check running agents, read the toolbox manifest, check both engines with one read-only call each.</li>
+    <li><b>Project to pipeline:</b> retro, ranked suggestions, your OK, then a skill edit, committed as <code>[pipeline]</code> and logged in <code>feedback/CHANGELOG.md</code>.</li></ul></div>
+  </section>
+  <section class="view" id="v-routes" hidden>{{ROUTES}}</section>
+  <section class="view" id="v-agents" hidden><h2>Agents</h2><p class="intro">Reviewers, researchers and the input reviewer have the engine servers removed, so they can't change the scene by mistake. Modelers, Asset Tech and the Generator keep only headless Blender. The preload figure is the skill text each agent carries from its first message, which is what the roadmap's preload diet would cut.</p>{{AGENTS}}</section>
+  <section class="view" id="v-skills" hidden><h2>Skills</h2><p class="intro">Labels are the ones from the Skills Map: category, and my proposed binding (Rule, Default, Toolkit). The last line answers your note about breaking skills down: split, slim, merge, script, or leave. <button type="button" class="lnk" data-go="ideas" data-jump="r-I3">Why not split them all</button>.</p>{{SKILLS}}</section>
+  <section class="view" id="v-scripts" hidden>{{SCRIPTS}}</section>
+  <section class="view" id="v-files" hidden><h2>Files</h2>{{DATAFIG}}{{FILES}}</section>
+  <section class="view" id="v-rules" hidden>{{RULES}}</section>
+  <section class="view" id="v-status" hidden>{{STATUS}}</section>
+  <section class="view" id="v-roadmap" hidden><h2>Roadmap</h2><p class="intro">From the audit report. You marked all items do on the board. Status is what the report says about each: adopt now, or test first, or later. Evidence and sources are in <code>reports/Pipeline skills audit and roadmap.md</code>. Gains are estimates, and none is measured.</p>{{ROADMAP}}</section>
+  <section class="view" id="v-decisions" hidden><h2>Decisions</h2><p class="intro">The roadmap's eleven questions, with my answer to each. Press Comment and choose Looks right to take my answer, or Change this and say what you want. On the board you left D2 and D6 blank, and the snapshot I can read has no answer for the others.</p>{{DECISIONS}}</section>
+  <section class="view" id="v-ideas" hidden><h2>My suggestions</h2><p class="intro">Where I'd push back, or do something else. In order of what I'd do first.</p>{{IDEAS}}</section>
+  <section class="view" id="v-notes" hidden>
+    <h2>Your comments</h2>
+    <label for="general"><h4>Anything about the whole map</h4></label>
+    <textarea id="general" placeholder="For example a stage you'd reorder, or something missing from this map"></textarea>
+    <div id="notes-list"></div>
+    <p class="note" id="notes-empty">No comments yet. Press Comment on any stage, skill or decision, and it shows up here.</p>
+  </section>
+  <section class="view" id="v-changes" hidden>
+    <h2>Changes</h2>
+    <p class="intro">Everything changed through this map, newest first. Press Comment on anything, press Save feedback, then tell me in chat to pick it up. I answer under your comment in Your comments and log what changed here. Changes to skills wait for your OK on an edit list, so they show as waiting until you give it.</p>
+    <div id="changes-list"></div>
+    <p class="note" id="changes-empty">Nothing logged yet.</p>
+  </section>
+</main>
+
+<aside class="panel" id="panel" hidden aria-label="Comment">
+  <h4 id="p-title"></h4>
+  <button class="btn x" id="p-close" type="button">Close</button>
+  <div class="pick" id="p-pick">
+    <button type="button" data-v="ok" aria-pressed="false">Looks right</button><button type="button" data-v="change" aria-pressed="false">Change this</button><button type="button" data-v="question" aria-pressed="false">Question</button><button type="button" data-v="remove" aria-pressed="false">Remove it</button>
+  </div>
+  <label for="p-note" class="hint">Your note. Kept as a draft until you press Save feedback.</label>
+  <textarea id="p-note"></textarea>
+</aside>
+<textarea id="copybox" hidden aria-label="Your comments as text"></textarea>
+
+<script>
+(function(){
+  var KEY = "pipeline-map-drafts";
+  var state = {};      // id -> {title, verdict, note, updated, dirty}
+  var db = null, cur = null;
+  var STATUS = {open:"Saved", answered:"Answered", waiting:"Waiting for your OK", doing:"In progress", done:"Done"};
+  var LABEL = {ok:"Looks right", change:"Change this", question:"Question", remove:"Remove it"};
+  var $ = function(id){ return document.getElementById(id); };
+  var saveBtn = $("save"), msg = $("msg");
+
+  function load(){ try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch(e){ return {}; } }
+  function store(){ try {
+      var d = {}; Object.keys(state).forEach(function(k){ if(state[k].dirty) d[k] = state[k]; });
+      localStorage.setItem(KEY, JSON.stringify(d));
+    } catch(e){} }
+  state = load();
+
+  function has(s){ return s && (s.verdict || (s.note && s.note.trim())); }
+  function paint(){
+    document.querySelectorAll(".cb").forEach(function(b){
+      var s = state[b.dataset.id];
+      var t = b.querySelector(".cb-t");
+      if(has(s)){ b.dataset.state = s.dirty ? "draft" : "saved"; t.textContent = s.dirty ? "Draft" : (STATUS[s.status] || "Saved"); }
+      else { delete b.dataset.state; t.textContent = "Comment"; }
+    });
+    var ids = Object.keys(state).filter(function(k){ return has(state[k]); });
+    var dirty = Object.keys(state).filter(function(k){ return state[k].dirty; });
+    $("n-count").textContent = ids.length ? "(" + ids.length + ")" : "";
+    saveBtn.disabled = !dirty.length;
+    saveBtn.textContent = dirty.length ? "Save feedback (" + dirty.length + ")" : "Save feedback";
+    var list = $("notes-list"); list.textContent = "";
+    ids.filter(function(k){ return k !== "_general" || state[k].reply; }).sort(function(a, b){
+      return (state[a].status === "done") - (state[b].status === "done") || (a < b ? -1 : 1);
+    }).forEach(function(k){
+      var s = state[k], r = document.createElement("div"); r.className = "nrow";
+      var b = document.createElement("b"); b.textContent = s.title || k; r.appendChild(b);
+      var v = document.createElement("span"); v.className = "vv"; v.textContent = (LABEL[s.verdict] ? LABEL[s.verdict] + " · " : "") + (s.dirty ? "draft" : (STATUS[s.status] || "Saved")); r.appendChild(v);
+      if(s.note){ var p = document.createElement("p"); p.textContent = s.note; r.appendChild(p); }
+      if(s.reply){ var a = document.createElement("p"); a.className = "reply"; a.textContent = "Claude: " + s.reply; r.appendChild(a); }
+      list.appendChild(r);
+    });
+    $("notes-empty").hidden = ids.length > 0;
+  }
+  function touch(id, title, patch){
+    var s = state[id] || {title:title, verdict:"", note:""};
+    Object.keys(patch).forEach(function(k){ s[k] = patch[k]; });
+    s.title = title; s.dirty = true; s.updated = new Date().toISOString();
+    state[id] = s; store(); paint();
+  }
+
+  function fit(){
+    var box = $("tree-vp");
+    if(window.innerWidth <= 640 || $("v-map").hidden) return;
+    box.style.height = Math.max(440, window.innerHeight - (box.getBoundingClientRect().top + window.scrollY) - 10) + "px";
+  }
+  window.addEventListener("resize", fit);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+
+  // Tabs
+  var tabs = Array.prototype.slice.call(document.querySelectorAll("#tabs button"));
+  function show(t, jump){
+    tabs.forEach(function(b){ b.setAttribute("aria-selected", b.dataset.t === t ? "true" : "false"); });
+    document.querySelectorAll("main > .view").forEach(function(v){ v.hidden = v.id !== "v-" + t; });
+    try { history.replaceState(null, "", "#" + t); } catch(e){}
+    document.querySelector(".head").classList.toggle("compact", t === "map");
+    fit();
+    if(jump){
+      var el = $(jump);
+      if(el){
+        if(el.closest("#tree")) treeJump(el);
+        else { el.scrollIntoView({block:"start"}); window.scrollBy(0, -130); }
+        el.classList.add("flash"); setTimeout(function(){ el.classList.remove("flash"); }, 1500);
+      }
+    } else { var bar = document.querySelector(".bar"); if(window.scrollY > bar.offsetTop) window.scrollTo(0, bar.offsetTop); }
+  }
+  tabs.forEach(function(b){ b.addEventListener("click", function(){ clearSearch(); show(b.dataset.t); }); });
+  function goFrom(el){ clearSearch(); show(el.dataset.go, el.dataset.jump); }
+  document.addEventListener("click", function(ev){
+    var cb = ev.target.closest(".cb");
+    if(cb){ open(cb.dataset.id, cb.dataset.title); return; }
+    var g = ev.target.closest("[data-go]");
+    if(g) goFrom(g);
+  });
+  document.addEventListener("keydown", function(ev){
+    if((ev.key === "Enter" || ev.key === " ") && ev.target.matches && ev.target.matches("g[data-go]")){ ev.preventDefault(); goFrom(ev.target); }
+    if(ev.key === "Escape" && !$("panel").hidden) $("panel").hidden = true;
+  });
+
+  // Node tree
+  var vp = $("tree-vp"), tree = $("tree"), zooms = [.5, .65, .8, 1, 1.2], zi = 3, panning = null;
+  function treeJump(el){
+    var c = el.closest(".col.closed");
+    if(c) c.classList.remove("closed");
+    window.scrollTo(0, Math.max(0, vp.getBoundingClientRect().bottom + window.scrollY - window.innerHeight + 10));
+    var r = el.getBoundingClientRect(), v = vp.getBoundingClientRect();
+    vp.scrollLeft += r.left - v.left - 24;
+    vp.scrollTop += r.top - v.top - 40;
+  }
+  function setZoom(i){ zi = Math.max(0, Math.min(zooms.length - 1, i)); tree.style.zoom = zooms[zi]; $("z-val").textContent = Math.round(zooms[zi] * 100) + " %"; }
+  $("z-in").addEventListener("click", function(){ setZoom(zi + 1); });
+  $("z-out").addEventListener("click", function(){ setZoom(zi - 1); });
+  $("t-all").addEventListener("click", function(){
+    var open = this.getAttribute("aria-pressed") === "true";
+    document.querySelectorAll("#tree .col .kids").forEach(function(k){ k.parentNode.classList.toggle("closed", open); });
+    document.querySelectorAll("#tree .tg").forEach(function(b){ b.setAttribute("aria-expanded", open ? "false" : "true"); });
+    this.setAttribute("aria-pressed", open ? "false" : "true");
+    this.textContent = open ? "Show all sub-nodes" : "Hide all sub-nodes";
+  });
+  tree.addEventListener("click", function(ev){
+    var t = ev.target.closest(".tg");
+    if(t) t.setAttribute("aria-expanded", t.closest(".col").classList.toggle("closed") ? "false" : "true");
+  });
+  vp.addEventListener("pointerdown", function(ev){
+    if(ev.pointerType !== "mouse" || ev.button !== 0 || ev.target.closest("button,.lbox")) return;
+    panning = {x: ev.clientX, y: ev.clientY, l: vp.scrollLeft, t: vp.scrollTop};
+    vp.setPointerCapture(ev.pointerId); vp.classList.add("drag");
+  });
+  vp.addEventListener("pointermove", function(ev){ if(panning){ vp.scrollLeft = panning.l - (ev.clientX - panning.x); vp.scrollTop = panning.t - (ev.clientY - panning.y); } });
+  function endPan(){ panning = null; vp.classList.remove("drag"); }
+  vp.addEventListener("pointerup", endPan);
+  vp.addEventListener("pointercancel", endPan);
+
+  // Search across every view
+  function clearSearch(){ if($("q").value){ $("q").value = ""; applySearch(); } }
+  function applySearch(){
+    var q = $("q").value.trim().toLowerCase();
+    tree.classList.toggle("searching", !!q);
+    document.querySelectorAll(".node").forEach(function(n){ n.classList.toggle("hide", !!q && (n.dataset.q || "").indexOf(q) < 0 && n.textContent.toLowerCase().indexOf(q) < 0); });
+    if(q){ document.querySelectorAll("main > .view").forEach(function(v){ v.hidden = !v.querySelector(".node:not(.hide)"); }); msg.textContent = document.querySelectorAll(".node:not(.hide)").length + " matches across all views."; }
+    else { msg.textContent = ""; var a = tabs.filter(function(b){ return b.getAttribute("aria-selected") === "true"; })[0]; show(a ? a.dataset.t : "map"); }
+  }
+  $("q").addEventListener("input", applySearch);
+
+  // Comment panel
+  function open(id, title){
+    cur = {id:id, title:title};
+    $("p-title").textContent = title;
+    var s = state[id] || {};
+    $("p-note").value = s.note || "";
+    $("p-pick").querySelectorAll("button").forEach(function(b){ b.setAttribute("aria-pressed", b.dataset.v === s.verdict ? "true" : "false"); });
+    $("panel").hidden = false; $("p-note").focus();
+  }
+  $("p-close").addEventListener("click", function(){ $("panel").hidden = true; });
+  $("p-note").addEventListener("input", function(){ if(cur) touch(cur.id, cur.title, {note:this.value}); });
+  $("p-pick").addEventListener("click", function(ev){
+    var b = ev.target.closest("button"); if(!b || !cur) return;
+    var s = state[cur.id] || {}, v = s.verdict === b.dataset.v ? "" : b.dataset.v;
+    touch(cur.id, cur.title, {verdict:v});
+    $("p-pick").querySelectorAll("button").forEach(function(x){ x.setAttribute("aria-pressed", x.dataset.v === v ? "true" : "false"); });
+  });
+  $("general").value = (state._general && state._general.note) || "";
+  $("general").addEventListener("input", function(){ touch("_general", "Whole map", {note:this.value}); });
+
+  // Copy everything as text, the way to reach me when saving isn't possible on this account
+  function asText(){
+    return Object.keys(state).filter(function(k){ return has(state[k]); }).sort().map(function(k){
+      var s = state[k]; return "[" + (s.title || k) + "] " + (LABEL[s.verdict] || "") + (s.note ? ": " + s.note : "");
+    }).join("\n");
+  }
+  $("copy").addEventListener("click", function(){
+    var txt = asText(); if(!txt){ msg.textContent = "Nothing to copy yet."; return; }
+    var box = $("copybox");
+    var fail = function(){ box.hidden = false; box.value = txt; box.focus(); box.select(); msg.textContent = "Copy this text and paste it in the chat."; document.querySelector("main").appendChild(box); };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){ msg.textContent = "Copied. Paste it in the chat with Claude."; }, fail);
+    } else fail();
+  });
+
+  // Save: one document per comment, only when the button is pressed
+  saveBtn.addEventListener("click", function(){
+    var ids = Object.keys(state).filter(function(k){ return state[k].dirty; });
+    if(!db){ msg.textContent = "Saving isn't available in this view. Your drafts are kept on this device. Use Copy all as text and paste it in the chat."; return; }
+    saveBtn.disabled = true; msg.textContent = "Saving…";
+    var next = function(i){
+      if(i >= ids.length){ store(); paint(); msg.textContent = "Saved " + ids.length + (ids.length === 1 ? " comment." : " comments."); return; }
+      var k = ids[i], s = state[k];
+      db.doc("feedback/" + k).set({title:s.title || k, verdict:s.verdict || "", note:s.note || "", updated:s.updated || new Date().toISOString(), status:"open", reply:s.reply || ""})
+        .then(function(){ s.dirty = false; s.status = "open"; next(i + 1); })
+        .catch(function(err){ store(); paint(); msg.textContent = "Couldn't save (" + ((err && err.code) || "refused") + "). This account may not have write access. Your drafts are kept: use Copy all as text and paste it in the chat."; });
+    };
+    next(0);
+  });
+
+  paint();
+  var h = (location.hash || "").slice(1);
+  show(tabs.some(function(b){ return b.dataset.t === h; }) ? h : "map");
+  window.scrollTo(0, 0);
+
+  // Change log, written by Claude in the changes collection. Rows are shown as plain text.
+  var CH = {waiting:["Waiting for your OK", "st-parts"], doing:["In progress", "st-pilot"], done:["Done", "st-real"]};
+  function paintChanges(rows){
+    var list = $("changes-list"); list.textContent = "";
+    rows.sort(function(a, b){ return String(b.at || "") < String(a.at || "") ? -1 : 1; }).forEach(function(c){
+      var r = document.createElement("div"); r.className = "crow node";
+      var when = document.createElement("time"); when.textContent = String(c.at || "").slice(0, 10); r.appendChild(when);
+      var st = CH[c.status] || CH.done, sp = document.createElement("span"); sp.className = "st " + st[1]; sp.textContent = st[0]; r.appendChild(sp);
+      var b = document.createElement("b"); b.textContent = c.title || ""; r.appendChild(b);
+      if(c.what){ var p = document.createElement("p"); p.textContent = c.what; r.appendChild(p); }
+      var src = [];
+      if(c.from) src.push("From: " + c.from);
+      if(c.commit) src.push("Commit " + c.commit);
+      if(src.length){ var f = document.createElement("span"); f.className = "from"; f.textContent = src.join(" · "); r.appendChild(f); }
+      list.appendChild(r);
+    });
+    $("c-count").textContent = rows.length ? "(" + rows.length + ")" : "";
+    $("changes-empty").hidden = rows.length > 0;
+  }
+
+  // Bring in what's already saved; a local draft stays on top until it is saved.
+  if(window.claude && window.claude.use){
+    window.claude.use("db").then(function(d){
+      db = d;
+      if(!db){ msg.textContent = "Saving isn't available in this view. Drafts stay on this device, and Copy all as text works."; $("changes-empty").textContent = "The change log can't be read in this view."; return; }
+      db.collection("changes").get().then(function(snap){ paintChanges(snap.docs.map(function(d){ return d.data() || {}; })); }).catch(function(){ $("changes-empty").textContent = "The change log can't be read in this view."; });
+      return db.collection("feedback").get().then(function(snap){
+        snap.docs.forEach(function(doc){
+          if(state[doc.id] && state[doc.id].dirty) return;
+          var v = doc.data() || {}; state[doc.id] = {title:v.title, verdict:v.verdict, note:v.note, updated:v.updated, status:v.status, reply:v.reply, dirty:false};
+        });
+        if(!$("general").value && state._general) $("general").value = state._general.note || "";
+        paint();
+      }).catch(function(){ /* reads can fail for outside viewers; drafts still work */ });
+    });
+  }
+})();
+</script>

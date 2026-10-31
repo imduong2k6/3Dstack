@@ -1,0 +1,505 @@
+[
+ [
+  "house-rules",
+  "both",
+  "Any",
+  [
+   "always"
+  ],
+  "rule",
+  "own",
+  "The standing rules every agent loads: no wear geometry, one writer per live editor, projects stay local, a backup after every step, three visibility states, detail over cost, neutral light until modelling is done, fixed exposure, review scope, credits.",
+  "These are your own decisions. They stay rules whatever happens to the rest.",
+  ""
+ ],
+ [
+  "scene-pipeline",
+  "both",
+  "Any",
+  [
+   "always"
+  ],
+  "rule",
+  "own",
+  "The manager's playbook: starts a project, sets mode, detail and tier, routes each stage to agents and skills, posts gates, keeps save points and decides when to stop and ask you.",
+  "Rule for gates, save points and who may write. The order of work inside a stage can flex.",
+  "At 2,138 words it is the longest text the manager carries. The board's P1 (a builders table) would let it point instead of explain."
+ ],
+ [
+  "checkpoint",
+  "both",
+  "Any",
+  [
+   "always"
+  ],
+  "rule",
+  "own",
+  "Save points. Pipeline-file changes are committed and pushed as [pipeline]; a project save point is a log line, a backup and a ledger entry, never git.",
+  "Keeps projects out of GitHub and makes every step undoable.",
+  ""
+ ],
+ [
+  "blender-adapter",
+  "both",
+  "Blender",
+  [
+   "always",
+   "t"
+  ],
+  "rule",
+  "own, parts adapted (MIT)",
+  "Blender 5.2 specifics: MCP tools, session rules, collections, naming, backups and the step ledger, review captures, validation and stats scripts, the palette script, CG camera and light facts, and the export to Unreal.",
+  "Rule for names, collections, captures and export, because lint and the transfer read them. The rest is reference.",
+  ""
+ ],
+ [
+  "unreal-adapter",
+  "game",
+  "Unreal",
+  [
+   "always",
+   "t"
+  ],
+  "rule",
+  "own",
+  "Unreal 5.8 specifics: MCP tools, content folders, outliner and tags, parked actors, FBX and layout import, captures from the review cameras, stats. Its lighting path is not built yet.",
+  "Rule for folders, tags and captures, which the transfer and reviews depend on.",
+  "The Unreal route has no lint: scene-lint is Blender only, so the supervisor checks by eye there."
+ ],
+ [
+  "scene-intake",
+  "both",
+  "Any",
+  [
+   "s0"
+  ],
+  "default",
+  "own",
+  "Turns your chat prompt, images or the Scene Brief form into a draft brief.yaml and a reference index, and decides whether the form is needed.",
+  "A sensible start, not a constraint on the scene.",
+  ""
+ ],
+ [
+  "input-review",
+  "both",
+  "Any",
+  [
+   "s0"
+  ],
+  "default",
+  "own",
+  "Tags each reference by role, builds a coverage matrix, checks scale anchors, conflicts and AI images, rates readiness per area and writes the interview questions.",
+  "Its checklist can grow or shrink with the references.",
+  ""
+ ],
+ [
+  "scene-interview",
+  "both",
+  "Any",
+  [
+   "s0"
+  ],
+  "default",
+  "own",
+  "Short multiple-choice rounds until nothing important is unclear, then reads the job back and writes plan.md for G0.",
+  "The questions are defaults; the rule is only that G0 waits for your answers.",
+  ""
+ ],
+ [
+  "reference-research",
+  "both",
+  "Any",
+  [
+   "s1"
+  ],
+  "default",
+  "own",
+  "Sourced real-world facts: place, era, construction, materials, real dimensions, fixtures, colour temperatures, weather. Writes metrics.yaml, the only source of real sizes.",
+  "Freedom in where to look; a size without a source still never enters metrics.yaml.",
+  ""
+ ],
+ [
+  "workflow-research",
+  "both",
+  "Any",
+  [
+   "s1",
+   "demand"
+  ],
+  "toolkit",
+  "own",
+  "How professionals build this kind of scene (Stage 1), or how they solve one specific problem when a step fails twice. Rates each finding by fit and effort.",
+  "Its problem mode is exactly your idea of help when an agent is stuck.",
+  "It goes online before checking the add-ons and plugins already on your PC. A problem index (X2) should come first."
+ ],
+ [
+  "detail-inventory",
+  "both",
+  "Any",
+  [
+   "s1"
+  ],
+  "default",
+  "own",
+  "Turns the tagged references into inventory.yaml (features with counts and sizes per wall and zone) and services.yaml (the connected service network). Lint counts the scene against them.",
+  "What goes in is judgement; the file format is a contract, because lint and linear-runs read it.",
+  ""
+ ],
+ [
+  "toolbox-scan",
+  "both",
+  "Any",
+  [
+   "s1"
+  ],
+  "default",
+  "own",
+  "Scans your PC for Unreal plugins, Blender add-ons, asset libraries, MCP servers and CLIs, and writes one instruction card per tool into toolbox/.",
+  "Runs on a schedule; nothing creative to constrain.",
+  "There are 33 tool cards, but only 8 of the 38 skills point to any of them, so agents rarely learn a tool exists."
+ ],
+ [
+  "layout-2d",
+  "both",
+  "Any",
+  [
+   "s2"
+  ],
+  "default",
+  "own",
+  "The floor plan: metre grid, zones and heights, an ID on every shape, the player path or review cameras, focal points, cable runs, the asset list and the phase plan.",
+  "The legend and IDs are fixed so later stages can read the plan; the layout itself is design.",
+  ""
+ ],
+ [
+  "lighting-brief",
+  "both",
+  "Any",
+  [
+   "s2",
+   "s6"
+  ],
+  "default",
+  "own",
+  "Part 1 at Stage 2: the neutral rig, time of day, every emitter, mood references. Part 2 before L1: key and motivation, temperatures, key-to-fill ratio, focal order, exposure sweep.",
+  "A brief is a starting point the lighting pass can argue with.",
+  "On the current project light is frozen until you send lighting references."
+ ],
+ [
+  "level-design",
+  "game",
+  "Any",
+  [
+   "s2",
+   "s3"
+  ],
+  "toolkit",
+  "third-party (Apache-2.0)",
+  "Level design practice for walkable or playable spaces: player metrics, blockout then test then dress, critical path, pacing, gating and readability.",
+  "Already read only when the scene is walkable.",
+  "CG stills don't need it; a walkable CG fly-through could borrow its metrics."
+ ],
+ [
+  "blockout",
+  "both",
+  "Any",
+  [
+   "s3"
+  ],
+  "default",
+  "own",
+  "The real-scale blockout on the kit grid from the approved layout, with player or camera checks, the neutral light rig and the review cameras every later gate reuses.",
+  "The method is free; real scale and a green lint before captures are not.",
+  ""
+ ],
+ [
+  "lane-integration",
+  "both",
+  "Blender",
+  [
+   "s3",
+   "s5"
+  ],
+  "rule",
+  "own",
+  "Splits a big build or a long fix list into parallel headless lanes and joins them back without the known defects (instances at the origin, lanes appended twice, old materials, empty slots).",
+  "Rule while lanes run: the join has destroyed work before, and only exact steps prevented it.",
+  "1,600 words with 25 hard rules. It is long because every rule came from a broken join, so trim by moving steps into the join script, not by softening them."
+ ],
+ [
+  "modular-kit",
+  "both",
+  "Any",
+  [
+   "s4"
+  ],
+  "default",
+  "own",
+  "Plans the kit: grid, piece list, pivots, ports, trim sheets, material groups, collision and LODs, and writes one asset spec per piece for the Modeler.",
+  "The piece list is design; grid, pivots and names are contracts placement relies on.",
+  "Doesn't point to the UVPackmaster card for trim and UV packing."
+ ],
+ [
+  "environment-artist",
+  "game",
+  "Any",
+  [
+   "s4",
+   "s5"
+  ],
+  "toolkit",
+  "third-party (MIT)",
+  "Reference for game environment art: kit piece roles and counts, grid standards, vegetation budgets, composition and storytelling details.",
+  "Reference reading, already loaded only by modular-kit and set-dressing.",
+  "Its composition and storytelling sections serve CG just as well; only the budgets are game-specific."
+ ],
+ [
+  "modeling",
+  "both",
+  "Blender",
+  [
+   "s4"
+  ],
+  "toolkit",
+  "own, parts adapted (MIT)",
+  "Builds or repairs any model, and picks a method per asset (SubD quads, game low or mid-poly, custom-normal bevels, fast photo-projected CG) from route, camera distance and budget.",
+  "How to model is the agent's craft call. Keep only its scale, naming and budget lines as rules.",
+  "Points to no add-on card, although Boxcutter, Bool Tool and LoopTools have cards in toolbox/."
+ ],
+ [
+  "blender-image-to-3d",
+  "game",
+  "Blender",
+  [
+   "s4",
+   "demand"
+  ],
+  "toolkit",
+  "third-party (MIT)",
+  "A measured, gated build of one asset from reference images: calibrated reference planes, renders from the reference camera, silhouette match, validation, baking, export and a re-import check.",
+  "Already loaded on demand for hard single assets.",
+  "Written for game assets, but its measuring steps suit CG hero props too. At 349 lines it is the longest Blender skill."
+ ],
+ [
+  "generated-asset",
+  "both",
+  "Any",
+  [
+   "s4"
+  ],
+  "default",
+  "own",
+  "Generates a prop or image for a spec marked generate: a Tripo stand-in, or a Magnific or hero mesh the Modeler repairs. Only at detail detailed or final.",
+  "Which path fits is a judgement; spending credits stays a rule (house-rules 11).",
+  "The most directive skill after house-rules (19 hard words per 1,000). Most of that is the credit rule, which house-rules already holds."
+ ],
+ [
+  "tripo-props",
+  "both",
+  "Blender",
+  [
+   "s4"
+  ],
+  "default",
+  "own",
+  "The Tripo path end to end: a Magnific turnaround, Tripo Studio in your browser, Send to Blender over the DCC Bridge, clean-up to size and pivot, an orientation check and the props atlas.",
+  "The bridge steps are fragile (one tab, one port), so those stay exact; prop choice is free.",
+  "It describes the bridge itself instead of pointing to the bridge's tool card, so the two copies can drift apart."
+ ],
+ [
+  "collision-proxy",
+  "game",
+  "Blender",
+  [
+   "s4"
+  ],
+  "default",
+  "third-party (MIT)",
+  "Collision proxies for game assets: UCX naming, convex pieces, capsules and checks.",
+  "UCX naming is an engine convention, so that part is a rule; the shapes are judgement.",
+  ""
+ ],
+ [
+  "lod-pipeline",
+  "game",
+  "Blender",
+  [
+   "s4"
+  ],
+  "default",
+  "third-party (MIT)",
+  "LOD chains for meshes that can't use Nanite: generation, naming, screen sizes and checks.",
+  "Needed only for the few meshes Nanite can't take.",
+  ""
+ ],
+ [
+  "placement-phases",
+  "both",
+  "Any",
+  [
+   "s5"
+  ],
+  "default",
+  "own",
+  "Places the scene in ten phases in real construction order, from P0 site to P9 life and nature, with a save point, capture, review and board entry per phase.",
+  "The order mirrors how buildings go up, which catches impossible placements early. Inside a phase, the method is free.",
+  ""
+ ],
+ [
+  "set-dressing",
+  "both",
+  "Any",
+  [
+   "s5"
+  ],
+  "toolkit",
+  "adapted (MIT)",
+  "Story clusters, controlled clutter and readable density for P5 to P8, keeping player and camera paths clear and repeats instanced.",
+  "The most creative step. Keep only clear paths and instancing as rules.",
+  "It has 15 hard words per 1,000, high for creative work, and no link to the Geo-Scatter, GScatter, BlenderKit, Megascans or Poly Haven cards."
+ ],
+ [
+  "linear-runs",
+  "both",
+  "Blender",
+  [
+   "s5"
+  ],
+  "default",
+  "own",
+  "Builds conduit, cables, pipes and ducts from services.yaml rows: routes them along the walls, refuses anything through a solid, bends at a real radius, ends inside the anchors and spaces the supports.",
+  "A tool to reach for first; when it refuses a run, the row gets a path, never a hand-placed mesh.",
+  ""
+ ],
+ [
+  "geometry-nodes",
+  "both",
+  "Blender",
+  [
+   "s5"
+  ],
+  "toolkit",
+  "third-party (MIT)",
+  "Geometry Nodes for scatter, parametric pieces, pipes and cables, and reusable GN_ node groups.",
+  "Pure toolkit.",
+  "The natural home for your climbing-plant setup (N13) and cable generator, as tool cards it points to."
+ ],
+ [
+  "lighting-passes",
+  "both",
+  "Any",
+  [
+   "s6"
+  ],
+  "default",
+  "own",
+  "The gray (L1), value (L2) and hue (L3) passes on Lumen or Cycles once all modelling is final, using one pass switch on the material groups, then stops for texturing.",
+  "The pass order is the lighting-artist workflow; the light design inside each pass is free.",
+  "Doesn't point to the Sun Position or Movie Render Pipeline cards."
+ ],
+ [
+  "texturing-handoff",
+  "both",
+  "Any",
+  [
+   "s9",
+   "s3"
+  ],
+  "default",
+  "own",
+  "The texturing brief: one section per material group (value, hue, roughness, real-material references, wear notes) plus final stats; in full_cg also the texture sets and texel density. Started at G2, finished at Stage 9.",
+  "Its format is what you work from, so keep it stable.",
+  ""
+ ],
+ [
+  "retro",
+  "both",
+  "Any",
+  [
+   "s9"
+  ],
+  "default",
+  "own",
+  "Measures where time and rounds went from log.md and the step ledger, researches the slowest steps and ranks suggestions for the next phase or project.",
+  "Already the least directive skill (2 hard words per 1,000).",
+  ""
+ ],
+ [
+  "scene-lint",
+  "both",
+  "Blender",
+  [
+   "review"
+  ],
+  "rule",
+  "own",
+  "One script counts every countable defect (materials, names, tags, objects at the origin, floating or crossing objects, cables through solids, cable and conduit ends, openings, clearance, wear geometry, visibility, backups) and writes lint.json. A blocker stops the captures.",
+  "Scripts count, reviewers judge. Agents may build any way they like as long as lint stays green.",
+  "Blender only; the Unreal version is not built."
+ ],
+ [
+  "supervisor",
+  "both",
+  "Any",
+  [
+   "review"
+  ],
+  "default",
+  "adapted (MIT)",
+  "Reviews after lint, one aspect each (scale and walkability; construction logic; light and values; names, stats and budgets), and gives a PASS or a ranked fix list.",
+  "If skills turn into guidance, the supervisor must judge the result against the brief, never whether the default method was used.",
+  ""
+ ],
+ [
+  "art-director",
+  "both",
+  "Any",
+  [
+   "review"
+  ],
+  "default",
+  "own",
+  "Believability and mood against real references: at most five ranked notes with reference images, which you mark Do it, Later or Skip.",
+  "Its notes are suggestions by design; you decide.",
+  ""
+ ],
+ [
+  "review-pairs",
+  "both",
+  "Blender",
+  [
+   "review"
+  ],
+  "rule",
+  "own",
+  "One camera per fix-list issue: BEFORE from the previous backup, AFTER from the new copy with the same cameras and exposure, composed into captioned side-by-side pairs.",
+  "You asked for a before and after pair on every fixed issue.",
+  ""
+ ],
+ [
+  "gate-board",
+  "both",
+  "Any",
+  [
+   "review"
+  ],
+  "rule",
+  "own",
+  "Posts a gate to the Gate Review Board (captures, stats, verdicts, notes, pairs, a Please check list, questions) and reads your decision back.",
+  "The board is how you approve, so its format stays fixed.",
+  ""
+ ],
+ [
+  "ue5-mcp",
+  "game",
+  "Unreal",
+  [
+   "demand"
+  ],
+  "toolkit",
+  "third-party (MIT)",
+  "Field manual for driving Unreal through MCP: silent failures, crash patterns and call sequences, plus Niagara, Sequencer, Movie Render, UMG and Blueprint graphs.",
+  "Already loaded only when an Unreal call misbehaves.",
+  "1,225 lines, over Anthropic's 500-line guidance for a SKILL.md. That's acceptable while it is loaded only on demand; split it if it grows."
+ ]
+]

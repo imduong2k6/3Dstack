@@ -1,0 +1,614 @@
+{
+ "Q1": {
+  "id": "Q1",
+  "what": "The skill header is invalid YAML (an unquoted \": \" in the description), so the skill lists as \"Lane integration\" with no description",
+  "body": "Quote the string; add a header check to the self-tests (orch §1, §8.12)",
+  "where": "`lane-integration/SKILL.md:3`",
+  "effort": "5 min",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q2": {
+  "id": "Q2",
+  "what": "Round 2 drops open majors: \"every lint blocker and major goes into the fix list\" against \"round n+1 reviews only the fix list, regressions and `new`\". The round limit is also stated four ways (\"within 3 rounds\", \"two form rounds\", default 3)",
+  "body": "One rule: at every round the cumulative open majors at full scope are the fix list, `new` only filters the display; one round statement in `supervisor`, pointers elsewhere (orch §3, §8.6). Needs D4",
+  "where": "`supervisor/SKILL.md:16` against `:81-82`; `stages.md:101`; `placement-phases:61`; `brief.schema.json`",
+  "effort": "1 h",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q3": {
+  "id": "Q3",
+  "what": "Who reruns lint: \"a reviewer reruns it\" against \"rerun only when older\"; four parallel supervisors would each rerun (25 s, shared output path)",
+  "body": "`scene-lint:8` says \"reads it; reruns only if older\" (orch §3)",
+  "where": "`scene-lint/SKILL.md:8` against `supervisor/SKILL.md:16`",
+  "effort": "5 min",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q4": {
+  "id": "Q4",
+  "what": "Wrong export and bake settings: FBX export hard-codes `FBX_SCALE_ALL`, which the skill's own note says imported 100 times too small in UE 5.8.3 (the tested call is `FBX_SCALE_NONE`); baked normals are OpenGL (+Y green) but Unreal reads DirectX",
+  "body": "One tested export function (see S11); add `--normal-convention dx` and record it in the manifest (assets B2, B5)",
+  "where": "`blender-image-to-3d/scripts/export_delivery.py:104`, `SKILL.md:16`; `toolbox/tools/transfer.blender-unreal.md:22,38`; `bake_maps.py`",
+  "effort": "2-3 h",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q5": {
+  "id": "Q5",
+  "what": "Service kinds disagree: inventory accepts `tray` (never built) and rejects `downpipe` (built), so a downpipe row is a Stage 1 blocker",
+  "body": "One shared enum (build §1, §8.6)",
+  "where": "`check_inventory.py:33` against `linear_runs.py:38-44`",
+  "effort": "30 min",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q6": {
+  "id": "Q6",
+  "what": "Surface rows can never pass: `compare()` marks them short and the template ships a P8 `class: surface` row, so a permanent major; it also contradicts \"wear is not a row\"",
+  "body": "Skip `surface` rows in `compare()`; send them to the texturing brief (build §1)",
+  "where": "`check_inventory.py:399-413`; `templates/inventory.yaml`; `detail-inventory/SKILL.md:20`",
+  "effort": "30 min",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q7": {
+  "id": "Q7",
+  "what": "Pivot rule stated three ways and enforced none: grid corner (skill, environment-artist), bottom-centre (template); `pivot_anchor` accepts any word",
+  "body": "Bottom-centre with listed exceptions, as in the Skyrim kit rules (GDC 2013 slides); enforce in `check_spec` (build §5)",
+  "where": "`modular-kit/SKILL.md:14,45-49`; `environment-artist/references/modular-kits.md:18`; `check_spec.py:409`",
+  "effort": "1 h",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q8": {
+  "id": "Q8",
+  "what": "Headroom is 2.03 m in the layout check and 2.1 m in lint under different keys: a 2.05 m layout passes one and fails the other",
+  "body": "One shared `rules.py`; `measured: true` plus `source` downgrades width checks to notes (build §1)",
+  "where": "`check_layout.py:33-42` against `lintlib.py:42-44`",
+  "effort": "1-2 h",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q9": {
+  "id": "Q9",
+  "what": "`\"to\": \"frame_edge\"` in the layout example is rejected by the inventory check and by `linear_runs.py`, though `placement-phases` allows runs past the frame",
+  "body": "Add a `frame_edge` services node (stub with `ends_ok`) (build §1)",
+  "where": "`layout-2d/SKILL.md:50,66`; `check_inventory.py` (about :343); `linear_runs.py:163-166`; `placement-phases/SKILL.md:43`",
+  "effort": "2 h",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q10": {
+  "id": "Q10",
+  "what": "Promised checks and sources that do not exist or disagree: an \"instancing\" lint (none of the 18 checks tests it); cables \"follow `layout.json › runs`\" against \"built from `services.yaml`\"",
+  "body": "Add the check (S6) or cut the sentence; `services.yaml` is the only run source (build §1)",
+  "where": "`placement-phases/SKILL.md:58,42,38`; `lint_blender.py:1199-1203`",
+  "effort": "1 h",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q11": {
+  "id": "Q11",
+  "what": "Dressing rule contradicts the inventory: \"when sparse add nothing, when busy dress up\" against \"density comes from counts, not mood\"",
+  "body": "Counts only; mood picks style (build §1)",
+  "where": "`set-dressing/SKILL.md:25,32` against `detail-inventory/SKILL.md:45`",
+  "effort": "30 min",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q12": {
+  "id": "Q12",
+  "what": "Validator default finds nothing: default collections `LOW,COLLISION,SOCKETS`, pipeline files use `COL_Collision`; the Asset Tech is told to run it",
+  "body": "Pass `--collections` in `asset-tech.md` or add a pipeline default (assets B3)",
+  "where": "`blender-image-to-3d/scripts/validate.py:28,237-239`; `asset-tech.md:22`",
+  "effort": "30 min",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q13": {
+  "id": "Q13",
+  "what": "Nanite default reversed: \"default to Nanite\" against the tested import \"Nanite comes in off\"",
+  "body": "\"Switch Nanite on after import\" (assets M6)",
+  "where": "`modeling/references/game-models.md:17`; `transfer.blender-unreal.md:47`; `unreal-adapter/SKILL.md:58`",
+  "effort": "10 min",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q14": {
+  "id": "Q14",
+  "what": "Wear and damage wording against rule 1 left in third-party and modelling text",
+  "body": "Edit the lines; log them in the skills' Pipeline notes and `.claude/skills/CREDITS.md` (assets B4, M5)",
+  "where": "`blender-image-to-3d/SKILL.md:203,260`; `references/categories.md:158,174,181,221`; `modeling/references/game-models.md:13`",
+  "effort": "1 h",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q15": {
+  "id": "Q15",
+  "what": "The lint wear list contains `decal`, so any poster plane named so is a blocker",
+  "body": "See \"Tiles, brick and decals, resolved\" below (build §1)",
+  "where": "`lintlib.py:73-76`",
+  "effort": "30 min",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q16": {
+  "id": "Q16",
+  "what": "The interview offers a choice the rule forbids: backups \"Per phase only\"",
+  "body": "Delete the option (orch §1)",
+  "where": "`scene-interview/SKILL.md:31` against `house-rules/SKILL.md:18`",
+  "effort": "5 min",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q17": {
+  "id": "Q17",
+  "what": "Log times are typed and drift (up to 147 min on the board before that was fixed there); `checkpoint` also asks for typed times",
+  "body": "`log_line.py` stamps the system clock (orch §1)",
+  "where": "`house-rules/SKILL.md:34`; `checkpoint/SKILL.md:16`; CHANGELOG 2026-10-30",
+  "effort": "1-2 h",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q18": {
+  "id": "Q18",
+  "what": "Two rules live only in the user's memory: the handoff under 3 % plan usage and no project names in committed text; `grep HANDOFF` finds nothing in skills or docs",
+  "body": "Move both into `house-rules`; give the manager a `get_usage` check at batch ends (orch §1)",
+  "where": "`house-rules` (absent)",
+  "effort": "30 min",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q19": {
+  "id": "Q19",
+  "what": "The toolbox scanner can write to the live editors: no `disallowedTools`, though its body says \"read-only on the engines\"",
+  "body": "`disallowedTools: mcp__unreal-mcp, mcp__unreal-mcp-proxy, mcp__blender__execute_blender_code` (orch §6)",
+  "where": "`agents/toolbox-scanner.md`",
+  "effort": "5 min",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q20": {
+  "id": "Q20",
+  "what": "Headless captures run on CPU unless the caller adds a device; one self-test still writes a relative render path",
+  "body": "One `cycles_setup.py` shared by capture, pairs and self-tests; `os.path.abspath` (assets BA3, BA8)",
+  "where": "`capture.py:102,126` against `blender-adapter/SKILL.md:65`; `selftest_light.py:76`",
+  "effort": "1-2 h",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "Q21": {
+  "id": "Q21",
+  "what": "Lighting text says units \"come with Part 2\" and also that `direction` and `mood` carry \"no numbers\", though mood holds colour temperatures",
+  "body": "Define: direction and mood carry no measured targets, colour temperatures allowed in mood. Text only, no light work on the current project (assets LB1)",
+  "where": "`lighting-brief/SKILL.md:31` against `:37-38`; `lighting.md:41`",
+  "effort": "30 min",
+  "gain": "",
+  "status": "adopt_now"
+ },
+ "S1": {
+  "id": "S1",
+  "what": "Give fix lanes geometric helpers instead of typed numbers: a `patchlib.py` of idempotent ops that compute from the scene (`place_on`, `snap_to_wall(gap)`, `align_to`, `mirror_of`, `extend_cable_to(anchor)`, `set_gap`), patches as data rows, auto-fixers for deterministic lint classes (`seat_gap`, `floating`, `interpenetration`, `cable_ends`, `conduit_open_ends`), and the `LR.build(...)` call plus `services.yaml` rows in the fix-lane brief, which never mentions `linear-runs`. Already proposed (A1)",
+  "body": "",
+  "where": "`lane-integration/templates/fix-lane-brief.md:36-42,59`; `lane-integration/SKILL.md:62-75`",
+  "effort": "medium-high",
+  "gain": "High; est. 30-50 % off lane time, unmeasured",
+  "status": "`adopt_now` for the `linear-runs` pointer with one pilot lane (count tokens, calls, errors, rounds); `test_first` for `patchlib` and auto-fixers"
+ },
+ "S2": {
+  "id": "S2",
+  "what": "Add a lane governor: an item cap per lane (the audit suggests 8 items or 20 ops), planned minutes from a rate card, a hard stop time in the brief, `progress.json` every three items so partial work can be merge-tested, planned against actual in `report.json`, `maxTurns`, and a `Monitor` alert at 1.5 times plan. Already proposed (A2)",
+  "body": "",
+  "where": "`fix-lane-brief.md:7-13`; `lane-brief.md:13`; `lane-integration/SKILL.md:62-64`",
+  "effort": "low-medium",
+  "gain": "High: removes the 91-166 min tail",
+  "status": "`adopt_now`; needs D2; the caps are alerts that trigger a split or check-in, never a cheaper default; test that `maxTurns` ends a lane cleanly (orch gap)"
+ },
+ "S3": {
+  "id": "S3",
+  "what": "Make the gate cumulative: fix the scope contradiction (Q2); write `lint_debt.json` with a total per class beside `new`; PASS needs zero open majors or a dated waiver in `waivers.yaml`; group lint majors by root cause and area before they reach the fix list; list in-frame majors first; one whole-scene sweep at gate close (`--visible none`). Already proposed (A4)",
+  "body": "",
+  "where": "`supervisor/SKILL.md:16,81`; `scene-lint/SKILL.md:27,29,37`",
+  "effort": "low",
+  "gain": "High: stops the 200-item fix list at the end",
+  "status": "`adopt_now`; needs D4"
+ },
+ "S4": {
+  "id": "S4",
+  "what": "Replace prose reviews with data: each reviewer writes `review-<aspect>.json`; `merge_reviews.py` builds `review.md`, `fix_issues.json` and the lane item tables; add `fix_issues.schema.json`; `lint_view.py --aspect` prints only that aspect's checks; drop `scene-lint` from the supervisor preload; give each aspect its own input list",
+  "body": "",
+  "where": "`scene-pipeline:76`; `review-pairs/SKILL.md:14`; `supervisor/SKILL.md:12,69`; `agents/supervisor.md`",
+  "effort": "medium",
+  "gain": "High: removes two passes in the manager over a fix list of about 200 items (about 16-30k tokens read and the same written, twice)",
+  "status": "`adopt_now`; the four aspects stay (reviews are split by aspect)"
+ },
+ "S5": {
+  "id": "S5",
+  "what": "Add one plan data layer: `layout.json` v2 (`kind`, `h_m`, `host`, `sill_m`, `head_m`, `measured`, `mirror_of` with `mirror_axis`); `plan/kit-standard.yaml` written at Stage 2 (grid, module widths, wall thickness, floor height, pivot rule, port kinds, UV px/m); `measured: true` shapes exempt from the grid; one `pipeyaml.py` (four hand-rolled YAML readers today); `rules.py` and shared enums; schemas plus `check_plan.py` that resolves IDs across layout, inventory, services and assets; three cheap layout variants rendered from the hero camera before one is approved",
+  "body": "",
+  "where": "`layout-2d/SKILL.md:39-69`; `blockout/SKILL.md:13-18`; `parallel.md:35`; `check_inventory.py:138`; `check_spec.py:324`; `check_layout.py:99`",
+  "effort": "low (standard, rules, enums), medium (schemas, `check_plan`, variants)",
+  "gain": "High: the prerequisite for N1 to N5, and \"costs less than any one builder\" (build §3)",
+  "status": "`adopt_now`; the grid must not snap `measured` shapes (detail over cost)"
+ },
+ "S6": {
+  "id": "S6",
+  "what": "Add a second tranche of countable checks: `layout_vs_scene`, `mirror_pairs`, `dims_vs_spec`, `instancing`, `services_ids`, saddle spacing, cable smoothness, bundle variety, short cables, clearance volumes, grid snap, coplanar faces, proxies left after finals, texel density; builders stamp `kind` and lint trusts it before name tokens; move the check table to `references/checks.md`; split the 1,344-line file into `checks/` modules",
+  "body": "",
+  "where": "`lint_blender.py:1199-1203`; `lintlib.py:53-95`; `knowledge/paired-elements-mirror.md:8`; `placement-phases/SKILL.md:34,37,41,43-45,58`",
+  "effort": "medium",
+  "gain": "High-medium: closes the missed-left-door class, lighter reviews",
+  "status": "`adopt_now`: `mirror_pairs`, `layout_vs_scene`, `instancing`, `services_ids`; `test_first`: the rest"
+ },
+ "S7": {
+  "id": "S7",
+  "what": "Give inventory rows a position and dressing a data model: an `along:` block per row (wall, from, to, pattern, `u`, seed), `plan/clusters.yaml` (id, zone, story, members, host surface), a per-class jitter table (0 for `kit_scale`), `--layout` in `check_inventory.py` with area derived from the polygon, `crop_refs.py`, anchor-based sizing; dressing rules as lint (cluster size mix, hero only at inventory focal points, keep-clear corridors, clutter above or beside path height)",
+  "body": "",
+  "where": "`templates/inventory.yaml:14-26`; `set-dressing/SKILL.md:30,37,40`; `check_inventory.py:380-413`",
+  "effort": "medium",
+  "gain": "High: prerequisite for N2",
+  "status": "`adopt_now` schema; `test_first` cluster lint (the sources are qualitative; no numeric density source exists, game §4 gaps)"
+ },
+ "S8": {
+  "id": "S8",
+  "what": "Trim the manager and rules text: split `house-rules` into about 450 preloaded words plus a manager reference; one source per rule with pointers (about 30 restatements, 1.5-2k words); move definitions out of `scene-pipeline` to `references/modes-tiers.md`; the manager reads Exit sections, not 64 KB of Stage 4 skills; merge `scene-intake` and `scene-interview` with a `user-defaults.yaml` and `new_project.py`; turn `checkpoint` into `save_point.py`; add a stage-table row for the `deferred` path to G3 and an Unreal parity table",
+  "body": "",
+  "where": "`scene-pipeline:13,33,42-68,70-88`; `checkpoint/SKILL.md:16`; `scene-interview/SKILL.md:24-34`; `workflow-research:14`",
+  "effort": "medium",
+  "gain": "Medium-high: manager phase load about 25k to 12k tokens, supervisor preload 7.3k to about 2.5k (orch §5)",
+  "status": "`adopt_now`; `user-defaults.yaml` needs D11"
+ },
+ "S9": {
+  "id": "S9",
+  "what": "Build Unreal parity: `lookdev.py`, `apply_palette.py`, an Unreal lint on the 5.8 Data Validation commandlet and batch processor, a capture rewrite (one capture, per-camera size, shift, ortho, viewport-camera subsystem), a ledger writer, `check_import` from `StaticMeshTools`, ISM or HISM (Packed Level Actor per module) in `place_layout`, a World Partition and HLOD note, Movie Render Queue stills, a PCG services recipe on `PCGToolset`",
+  "body": "",
+  "where": "`unreal-adapter/SKILL.md:47,51,53,66-71,83`; `scene-lint/SKILL.md:93-95`; `scene-pipeline:31`; `docs/pipeline/README.md:19`",
+  "effort": "high",
+  "gain": "High on two of three routes; the README calls Unreal \"about 80% of work\"",
+  "status": "`adopt_now` the plain statement that only `blender` and `blender_unreal` (to Stage T) are supported, with a G0 warning; `test_first` the build, piloted on one room"
+ },
+ "S10": {
+  "id": "S10",
+  "what": "Ship real hand-off artefacts: `check_uv.py` (texel density per object and material, UV bounds, overlap, mirrored islands, margin, second UV set); one texture contract (names, ORM packing for Unreal, DirectX normal, colour spaces); a generated `handoff/` package (`texture-sets.csv`, `uv-report.json`, trim layout, sub-material or ID plan, resolution plan from screen coverage times 2); the texture-set table for every game-route asset, not only `full_cg`; a `texturing_tool` field in `brief.yaml`; a PBR value-range heatmap shared by Blender and Unreal captures",
+  "body": "",
+  "where": "`modeling/SKILL.md:71`; `texturing-handoff/SKILL.md:14,25,29,31`; `validate_mesh.py:180-183`; `props_atlas.py:123`",
+  "effort": "medium",
+  "gain": "High for the user's own texturing hours",
+  "status": "`adopt_now`: `check_uv.py` and the contract; `test_first`: the heatmap; D6 first"
+ },
+ "S11": {
+  "id": "S11",
+  "what": "Close the export gap: `export_fbx.py` implementing the tested call (per-asset FBX, `UCX_` and `UBX_`, sockets, LOD suffixes, custom normals), plus the one test the repo never ran (custom normals, collision, LOD groups, sockets through Interchange on one real kit piece); `make_collision.py` and `check_collision.py`; merge `collision-proxy` and `lod-pipeline` into one `asset-finishing` skill preferring `StaticMeshTools.generate_lods`; `bin/blender-bg --ext` so Modelers can use Better FBX or UV add-ons headless",
+  "body": "",
+  "where": "`blender-adapter/SKILL.md:92`; `export_delivery.py:104`; `transfer.blender-unreal.md:48`; `collision-proxy/SKILL.md:13,39,52`; `bin/blender-bg`",
+  "effort": "medium",
+  "gain": "Medium: ends a class of import surprises",
+  "status": "`adopt_now` export and test; merge `later`"
+ },
+ "S12": {
+  "id": "S12",
+  "what": "Make the kit a testable standard: sub-kits at grid multiples, bottom-centre pivots with listed exceptions, a footprint box inside bounds, \"01\" variant names, a snap test in non-ideal arrangements; typed `done_when` predicates; `family:` templates; `structure: shell or modular`; trim-sheet data (strips, UV rectangles, two sheets: structure and storefront or wood); a prop-zoo review scene before placement; `swap_proxies.py`; a proxy stage that counts final assets per material group",
+  "body": "",
+  "where": "`modular-kit/SKILL.md:14-16,36-67,95`; `check_spec.py:532,605-607`",
+  "effort": "medium",
+  "gain": "Medium-high",
+  "status": "`adopt_now`: standard and prop-zoo gate; `test_first`: families, swap; do not promise vertex-painted Nanite walls (unverified in 5.8)"
+ },
+ "S13": {
+  "id": "S13",
+  "what": "Write the asset-source rule and a gate for generated meshes: record `source` and `source_reason` per row; an acceptance script (bbox against spec, up axis, pivot, triangles, manifold, material count) before any generated mesh enters the scene; split `tripo-props` so the Generator loads `tripo-studio`; keep the Send-to JS in a file; a `detail: final` settings row; a three-prop comparison of Tripo and Magnific",
+  "body": "",
+  "where": "`generated-asset/SKILL.md:16,29-31`; `tripo-props/SKILL.md:8,24,45,50,67`; `agents/generator.md:4-5`",
+  "effort": "medium",
+  "gain": "Medium-high",
+  "status": "`adopt_now`: rule and acceptance script; GLB-first headless clean-up needs D7"
+ },
+ "S14": {
+  "id": "S14",
+  "what": "Tighten the board and the Art Director: a note ledger with retakes and \"accept as is\" (P2); a known-issues field on each gate post; `validate_gate.py`; split `gate-board` into a clerk skill and a `read_decision.py`; `render_pairs.py --side after` refuses without green lint; a GPU slot semaphore in `bin/blender-bg`; `px_size.py` for the Art Director's pixel sizes; Magnific repaints through the credit ledger; scripted readability strips",
+  "body": "",
+  "where": "`gate-board/SKILL.md:26,39`; `review-pairs/SKILL.md:38`; `art-director/SKILL.md:27,32`; `parallel.md:21`",
+  "effort": "medium",
+  "gain": "Medium",
+  "status": "`adopt_now`, starting with a clerk dry run on a synthetic gate (it has never run); value and luminance strips wait for lighting"
+ },
+ "S15": {
+  "id": "S15",
+  "what": "Slim the heavy text: `blender-image-to-3d` 10,485 words to about 1,800 on load; `ue5-mcp` 8,023 to about 2,000; `blender-adapter` to a core of about 800 plus role references; `level-design` (85 % unused); `geometry-nodes` (largely superseded); vegetation budgets in `environment-artist` that conflict with rule 6",
+  "body": "",
+  "where": "`blender-image-to-3d/SKILL.md`; `ue5-mcp/SKILL.md:25`; `blender-adapter/SKILL.md`; `level-design/SKILL.md:13`",
+  "effort": "medium",
+  "gain": "Medium: about 11k words off each heavy load",
+  "status": "`adopt_now`; keep each `LICENSE` and `NOTICE`; log every change in the skill's Pipeline notes and `CREDITS.md`"
+ },
+ "S16": {
+  "id": "S16",
+  "what": "Shelve-ready lighting work: remove `lighting-passes` from both worker preloads while lighting is deferred; a strength-to-value table per engine plus `apply_lights.py`; a Lumen settings block; verify the claim that Lumen sees only Movable lights; test MegaLights, Lumen and Lumen Lite on review cameras; real-world values first with a locked EV",
+  "body": "",
+  "where": "`lighting-passes/SKILL.md:12`; `unreal-adapter/SKILL.md:31`; `lighting.md:67,97`",
+  "effort": "medium",
+  "gain": "Low now",
+  "status": "`adopt_now`: preload removal and the G3 row (text only); the rest `later`, after the user sends lighting references"
+ },
+ "N1": {
+  "id": "N1",
+  "what": "`layout-build` (new)",
+  "body": "`BLK_<id>` blockout objects from `layout.json` v2: extrusion by kind and height, openings cut, mirrored pairs, `map_id`, `phase`, `kind`, `inv_id` tags; cameras and the neutral rig from JSON; `walk.json`; `layout_vs_scene` lint",
+  "where": "",
+  "effort": "medium-high",
+  "gain": "High: the largest Stage 3 lane time",
+  "status": "`adopt_now` schema and `check_plan`; builder after one pilot"
+ },
+ "N2": {
+  "id": "N2",
+  "what": "`place-rows` (recommended earlier; extends `set-dressing`)",
+  "body": "Fixtures and dressing from inventory rows with `along:` blocks, clusters and jitter; instances carry `inv_id`, `cluster`, `phase`; refuses overlap, door-swing and walkway intrusion; deterministic by seed; refusal report. Recipes inside: a bbox stacker, analytic catenary hanging items (laundry, lanterns, banners; no product found, R3), rigid-body settle for piles",
+  "where": "",
+  "effort": "medium",
+  "gain": "High: P4 to P7 lane time",
+  "status": "`test_first`"
+ },
+ "N3": {
+  "id": "N3",
+  "what": "`stairs` (recommended earlier)",
+  "body": "Riser count and going solved from floor-to-floor height; treads, risers, stringers, landings and rail in proxy and final modes; tagged `stair_id`; the same row feeds `check_layout.py` and lint `check_stairs`",
+  "where": "",
+  "effort": "low-medium",
+  "gain": "Medium",
+  "status": "`adopt_now`"
+ },
+ "N4": {
+  "id": "N4",
+  "what": "`services-nodes` (extends the built `linear-runs`)",
+  "body": "Host-relative nodes (`on`, `u_m`, `z_m`), `frame_edge` stubs, anchor stubs built in P3 and swapped in P4, anchors resolved by `inv_id`, named waypoints and automatic `via_z`, bundle seeds, a profile library, rail, tray and gutter kinds, fittings (tees, couplings)",
+  "where": "",
+  "effort": "medium",
+  "gain": "Medium-high",
+  "status": "Step 1 `adopt_now`: run the existing `linear-runs` in one real lane. Step 2 `test_first`. Conduit default not set (D1)"
+ },
+ "N5": {
+  "id": "N5",
+  "what": "`facades` (recommended earlier)",
+  "body": "Facade bays from measured widths: floors, then bays, then slots from an opening table; each opening cut once or the wall built in pieces; frames separate; fittings (grilles, shutters, AC brackets, awnings) placed by opening ID; counts checked against inventory",
+  "where": "",
+  "effort": "high",
+  "gain": "Medium-high on exteriors",
+  "status": "`adopt_now` walls and openings after N1; fittings next"
+ },
+ "N6": {
+  "id": "N6",
+  "what": "`uv-standard` (new)",
+  "body": "World-aligned UVs at a stated px/m on shells and proxies; a trim-sheet layout file; `check_uv.py`; a `uv_ok` lint",
+  "where": "",
+  "effort": "medium",
+  "gain": "Medium-high",
+  "status": "`adopt_now` the checker; the builder after D6"
+ },
+ "N7": {
+  "id": "N7",
+  "what": "`kit-families` and proxy swap (new; extends `modular-kit`)",
+  "body": "`family:` templates expand ports and `done_when`; `kit_census.py`; `swap_proxies.py`",
+  "where": "",
+  "effort": "medium-high",
+  "gain": "Medium",
+  "status": "`test_first`; only for pieces that repeat"
+ },
+ "N8": {
+  "id": "N8",
+  "what": "`library-intake` (new)",
+  "body": "A rule: model what must mate or match a measured reference; library first for generic filler at mid or far distance; Tripo or Magnific for unique referenced items, never raw on a hero; skip what no camera sees. A script reads the local Megascans `assetsData.json` and Poly Haven folders, checks scale and pivot, strips materials to `M_<group>`, writes a provenance row, commits no binaries",
+  "where": "",
+  "effort": "medium",
+  "gain": "Medium",
+  "status": "`test_first`"
+ },
+ "N9": {
+  "id": "N9",
+  "what": "`render-final` (new, CG route)",
+  "body": "`cycles_setup.py`; presets draft, review and final (gates about 0.1 noise threshold with OIDN fast; finals about 0.01 with OIDN High, albedo and normal, multilayer EXR with denoising data); working colour space and OCIO config in `exposure.json`; numbered frames that skip existing; Render Time pass; optional light groups and compositing preset",
+  "where": "",
+  "effort": "medium",
+  "gain": "Medium",
+  "status": "`test_first`; compositing needs D9; the view-transform choice waits while lighting is frozen"
+ },
+ "N10": {
+  "id": "N10",
+  "what": "`camera-match` (new)",
+  "body": "Photo to camera with the fSpy importer, verified by `fit_check.py`",
+  "where": "",
+  "effort": "medium",
+  "gain": "Medium on `camera_match`",
+  "status": "`test_first`"
+ },
+ "N11": {
+  "id": "N11",
+  "what": "`signage` (recommended earlier: test first)",
+  "body": "Boards, brackets, FONT text, neon tubes, posters and stickers as planes with alpha; text checked against the reference wording; a light on every emitter (rule 7)",
+  "where": "",
+  "effort": "low-medium",
+  "gain": "Medium on dense street scenes",
+  "status": "`test_first` (one headless test of NeonPath)"
+ },
+ "N12": {
+  "id": "N12",
+  "what": "`brick-tiles` and `decals` (recommended earlier as recipes)",
+  "body": "Resolved below: texture notes and a `signage` recipe, no geometry skill",
+  "where": "",
+  "effort": "low",
+  "gain": "Medium",
+  "status": "`adopt_now` as notes"
+ },
+ "N13": {
+  "id": "N13",
+  "what": "`climbing-plants` (recommended earlier: later)",
+  "body": "A seeded curve-grow or Geometry Nodes ivy with an instance cap; leaves stay on the wall and clear of openings",
+  "where": "",
+  "effort": "medium",
+  "gain": "Low-medium",
+  "status": "`later`, after N2"
+ },
+ "N14": {
+  "id": "N14",
+  "what": "`kit-library` and `composition-lint` (new)",
+  "body": "An index of approved pieces by family and size, kept in the work folder; focal coverage, thirds offset and \"lost\" path points from the visible-set rays",
+  "where": "",
+  "effort": "medium",
+  "gain": "Low-medium",
+  "status": "`later`"
+ },
+ "A1": {
+  "id": "A1",
+  "what": "Ready lane kit (shared helpers, facts pack, cheat sheet)",
+  "body": "The helpers should be geometric ops that compute from the scene, not typed helpers (S1). The facts pack is generated: `make_lane_brief.py` fills the 25-plus `{{...}}` fields from `metrics.yaml`, `inventory.yaml`, `services.yaml` and `brief.yaml`. The cheat sheet becomes a Blender 5.x gotchas file plus tool cards (applicable cases, constraints, known failures) for each builder, as SceneWeaver does (SceneWeaver). A new `lane-builder` agent (Opus, preloads `house-rules`, fix-lane text, `linear-runs`; live tools and `Agent` disallowed; a Stop-hook check that `report.json` and the replay evidence exist) replaces the `modeler` as the fix-lane agent (orch §6, §8.13)",
+  "where": "",
+  "effort": "medium",
+  "gain": "High",
+  "status": "`adopt_now`"
+ },
+ "A2": {
+  "id": "A2",
+  "what": "Code-first with a time box",
+  "body": "Add the mechanism: item cap, planned minutes, hard stop, `progress.json`, `maxTurns` (S2). Agents are time-blind and effort-blind, so the budget goes in the brief (Carlini; Anthropic multi-agent); SceneWeaver capped itself at 10 iterations with memory length 1. In BlenderWorld, turns per task ranged from 45.6 to 158 across models and more image views did not raise the score (BlenderWorld), which supports code over repeated looking",
+  "where": "",
+  "effort": "low-medium",
+  "gain": "High",
+  "status": "`adopt_now`; D2"
+ },
+ "A3": {
+  "id": "A3",
+  "what": "Cut start-up context (MCP allowlist, slimmer preloads)",
+  "body": "One estimate may be wrong. Measured: preloads and listings are 10-25k of a 70-100k start; the other 20-40k is an estimate for tool and MCP schemas (orch §2A). But Claude Code defers MCP tool definitions by default, so only names and server instructions enter context (costs docs), and the schema share may be small. First action: `/context` inside one lane agent and record `start_tokens`. Then: `tools`, `mcpServers` and `disallowedTools: Agent` on all 11 agents (none sets them); preload diet (blender-worker 16.0k, modeler 8.0k, supervisor 7.3k times four); load the stage skill named in the brief on demand",
+  "where": "",
+  "effort": "low-medium",
+  "gain": "Medium-high (8-20k per spawn measured from preloads)",
+  "status": "`adopt_now` the measurement and preload diet; `test_first` the allowlist"
+ },
+ "A4": {
+  "id": "A4",
+  "what": "Whole-scene lint with in-frame items first",
+  "body": "The likely cause of piled-up defects is a text contradiction (Q2), not only the missing whole-scene run. Keep the `new` gate for speed and add a total-per-class ratchet and a gate-close sweep, as SonarQube does for new against overall code and as Epic's whole-project Validate Data does (S3)",
+  "where": "",
+  "effort": "low",
+  "gain": "High",
+  "status": "`adopt_now`; D4"
+ },
+ "A5": {
+  "id": "A5",
+  "what": "Decide where gate G2 stops",
+  "body": "Write the exit criteria down: `gates.yaml` and `check_gate.py` (required files, lint state, reviews present, tasks closed, board fields, the frozen-lighting path to G3), severity-banded, with the bar narrowing by round (all, then blockers and majors, then blockers only). No studio publishes a \"done\" definition, so it must be measurable (game §1; qa Key Question 2; Mullich; Lemon Sky). Where G2 stops: a proxy-grade blockout (silhouette, proportions, material groups: Amazon) is the common stop, but `detail: detailed` builds features in the blockout, against `level-design`'s \"dress after play\" (build §1). Which stop the user wants is part of D5",
+  "where": "",
+  "effort": "medium",
+  "gain": "High",
+  "status": "`adopt_now` `gates.yaml`; the stop point is the user's call"
+ },
+ "A6": {
+  "id": "A6",
+  "what": "Brief preflight",
+  "body": "`check_brief.py` fails on leftover `{{`, unknown material names (against the gate file), duplicate ID prefixes, missing seam owners, objects absent from the gate copy and items over the cap; `fix_issues.schema.json` validates the 12 optional keys; house rule 10 is \"enforced by: none\" today (orch §2E). The delegation brief carries objective, output format, tool guidance, boundaries and caps, and the agent returns a file path plus a short summary (Anthropic multi-agent)",
+  "where": "",
+  "effort": "medium",
+  "gain": "High: removes the brief-error class",
+  "status": "`adopt_now`"
+ },
+ "A7": {
+  "id": "A7",
+  "what": "Shift checks left, never hand-fix live",
+  "body": "Add a fixer-versus-report split: lint `--fix` for names, tags, origin and scale (mechanical, reversible, logged in the ledger), report-only for budgets, density and form (LightspeedLA lists a fixer framework as a future direction; the vendor split is a claim). Add rollback on regression (P4), a `.live.lock` plus a PreToolUse hook on `execute_blender_code` that checks the agent type (orch §6), and `check_targets.py` for \"check a number before you hand it over\" (`supervisor:88`)",
+  "where": "",
+  "effort": "medium",
+  "gain": "Medium-high",
+  "status": "`adopt_now` rollback and lock; `test_first` fixers"
+ },
+ "A8": {
+  "id": "A8",
+  "what": "Thin manager with planned handoffs and a SessionStart compact hook",
+  "body": "Write `plan/STATE.md` (stage, gate, round, open fix IDs, running agents, locked decisions, next three actions, under 60 lines), `agents.json`, `tasks.yaml` (a user note cannot close without evidence) and `decisions.yaml`. A `SessionStart` hook with the `compact` matcher injects a short factual digest, `PreCompact` rewrites `STATE.md`, and the memory-only rules move into `house-rules` (Q18). Root `CLAUDE.md` is re-injected after compaction but rules given only in conversation are summarised away, and skills re-attach only their first 5,000 tokens each, so critical text goes first (memory docs; hooks; skills). Manager hygiene: never `cat` `lint.json`, reviews or reports; final messages at most 15 lines plus paths; a fresh manager session at each gate. Anthropic's harness lets workers flip only a status field in a JSON ledger (harnesses)",
+  "where": "",
+  "effort": "medium",
+  "gain": "High: survives 23 compactions in 8.7 h; user notes cannot be dropped",
+  "status": "`adopt_now`"
+ },
+ "A9": {
+  "id": "A9",
+  "what": "Run stats per run",
+  "body": "`SubagentStart`, `SubagentStop` and `PreCompact` hooks append to `plan/telemetry.jsonl`; `retro_numbers.py` reads the main and `subagents/*.jsonl` transcripts, `steps.json` and `reviews/*`; a rate card feeds planned minutes; a `Monitor` watchdog alerts at 1.5 times plan. Track first-pass approval and rounds per issue as health signals and keep the original estimates for the retro (Lemon Sky; Scrum.org). Telemetry also settles the effort and model questions with data (orch §8.7)",
+  "where": "",
+  "effort": "medium",
+  "gain": "High: replaces every guess",
+  "status": "`adopt_now`"
+ },
+ "P1": {
+  "id": "P1",
+  "what": "One plan data layer and a builders registry: schemas, `check_plan.py`, `pipeyaml.py`, `rules.py`, enums, builders stamp `kind`; a `builders.md` table naming which tool exists for which family so lanes know when to call a tool and when they would be typing",
+  "body": "",
+  "where": "`docs/pipeline/schemas/`; `scene-pipeline`",
+  "effort": "medium",
+  "gain": "High",
+  "status": "`adopt_now` (see S5)"
+ },
+ "P2": {
+  "id": "P2",
+  "what": "A note ledger: stable IDs, states (open, fixed, verified, closed, accepted as is, later, skipped), closed only when a verifier confirms on the same camera; a `retakes` count per issue; a rule that the Do-it count may not rise from one round to the next; \"accept as is\" as a fourth board decision; a known-issues field on each gate post",
+  "body": "",
+  "where": "`plan/tasks.yaml`; `gate-board`; `supervisor`",
+  "effort": "low-medium",
+  "gain": "High: the 78-row gate becomes a few open rows",
+  "status": "`adopt_now` the ledger; D3 for \"accept as is\""
+ },
+ "P3": {
+  "id": "P3",
+  "what": "An environment contract: `projects/<slug>/env.json` (Blender, Unreal, work folder, libraries, ports, Python), `bin/pipeline-doctor` (paths, free space, Blender 5.2 and `bpy`, Python 3.11 with Pillow and numpy, ports, `get_addon_status`, Unreal `list_toolsets`, all self-tests), `bin/selftest-all`, a status table of what is tested, untested or not built, and a degraded mode for an unreachable server; read-after-write in every Unreal script",
+  "body": "",
+  "where": "`docs/setup-windows.md`; `toolbox/README.md:15`; `bin/`",
+  "effort": "low-medium",
+  "gain": "High: frequency high, effort low",
+  "status": "`adopt_now`"
+ },
+ "P4": {
+  "id": "P4",
+  "what": "Rollback on regression: after a step, compare lint and metrics with the previous backup and revert automatically if worse; never overwrite the best state",
+  "body": "",
+  "where": "`lane-integration` merge test; `checkpoint`",
+  "effort": "low",
+  "gain": "Medium-high",
+  "status": "`adopt_now`"
+ },
+ "P5": {
+  "id": "P5",
+  "what": "A reviewer protocol: six oblique RGB views plus the reference crop, numeric measurements and camera pose in the prompt, one criterion per call, shuffled candidate order, and lint as the only gate for contact and missing-part claims; consensus polling and a golden-image diff outside the fix region as tests",
+  "body": "",
+  "where": "`supervisor`; `review-pairs`",
+  "effort": "low",
+  "gain": "Medium",
+  "status": "`adopt_now` inputs; `test_first` polling and diff"
+ },
+ "P6": {
+  "id": "P6",
+  "what": "A Blender 5.2 API gotchas file, `search_api_docs` on any `AttributeError`, and error feedback to the coder, who may not delete the failing line; a smoke test on each Blender or Unreal bump",
+  "body": "",
+  "where": "`blender-adapter`; lane cheat sheet",
+  "effort": "low",
+  "gain": "Medium",
+  "status": "`adopt_now`"
+ },
+ "P7": {
+  "id": "P7",
+  "what": "A render and visibility budget for CG routes: an informational report of objects outside the camera frustum plus a margin for shadow and bounce contributors; a render-time budget per gate using the Render Time pass",
+  "body": "",
+  "where": "`scene-lint`; `render-final`",
+  "effort": "low",
+  "gain": "Medium",
+  "status": "`test_first`; `full_cg` and `camera_match` only; D9"
+ },
+ "P8": {
+  "id": "P8",
+  "what": "Model and effort tiering as an experiment: run one lane or reviewer one tier lower on the same items and compare lint and replay results",
+  "body": "",
+  "where": "`agents/*.md`",
+  "effort": "low",
+  "gain": "Unknown",
+  "status": "`test_first`; never a default (detail over cost; D8)"
+ }
+}
