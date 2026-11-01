@@ -479,7 +479,7 @@ def _topology(ob):
     if t["odd_border_islands"]:
         w.append(f"{t['odd_border_islands']} islands have an odd number of border edges: they can't be all quads until one border vertex is added or removed")
     if t["uneven_on_curves"]:
-        w.append(f"{t['uneven_on_curves']} vertices on a curve have uneven edges along a loop, up to about {t['max_spacing_deg']:.0f} degrees of normal error: even the ring straight after the reduction, then look at --modes reflect")
+        w.append(f"{t['uneven_on_curves']} vertices on a curve have uneven edges along a loop, an estimate of up to {t['max_spacing_deg']:.0f} degrees of normal error from edge lengths alone. A support row beside a hard edge sets this off on purpose. Check it in --modes reflect, and even the ring straight after a reduction if the stripes kink")
     if t["max_valence"] > _MAX_VALENCE:
         w.append(f"a vertex with {t['max_valence']} edges")
     if t["odd_bevels"]:

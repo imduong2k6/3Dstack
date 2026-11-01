@@ -65,7 +65,7 @@ So SubD is one common way to make the high, and a lower level of the same cage i
   skill: modeling
   fit: high
   effort: low
-  gain: "the one numeric rule found for intersections; our T-junction test should check it"
+  gain: "the one numeric rule found for intersections; test 06 did not check it, because its branch spans only about 20 degrees either side"
   recommend: test_first
 - finding: Land a rectangle between two wall edges, with a gap left for a fillet
   source: https://frankpolygon.artstation.com/blog/o7Pg/sub-d-modeling-cylinder-and-rectangle-intersections-fillets
@@ -121,7 +121,7 @@ So SubD is one common way to make the high, and a lower level of the same cage i
   skill: modeling
   fit: medium
   effort: medium
-  gain: "native; one poster's trick; try it in the Boolean test"
+  gain: "native; one poster's trick; test 08 replaced the patch instead, so this is still untested"
   recommend: test_first
 - finding: A Cycles Bevel node as a stand-in for a bevel-shader bake
   source: https://marmoset.co/posts/toolbags-bevel-shader-in-action-3-artists-weigh-in/

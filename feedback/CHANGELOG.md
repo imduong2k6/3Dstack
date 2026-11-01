@@ -2,6 +2,20 @@
 
 Every skill change, with the evidence and the user's approval.
 
+## 2026-11-01: SubD edits from blind tests 06 to 08
+
+Three fresh agents built a T-junction, outer bevels and a Boolean pocket on a curved wall from the merged markdown alone. I measured each result against the exact shape at level 4. The user approved these seven edits on 1 Nov 2026, and with edit 6 the patch replacement as the Boolean rule on a curved wall.
+
+| # | Change | Evidence | Where |
+| --- | --- | --- | --- |
+| 1 | Softening stated both ways: w / 6 along each face, w x 1.41 / 6 as a gap at a right angle | Agents read the word two ways | `subd-recipes.md` |
+| 2 | A box corner of three loops pulls in w / 4. A face goes flat at (5w + L) / 6 from the edge | 0.045 at width 0.18, 0.015 at 0.06. Flat from 0.4233 as predicted | `subd-recipes.md` |
+| 3 | Recipe: a small branch into a large wall | Test 06, one agent, one shape | `subd-recipes.md` |
+| 4 | Recipe: a round running out to sharp, same ring count | Test 07 | `subd-recipes.md` |
+| 5 | Count change along a round, and support rows on a 2-segment round. A note squares this with the two-clear-rows rule | Test 07. The agent's 3.5 % without rows isn't checked | `subd-recipes.md` |
+| 6 | Booleans under SubD: half-ring n-gons on a flat plate, replace the patch on a curved wall. The old line that the Boolean test hadn't run is gone | Test 08 and a plate check. It replaced the patch and was never a true repair | `subd-recipes.md`, `quad-subd.md`, `docs/pipeline/hard-surface-workflows.md` |
+| 7 | The uneven-edges warning now reads as an estimate to check in reflections | All 10 flags on the pocket sit on the support ring by the rim. My first evidence compared different places and was wrong | `validate_mesh.py`, `subd-recipes.md` |
+
 ## 2026-11-01: SubD refinement from blind quad tests 01 to 05
 
 Asked for by the user on 1 Nov 2026: "from these test, refine the skill and research about hard surface modeling workflow". The user approved the report and the merge on 1 Nov 2026.

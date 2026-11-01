@@ -1,6 +1,6 @@
 # SubD recipes: counts, reductions, circles, loops
 
-Read this when a ring or row changes its count, a circle sits in a plate, a support loop goes in, or a SubD surface kinks.
+Read this when a ring or row changes its count, a circle sits in a plate, a support loop goes in, a round runs out, a branch or a Boolean meets a curved wall, or a SubD surface kinks.
 
 The numbers were measured on Blender 5.2 on test plates and tubes, against an exact surface. None has been judged on a real asset under real light, so use the degrees to compare options, not as limits. The web evidence is in `docs/pipeline/hard-surface-workflows.md`.
 
@@ -51,7 +51,7 @@ Other surfaces, on a patch four cells wide with the row as tall as the coarse ed
 Limits of the three-quad cell:
 
 - **Edge loop selection stops at T2.** `select_edge_loop_multi` picks 4 of 16 edges on its dense ring, against all 16 on a six-face dense ring. Both stop at the coarse ring's poles.
-- **Not on a concave rim.** T2 has no edge going out, so the arc rule in section 5 rules it out on the first ring round a hole in a plate. It hasn't been tested on a plate at all.
+- **Not on a concave rim.** T2 has no edge going out, so the arc rule in section 5 rules it out on the first ring round a hole in a plate. It hasn't been tested on a plate at all. Set back one ring from a joint on a curved wall it worked (section 8).
 - **Support loops near it.** Normal error round the ring and spread at that ring, 16 to 8, row 2, Bevel width 0.2. Every Bevel gave only quads. Keep a loop two rows clear on the dense side.
 
   | Loop on | Three-quad | Six-face |
@@ -78,11 +78,13 @@ Limits of the three-quad cell:
   | 0, touching | 1.24 to 1.91 |
   | Inside the fillet | 4.11 to 5.69 |
 
+  This is a cell beside a fillet. A three-quad cell that changes the count along a round and is fitted to it added nothing (section 6).
+
 - **Order of fixes:** scale the rings, then a taller row, then fit if there is a target.
 
 ## 3. Spacing and shear on a curve
 
-- **Normal error is about the difference in edge length / (3 x radius), in radians.** Neighbours differ by less than radius / 20 for under 1 degree. It only counts in the direction the surface bends. It runs 3 to 13 % low on big differences. `validate_mesh.py` warns above 5 degrees as `uneven_on_curves`.
+- **Normal error is about the difference in edge length / (3 x radius), in radians.** Neighbours differ by less than radius / 20 for under 1 degree. It only counts in the direction the surface bends. It runs 3 to 13 % low on big differences. `validate_mesh.py` warns above 5 degrees as `uneven_on_curves`. It also fires beside a hard edge, where uneven edges are the point: all 10 flags on a pocket in a wall sat on the support ring by the rim. So read the warning as a place to check in `--modes reflect`, not a fault.
 - **Don't choose between pole types; fix spacing and shear first.** A lone pole adds under 1 degree. Sheared cells cost more: 60/120 degree cells read 2.07 at radius 4, 72/108 read 1.40.
 - **Pure quads wobble too.** A dense strip with no pole reads the same as a 3 to 1.
 
@@ -115,12 +117,22 @@ A ring of radius r ends at r x (4 + 2 cos(360 / n)) / 6, whatever the loops or t
 ## 6. Support loops
 
 - **Insert with Bevel: 2 segments, profile 1.0, Loop Slide off.** It keeps the surface and the rim. With Loop Slide on, the row slides sideways on oblique edges: edges of 0.0026 and 16 concave faces, against 0.0311 and none with it off.
-- **A corner held at width w loses w / 6 each way, on any scale.** So set the width to six times the cut you want. Measured with equal loops on both sides.
+- **A corner held at width w loses w / 6 along each face, on any scale.** At a right angle that is a straight gap of w x 1.41 / 6 from the sharp edge. So set the width to six times the cut you want, and say which number a spec means: width 0.12 cuts 0.02 along each face and leaves a gap of 0.028. Measured with equal loops on both sides.
+- **Where three loops meet at a box corner,** it pulls in w / 4 along each axis: 0.045 at width 0.18, 0.015 at 0.06.
+- **The face goes flat past the loop,** at (5w + L) / 6 from the edge, where L is the next edge in. On a 2 x 2 x 2 box at width 0.18 that is 0.4233: it dips 0.0018 at 0.2 from the edge, 0.0001 at 0.3 and nothing at 0.4. To end the soft band sooner, add a row to shorten L.
 - **Width only sets softness.** Having the loops at all sets roundness, and neither brings back the radius (section 4).
 - **Limit.** Keep the width under the next edge and about 0.4 R on a rounded corner. That's one shape: 0.42 R is clean, 0.52 R starts to go wrong, 0.83 R folds.
 - **Topology first, loops last.** A live Bevel modifier keeps the cage simple and the width adjustable. In a tight spot leave that edge out of the modifier, or let the loops overlap and Merge by Distance (Frank Polygon, not measured here).
 - A support loop beside a reduction: see the table in section 2.
 - Not tested: unequal widths.
+
+### Round edges
+
+One agent, one 4 x 2 x 1 box each, not judged on a real asset.
+
+- **A 2-segment round needs a support row on each flat.** With rows, radius 0.2 stays within 0.85 % of the true round. The agent read 3.5 % without them; I didn't check that. Even so, a 2-segment section reads 3 to 4 degrees of normal error.
+- **A count change along a round:** a three-quad 4 to 2 across the round, here over 0.6 of its length, with its rings fitted to the circle. 2 segments to 4 at radius 0.2 kept the section at 0.0581 to 0.0586 against 0.0586, and read 3.1 degrees at the cell against 3.88 and 2.64 away from it.
+- **A round running out to sharp:** keep one ring count along the whole edge, so there is no reduction: 2 segments across the round and a support row on each flat, with the three corner points sliding between the round and the loops. Rings at even pitch, 0.25 here, with the widths set ahead so the run-out comes out smooth after SubD. Radius 0.15 to softening 0.01 over a length of 1 read 0.0439 (the target), 0.0269 halfway and 0.0101 (target 0.0100), steady in between, with both flats at 0.07 degrees or less.
 
 ## 7. Native tools
 
@@ -133,3 +145,28 @@ LoopTools isn't part of Blender 5.2, and the pipeline doesn't call add-ons (`doc
 | Select a whole loop | `mesh.select_edge_loop_multi()`, in Edit Mode with one edge selected | It stops at any pole. `mesh.loop_multi_select` doesn't exist in 5.2 |
 | Relax | `mesh.vertices_smooth_laplacian`, `bmesh.ops.smooth_laplacian_vert` | There is no Relax operator |
 | Bevel by script | `bmesh.ops.bevel(bm, geom=edges, offset=w, segments=2, profile=1.0, affect="EDGES", clamp_overlap=False, loop_slide=False)` | The bmesh default is `affect="VERTICES"`. The modifier defaults to Loop Slide and Clamp Overlap on; the operator has Loop Slide on and Clamp off. Set every option |
+
+## 8. Openings in a curved wall
+
+Each recipe below is one agent on one shape, so take it as a working start and measure yours.
+
+### A small branch into a large wall
+
+Open pipe radius 3 and 32 segments, branch radius 1 and 8 segments, sharp joint with a width of 0.12.
+
+- **Drop the wall's count over the joint.** 32 round at the ends, three-quad 4 to 2 cells over a row 1.2 tall, 16 round in the middle.
+- **Set the branch in a 4 x 4 block of wall cells.** A 2 x 2 block with an 8 ring read 1.16 % and 4.5 degrees by the agent's reading.
+- **Grow the ring away from the joint:** joint, a support ring each side, one more ring, then four three-quad cells going 8 to 16 with their poles on the block's diagonals.
+- **Fit along the normal.** The target at the joint is the corner pulled in w / 6 along each face. The agent reported exact fit as unstable here; I didn't reproduce that. It also scaled the hole rings sideways by 1.108 and 1.06, by trial.
+- **Result:** 340 quads, 16 3-poles, 20 5-poles. Main within 0.24 %, branch 0.12 %. Normal 1.31 degrees by the joint, 0.56 away from it, 0.26 on the branch. Joint gap 0.023 to 0.028.
+- **Not checked:** Frank Polygon's rule of matching wall segments to the opening out to 45 degrees. This branch spans about 20 degrees either side, so it doesn't test that.
+
+### Booleans under SubD
+
+- **On a flat plate an Exact Boolean leaves n-gons that fold.** A 16-segment cylinder through a 2 x 2 x 0.2 plate left two half-ring 12-gons on the top face, with their centres over the hole. Don't keep them (section 5): cut them into quarter rings and add rows, or rebuild.
+- **On a curved wall, replace the patch round the cut.** What the solver leaves is badly placed for SubD, so delete it inside a patch and build new quads, keeping the patch's outline. For a pocket of radius 0.8 in a wall of radius 3 and 32 segments, the patch was 4 x 4 cells with 16 outline vertices.
+- **Inside the patch, from the rim out:** a rim ring, an outer support ring, then a band to the outline. Going in: a support ring under the rim, the pocket wall, a support ring above the floor, then a support row and a flat 16-gon on the floor.
+- **Hold the size and fit.** Scale the 16 rings by 1 / .9746 and the whole wall by 1 / .9936. Then fit the outer support ring, about 10 passes, by the average radius error of the wall round it. Leave pocket wall points out of that sample, because they aren't on the wall. That mistake cost one attempt.
+- **Result:** 336 quads, the floor 16-gon and two end caps, all 242 far wall vertices kept. Wall within 0.20 %, normal 1.47 degrees, or 0.97 well away from the pocket. Pocket 0.7995 to 0.8003. Floor within 0.0009.
+- **Width 0.10 gave a floor edge gap of 0.023 but a rim gap of 0.015.** I didn't trace why. The fit moves the outer ring, which is the likely cause, so measure the rim after fit.
+- **Not tested:** a true repair that keeps the solver's rim, a prepared base with matched segments, and subdividing and shrinkwrapping onto an uncut copy.
