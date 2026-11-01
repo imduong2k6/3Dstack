@@ -28,7 +28,7 @@ T is the dense row and B the coarse row. M and S are new vertices in the row bet
 | Need | Use | Why |
 | --- | --- | --- |
 | Halve a ring on a smooth surface | A three-quad cell in every unit, all in one row | Half the raw error of the six-face cell, 3 to 5 times less with the rings scaled |
-| Halve a ring with a hard edge on its dense ring, or a dense ring you need to loop-select | A six-face cell in every unit | Its dense ring stays one whole loop (limits, below) |
+| Halve a ring with a hard edge or a whole loop needed on the dense ring | First move the three-quad row two rows away from that ring. With no room, a six-face cell in every unit | Its dense ring stays one whole loop (limits, below) |
 | Small local change, room for an extra row | A mirrored pair of 2 to 1s set apart, best when opposite each other | 16 to 14: 4.32 degrees, 1.24 % spread |
 | Small local change, no room | Either 4 to 2 | Six-face 4.53, 2.18 %. Three-quad 4.75, 1.98 %. After fit, 1.96 and 2.43 |
 | Last choice | 3 to 1, the worst on every surface tested | 5.81, 2.78 % |
@@ -126,5 +126,6 @@ LoopTools isn't part of Blender 5.2, and the pipeline doesn't call add-ons (`doc
 | --- | --- | --- |
 | Even a ring | `bmesh.ops.space_edge_loops_evenly(bm, geom=edges, interpolation="LINEAR", factor=1.0)`, or `mesh.space_edge_loops_evenly` | It keeps to the old polygon, so the radius drops a little. Round it afterwards |
 | Round a ring | `bmesh.ops.circularize(bm, geom=verts + edges, factor=1.0, flatten=1.0)`, or `mesh.circularize` | A wire ring with no faces is left unchanged, with no error. It fits its own radius, so scale to the size you need and check the result |
+| Select a whole loop | `mesh.select_edge_loop_multi()`, in Edit Mode with one edge selected | It stops at any pole. `mesh.loop_multi_select` doesn't exist in 5.2 |
 | Relax | `mesh.vertices_smooth_laplacian`, `bmesh.ops.smooth_laplacian_vert` | There is no Relax operator |
 | Bevel by script | `bmesh.ops.bevel(bm, geom=edges, offset=w, segments=2, profile=1.0, affect="EDGES", clamp_overlap=False, loop_slide=False)` | The bmesh default is `affect="VERTICES"`. The modifier defaults to Loop Slide and Clamp Overlap on; the operator has Loop Slide on and Clamp off. Set every option |
