@@ -368,6 +368,20 @@ def _border_edges(island):
     return {e for f in island for e in f.edges if e.is_boundary}
 
 
+def _bad_subd_ngons(bm):
+    """N-gons SubD would spoil: off their plane, touching a face out of it (no support row), or with a centre that can't see every edge, which folds."""
+    bad = 0
+    for f in bm.faces:
+        if len(f.verts) < 5:
+            continue
+        c, n, tol = f.calc_center_median(), f.normal, 0.002 * max(e.calc_length() for e in f.edges)
+        near = {v for u in f.verts for g in u.link_faces for v in g.verts}
+        corners = [v.co - c for v in f.verts]
+        bad += not (all(abs(n.dot(v.co - c)) <= tol for v in near)
+                    and all(n.dot(a.cross(b)) > 0 for a, b in zip(corners, corners[1:] + corners[:1])))
+    return bad
+
+
 def _flipped_faces(bm):
     """Faces wound against recalc_face_normals. On a closed island it knows which side is out. On an open one it picks a side
     by shape, and can pick either, so there only a mixed winding counts; culling captures show a shell that is all inside out."""
@@ -558,7 +572,7 @@ def validate(name, budget_tris=None, merge_dist=0.0001, spec=None, repo=None, to
     out["duplicate_verts"] = len(bmesh.ops.find_doubles(bm, verts=bm.verts, dist=merge_dist)["targetmap"])
     has_subd = any(m.type == "SUBSURF" for m in ob.modifiers)
     out["ngons"] = sum(1 for f in bm.faces if len(f.verts) > 4)
-    out["ngons_under_subd"] = out["ngons"] if has_subd else 0
+    out["ngons_under_subd"] = _bad_subd_ngons(bm) if has_subd else 0
     out["flipped_faces"] = _flipped_faces(bm)
     bm.free()
     dg = bpy.context.evaluated_depsgraph_get()

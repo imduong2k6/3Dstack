@@ -5,7 +5,7 @@ Used for CG close-ups and hero products. Web sources are noted. Counts, reductio
 ## Mesh rules
 
 - **Low poly first.** Keep the cage as light as the form allows. Smoothness comes from the Subdivision Surface modifier, never from a dense cage.
-- **Quads under SubD.** A face with five or more corners shrinks and puckers when subdivided. Delete vertices that no longer shape anything so the faces go back to quads.
+- **Quads under SubD.** A face with five or more corners shrinks and puckers when subdivided. Delete vertices that no longer shape anything so the faces go back to quads. The one exception is a flat n-gon with a support row all round and a centre that sees every edge ([subd-recipes.md](subd-recipes.md), section 5).
 - **Few cuts at bends.** Only enough loops to define a bend. Don't cut densely to force smoothness.
 - **Sharp details are separate objects.** Crimps, knurling, teeth and serrations go on their own Shade Flat object without SubD. The smooth body stays Shade Smooth with SubD.
 - **Levels:** work at viewport 1, check at 2, render at 2. Higher levels hide cage problems instead of fixing them.

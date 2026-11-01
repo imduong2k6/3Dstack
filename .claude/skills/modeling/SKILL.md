@@ -95,7 +95,7 @@ The size tolerance is 1 cm unless a `done_when` line on the size says otherwise 
 - [ ] Pivot matches the spec's `pivot` and `mount`
 - [ ] Normals face outward, with no non-manifold edges unless intended
 - [ ] No duplicate vertices (Merge by Distance), no stray loose parts
-- [ ] Only quads under SubD; n-gons are allowed only on flat, non-subdivided faces
+- [ ] Quads under SubD, except a flat n-gon with a support row all round and a centre that sees every edge ([subd-recipes.md](references/subd-recipes.md)). `validate_mesh.py` fails the rest
 - [ ] Triangle count at LOD0 or render level within budget
 - [ ] Names follow the convention (`SM_`, `UCX_`, `SOCKET_`, and so on) and the material slots match `material_group`
 - [ ] Captures: `asset_capture.py` writes front, side, back, top, three-quarter and the 1.8 m mannequin shot, saved for the supervisor. Look at `culling/` for holes and inside-out faces, `matcap/` for smears and lumps, `reflect/` for kinks on curved faces and `wire/` for the flow, close up on every opening (`--close`)

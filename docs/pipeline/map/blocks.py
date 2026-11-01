@@ -183,7 +183,7 @@ GROUPS = [
                      "Tubes scaled uniformly, round within 2 mm",
                      "Normals outward, no non-manifold edges, duplicate vertices or loose parts",
                      "Parts inside one mesh: z-fighting fails; back-to-back, enclosed and floating parts warn",
-                     "Only quads under SubD, triangles within budget",
+                     "Quads under SubD, or a flat n-gon with a support row and a centre that sees every edge; triangles within budget",
                      "Form read before any mesh: check_spec.py refuses a modelled asset with no form block (sections, mirror planes, circles, repeats, real asymmetries); blueprint.py flattens the photo and draws the guide",
                      "Every mirror in form measured against the mesh, off by over 1 mm fails unless it is a listed asymmetry",
                      "Topology warnings: quad share, n-gons that don't lie flat, thin triangles, high poles, idle vertices on flats, odd Bevel segments",

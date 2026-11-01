@@ -378,6 +378,24 @@ def test_topology(tmp):
         bpy.context.scene.collection.objects.link(ng)
         t = NS["_topology"](ng)
         assert t["ngons"] == 1 and t["ngons_not_flat"] == n, (lift, t)
+    # under SubD an n-gon needs a flat ring of faces round it and a centre that sees every edge
+    circ = lambda r, k, n, z=0.0: (r * __import__("math").cos(k * 6.2832 / n), r * __import__("math").sin(k * 6.2832 / n), z)
+    for drop, bad in ((0.0, 0), (0.5, 1)):
+        bm = bmesh.new()
+        inner = [bm.verts.new(circ(1, k, 5)) for k in range(5)]
+        outer = [bm.verts.new(circ(2, k, 5, -drop)) for k in range(5)]
+        bm.faces.new(inner)
+        for k in range(5):
+            bm.faces.new((inner[k], outer[k], outer[(k + 1) % 5], inner[(k + 1) % 5]))
+        bm.normal_update()
+        assert NS["_bad_subd_ngons"](bm) == bad, (drop, bad)
+        bm.free()
+    bm = bmesh.new()
+    half_ring = [bm.verts.new(circ(1, k, 16)) for k in range(9)] + [bm.verts.new(circ(0.5, k, 16)) for k in range(8, -1, -1)]
+    bm.faces.new(half_ring)
+    bm.normal_update()
+    assert NS["_bad_subd_ngons"](bm) == 1, "a half ring round a hole folds"
+    bm.free()
     # a Bevel modifier with odd segments warns, an even one does not, and modifiers count in the numbers
     box = form_box("Topo_bev")
     m = box.modifiers.new("B", "BEVEL")

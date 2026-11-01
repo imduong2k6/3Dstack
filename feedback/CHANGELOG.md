@@ -4,7 +4,7 @@ Every skill change, with the evidence and the user's approval.
 
 ## 2026-11-01: SubD refinement from blind quad tests 01 to 05
 
-Asked for by the user on 1 Nov 2026: "from these test, refine the skill and research about hard surface modeling workflow". On branch `pipeline/subd-refine` until the user approves the report.
+Asked for by the user on 1 Nov 2026: "from these test, refine the skill and research about hard surface modeling workflow". The user approved the report and the merge on 1 Nov 2026.
 
 | # | Change | Evidence | Files |
 | --- | --- | --- | --- |
@@ -20,6 +20,7 @@ Asked for by the user on 1 Nov 2026: "from these test, refine the skill and rese
 | 10 | Research note added to the list checked on every change request. `fit` proposed as an add-on, not asked for yet | | `CLAUDE.md`, `docs/pipeline/README.md`, `docs/pipeline/addon-requests.md` |
 | 11 | Correction to row 1 and to test 05: halving a ring uses a three-quad 4 to 2, not the six-face one. Half the raw error, 2 to 5 times less with rings scaled, fewer faces, no 6-poles. Six-face stays for a hard edge on the dense ring or a whole dense loop. Tilt formula removed | An agent on the old markdown found the cell; head-to-head on test 05's tubes, patches on four other surfaces, Bevel at six distances, loop selection | `subd-recipes.md`, `volume-methods.md`, `docs/pipeline/hard-surface-workflows.md` |
 | 12 | Round hole in a square box: inset square and corner closure, the gap both agents reported | Both agents built the same 224-quad cage | `subd-recipes.md` |
+| 13 | N-gons allowed on flat faces under SubD, the user's decision of 1 Nov 2026. Conditions added: a support row all round and a centre that sees every edge. The validator now fails only n-gons that break them | `check_ngon_flat.py`: 16-gon cap 0.0001 dip with a row, 0.052 without; a half ring folds across the hole, quarter rings don't | `subd-recipes.md`, `quad-subd.md`, `hard-surface-topology.md`, `modeling/SKILL.md`, `validate_mesh.py`, `selftest_validate_mesh.py`, `blender-adapter/SKILL.md`, `docs/pipeline/hard-surface-workflows.md`, `docs/pipeline/map/blocks.py` |
 
 ## 2026-10-29: revision after the corridor pilot (v6)
 
