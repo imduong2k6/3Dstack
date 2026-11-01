@@ -61,7 +61,7 @@ Section numbers are in `ue5-mcp/SKILL.md`.
 
 ## Captures
 
-`scripts/capture.py` (`PipelineTools.capture_set`) renders each review camera at 1920 × 1080 through a temporary SceneCapture2D, with the camera's lens and the locked exposure, so it works with the editor in the background. Only Lit is possible this way: Lighting Only is a viewport setting that scene captures ignore. The gray pass for the L1 read doesn't exist yet (see Lighting). Check exposure with the HDR (Eye Adaptation) visualisation in the editor viewport. Never move a review camera to fix a shot.
+`scripts/capture.py` (`PipelineTools.capture_set`) renders each review camera at 1920 × 1080 through a temporary SceneCapture2D, with the camera's lens and the locked exposure, so it works with the editor in the background. Only Lit is possible this way: Lighting Only is a viewport setting that scene captures ignore. The gray pass for the L1 read doesn't exist yet (see Lighting). Check exposure with the HDR (Eye Adaptation) visualisation in the editor viewport. Never move a review camera to fix a shot. A blank frame (flat, all white or all black) raises an error through `blender-adapter/scripts/frame_check.py`, so it can't reach a gate. This hasn't run in the editor yet: on the first capture confirm a good frame passes; `check_blank=False` turns it off.
 
 **Known gaps in `capture.py`, to fix the next time the editor is open** (a script change can't be tested without it):
 

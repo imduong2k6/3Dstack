@@ -25,7 +25,11 @@ The Modeler works headless on its own asset file (`bash bin/blender-bg`); the se
 
 **Full path: the spec has reference views (front, side, top).** Load `blender-image-to-3d` with the Skill tool and use its gate protocol and scripts: a calibration file with the references at real scale, renders from the reference camera, and measured silhouette checks. Kit pieces and fixed props use its environment asset path.
 
-**Lite path: the spec has no orthographic view (only a turnaround, a 3/4 shot or one photo).** Don't load `blender-image-to-3d`. Build to `dims_m` from the spec, not from the picture. Render front, side and three-quarter views next to the photo or turnaround and compare the proportions the picture really shows, with two or three measured ratios (height to width, the largest feature to the whole). List every side the picture doesn't show as inferred in the spec. Then run the validation below.
+**Lite path: the spec has no orthographic view (only a turnaround, a 3/4 shot or one photo).** Don't load `blender-image-to-3d`. Build to `dims_m` from the spec, not from the picture. Render the views and the comparison with `asset_capture.py` (`blender-adapter`), giving the object's box and each `--feature` box in photo pixels by hand, never from brightness. Read the width-to-height ratio and the feature errors from `capture_report.json` as your two or three measured ratios, comparing only the proportions the picture really shows. List every side the picture doesn't show as inferred in the spec. Then run the validation below.
+
+```
+bash bin/blender-bg <asset>.blend --python .claude/skills/blender-adapter/scripts/asset_capture.py -- --object <asset> --out <dir> --photo <photo> --photo-box x0 y0 x1 y1 --feature <part>:x0,y0,x1,y1
+```
 
 Write the choice into the spec before you build:
 
@@ -68,9 +72,9 @@ The size tolerance is 1 cm unless a `done_when` line on the size says otherwise 
 - [ ] No duplicate vertices (Merge by Distance), no stray loose parts
 - [ ] Only quads under SubD; n-gons are allowed only on flat, non-subdivided faces
 - [ ] Triangle count at LOD0 or render level within budget
-- [ ] UVs present. For games, texel density is within 10% of the project value, and a second UV channel exists only if lighting is baked
+- [ ] UVs present, and `uv_check.py` (`blender-adapter`) passes with `--profile trim` for tiling and trim-sheet pieces, `unique` otherwise. For games, texel density is within 10% of the project value, and a second UV channel exists only if lighting is baked
 - [ ] Names follow the convention (`SM_`, `UCX_`, `SOCKET_`, and so on) and the material slots match `material_group`
-- [ ] Captures: front, side, back, top, and a three-quarter view next to the 1.8 m mannequin, saved for the supervisor
+- [ ] Captures: `asset_capture.py` writes front, side, back, top, three-quarter and the 1.8 m mannequin shot, saved for the supervisor. Look at `culling/` for holes and inside-out faces and `matcap/` for smears and lumps, close up on every cut (`--close`)
 
 ## Lessons loop
 

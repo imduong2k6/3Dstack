@@ -12,10 +12,15 @@ check or no lint at all raises CaptureRefused and nothing is rendered. override_
 <out_dir>/lint_overrides.log (`YYYY-MM-DD HH:MM who lint override: ...`) for the worker to copy into log.md. lint=False skips the gate (single
 assets, tests).
 
+Blank-frame check: right after each PNG is written, frame_check.py (beside this file, or under `repo` when this file is exec'd) reads it. After
+every camera has rendered and the settings are restored, a RuntimeError names each blank frame (flat colour, all white, all black, mostly zero
+alpha); the PNGs stay on disk for a look. frame_check=False skips it. If frame_check.py cannot be found a warning is printed and the capture goes on.
+
 Per camera it reads res_px, shift, sensor_mm and sensor_fit from light/cameras.json (project or cameras_json) and applies them for that
 render only; width and height, when given, override every camera. Every render and output setting it changes is restored afterwards.
 """
 import hashlib
+import importlib.util
 import json
 import os
 import sys
@@ -47,6 +52,37 @@ def _scene_state(scene):
                             round(getattr(d, "size", 0.0), 4), round(getattr(d, "spot_size", 0.0), 4), round(getattr(d, "angle", 0.0), 4)]
     names = sorted(o.name for o in scene.objects)
     return {"name_hash": hashlib.sha1("\n".join(names).encode()).hexdigest()[:12], "cam_light_hash": h(rows)}
+
+
+def _load_frame_check(repo):
+    """frame_check.py from beside this file, else from <repo>/.claude/skills/blender-adapter/scripts (an exec'd file has no usable __file__).
+    Returns the module, or None after a warning: a missing helper must not turn a capture into a confusing crash."""
+    here = globals().get("__file__")
+    dirs = ([os.path.dirname(os.path.abspath(here))] if here else []) + ([os.path.join(repo, ".claude", "skills", "blender-adapter", "scripts")] if repo else [])
+    for d in dirs:
+        path = os.path.join(d, "frame_check.py")
+        if os.path.isfile(path):
+            try:
+                spec = importlib.util.spec_from_file_location("frame_check", path)
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                return mod
+            except Exception as e:
+                print(f"capture.py: frame check skipped, {path} did not load ({type(e).__name__}: {e})")
+                return None
+    print(f"capture.py: frame check skipped, frame_check.py not found in {dirs or 'any known folder (pass repo=)'}")
+    return None
+
+
+def _blank_reason(fc, path):
+    """The BlankFrame message for a blank PNG, else None. A PNG the reader cannot parse is warned about, not failed."""
+    try:
+        fc.assert_not_blank(path)
+    except fc.BlankFrame as e:
+        return str(e)
+    except Exception as e:
+        print(f"capture.py: frame check could not read {path} ({type(e).__name__}: {e})")
+    return None
 
 
 def _find_lint(out_dir):
@@ -100,7 +136,7 @@ def _log_override(out_dir, msg, reason):
 
 
 def capture_set(out_dir, cameras, engine="BLENDER_WORKBENCH", width=None, height=None, samples=64, color_type="OBJECT",
-                project=None, cameras_json=None, repo=None, lint=True, override_lint=None):
+                project=None, cameras_json=None, repo=None, lint=True, override_lint=None, frame_check=True):
     """width/height override every camera; else a camera's res_px from cameras.json, else the scene's own resolution, so portrait
     cameras keep their frame. color_type is the Workbench colour source: OBJECT for blockout and placement, MATERIAL for single assets."""
     scene = bpy.context.scene
@@ -114,6 +150,8 @@ def capture_set(out_dir, cameras, engine="BLENDER_WORKBENCH", width=None, height
         raise RuntimeError(f"missing camera(s) {missing}: nothing rendered")
     if lint:
         _lint_gate(out_dir, project, repo, override_lint)
+    fc = _load_frame_check(repo) if frame_check else None
+    blanks = []
     r, im = scene.render, scene.render.image_settings
     changes = [(r, "engine", engine), (r, "resolution_percentage", 100),
                # A user's startup compositor (e.g. File Output nodes with empty paths) can blank every capture.
@@ -150,12 +188,17 @@ def capture_set(out_dir, cameras, engine="BLENDER_WORKBENCH", width=None, height
                 scene.camera = cam
                 r.filepath = os.path.abspath(os.path.join(out_dir, f"{name}.png"))  # Blender reads a relative path from the drive root
                 bpy.ops.render.render(write_still=True)
+                reason = _blank_reason(fc, r.filepath) if fc else None
+                if reason:
+                    blanks.append(reason)
             finally:
                 for o, a, v in prev:
                     setattr(o, a, v)
     finally:
         for o, a, v in saved:
             setattr(o, a, v)
+    if blanks:
+        raise RuntimeError(f"{len(blanks)} blank capture(s), nothing should reach a gate: " + " | ".join(blanks))
 
 
 def _main(argv):
@@ -174,10 +217,12 @@ def _main(argv):
     ap.add_argument("--height", type=int)
     ap.add_argument("--override-lint")
     ap.add_argument("--no-lint", action="store_true")
+    ap.add_argument("--no-frame-check", action="store_true")
     a = ap.parse_args(argv)
     repo = a.repo or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", ".."))
     capture_set(a.out, a.cameras.split(","), a.engine, a.width, a.height, a.samples, a.color_type, a.project, a.cameras_json, repo,
-                lint=not a.no_lint, override_lint=a.override_lint)
+                lint=not a.no_lint, override_lint=a.override_lint,
+                frame_check=not a.no_frame_check)
 
 
 if any(os.path.basename(x) == "capture.py" for x in sys.argv) and "--" in sys.argv:

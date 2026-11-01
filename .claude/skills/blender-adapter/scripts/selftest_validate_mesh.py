@@ -4,16 +4,19 @@
 
 Loads validate_mesh.py the way the live Blender does (exec, no __file__), then checks that the old call still works and that a
 spec adds the dims, pivot and material checks: each one passes on a good asset and fails, for the right reason, on a bad one.
-Last, the command line exit codes.
+Then the parts check (z-fighting fails; back-to-back, enclosed and floating parts warn; a decal 0.1 mm proud and a UCX_ collider do
+not count; 30,000 triangles stay fast), the zero-area UV check, and last the command line exit codes.
 """
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import time
 
 import bmesh
 import bpy
+import mathutils
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, "..", "..", "..", ".."))
@@ -22,13 +25,24 @@ exec(open(os.path.join(HERE, "validate_mesh.py"), encoding="utf-8").read(), NS)
 validate = NS["validate"]
 
 
-def asset(name, dims=(4.0, 0.15, 3.0), z0=0.0, groups=("upper_wall", "trim", "door_frames"), extra_slots=()):
+def box_uv(bm, zero_faces=0):
+    """Project each face flat along its main axis; the first zero_faces faces get no UV area."""
+    uv = bm.loops.layers.uv.new("UVMap")
+    bm.normal_update()
+    for n, f in enumerate(bm.faces):
+        ax = max(range(3), key=lambda i: abs(f.normal[i]))
+        a, b = [i for i in range(3) if i != ax]
+        for lp in f.loops:
+            lp[uv].uv = (0.0, 0.0) if n < zero_faces else (lp.vert.co[a], lp.vert.co[b])
+
+
+def asset(name, dims=(4.0, 0.15, 3.0), z0=0.0, groups=("upper_wall", "trim", "door_frames"), extra_slots=(), zero_uv_faces=0):
     """A closed box with its origin at the bottom centre (z0 = 0), one UV map, one material per group."""
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     for v in bm.verts:
         v.co = (v.co.x * dims[0], v.co.y * dims[1], (v.co.z + 0.5) * dims[2] + z0)
-    bm.loops.layers.uv.new("UVMap")
+    box_uv(bm, zero_uv_faces)
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
@@ -143,8 +157,116 @@ def test_loading(tmp):
         NS["_check_spec"] = None
 
 
+BODY = ((-0.094, -0.047, 0.0), (0.094, 0.047, 0.369))        # a meter-sized body, diagonal 0.43 m, so the coplanar tolerance is 0.043 mm
+
+
+def parts_asset(name, boxes=(), quads=()):
+    """Several separate boxes (lo, hi) and single quads (4 corners) in one mesh, one UV map, one material."""
+    bm = bmesh.new()
+    for lo, hi in boxes:
+        for v in bmesh.ops.create_cube(bm, size=1.0)["verts"]:
+            v.co = tuple(lo[i] + (v.co[i] + 0.5) * (hi[i] - lo[i]) for i in range(3))
+    for q in quads:
+        bm.faces.new([bm.verts.new(p) for p in q])
+    box_uv(bm)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(bpy.data.materials.get("M_p") or bpy.data.materials.new("M_p"))
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(ob)
+    return ob
+
+
+def decal(y, w=0.05, h=0.03):
+    """A quad facing +y at height y, over the front of BODY."""
+    return [(-w, y, 0.1), (-w, y, 0.1 + h), (w, y, 0.1 + h), (w, y, 0.1)]
+
+
+def test_parts(tmp):
+    front = BODY[1][1]
+    clean = validate(parts_asset("SM_PClean", [BODY]).name)["parts"]
+    assert clean["count"] == 1 and clean["ok"] and clean["warnings"] == [] and clean["coplanar_tol_mm"] == 0.0425, clean
+    # z-fighting: a decal in the surface fails the asset; 0.1 mm proud, as a real decal sits, does not
+    r = validate(parts_asset("SM_PFight", [BODY], [decal(front)]).name)
+    z = r["parts"]["z_fighting"]
+    assert not r["pass"] and not r["parts"]["ok"] and z["count"] == 1 and abs(z["examples"][0]["at_m"][1] - front) < 1e-6, r["parts"]
+    assert r["parts"]["floating"]["count"] == 0
+    r = validate(parts_asset("SM_PFight2", [BODY], [decal(front + 0.00001)]).name)           # 0.01 mm: under the tolerance
+    assert not r["pass"] and r["parts"]["z_fighting"]["count"] == 1, r["parts"]
+    r = validate(parts_asset("SM_PDecal", [BODY], [decal(front + 0.0001)]).name)             # 0.1 mm proud of a 0.37 m asset
+    p = r["parts"]
+    assert r["pass"] and p["count"] == 2 and p["z_fighting"]["count"] == 0 and p["floating"]["count"] == 0 and p["warnings"] == [], p
+    # back-to-back: a box whose face lies flat on the body's side. A warning only
+    side = ((0.094, -0.01, 0.1), (0.15, 0.01, 0.2))
+    r = validate(parts_asset("SM_PBack", [BODY, side]).name)
+    p = r["parts"]
+    assert r["pass"] and p["back_to_back"]["count"] == 1 and p["z_fighting"]["count"] == 0 and p["back_to_back"]["examples"][0]["parts"] == [0, 1], p
+    assert p["warnings"] == ["1 pairs of back-to-back touching faces"], p
+    # enclosed: a box inside the body. A warning only
+    r = validate(parts_asset("SM_PIn", [BODY, ((-0.03, -0.02, 0.1), (0.03, 0.02, 0.2))]).name)
+    p = r["parts"]
+    assert r["pass"] and p["enclosed"]["count"] == 1 and p["enclosed"]["examples"][0] == {"part": 1, "inside_part": 0, "at_m": [0.0, 0.0, 0.15]}, p
+    assert p["floating"]["count"] == 0 and p["z_fighting"]["count"] == 0, "the enclosed part is not also a floating one"
+    # a box poking out of the body is not enclosed
+    assert validate(parts_asset("SM_POut", [BODY, ((-0.03, -0.02, 0.1), (0.03, 0.07, 0.2))]).name)["parts"]["enclosed"]["count"] == 0
+    # floating: a small box 10 cm from the body. A warning only. A big one apart from the rest is not a fragment
+    r = validate(parts_asset("SM_PFloat", [BODY, ((0.2, 0.0, 0.0), (0.205, 0.005, 0.005))]).name)
+    p = r["parts"]
+    assert r["pass"] and p["floating"]["count"] == 1 and p["floating"]["examples"][0]["gap_mm"] > 100 and p["floating"]["examples"][0]["parts"] == [1], p
+    big = validate(parts_asset("SM_PBig", [BODY, ((0.2, -0.047, 0.0), (0.38, 0.047, 0.369))]).name)["parts"]
+    assert big["floating"]["count"] == 0 and big["detached_large"] == 1, big
+    # a piece that touches the body within the touching tolerance is attached, not floating
+    assert validate(parts_asset("SM_PNear", [BODY, ((0.0945, 0.0, 0.0), (0.095, 0.005, 0.005))]).name)["parts"]["floating"]["count"] == 0
+    # children are parts; a UCX_ collider is not
+    body = parts_asset("SM_PKids", [BODY])
+    col = parts_asset("UCX_SM_PKids_01", [BODY])
+    col.parent = body
+    r = validate("SM_PKids")
+    assert r["pass"] and r["parts"]["count"] == 1 and r["parts"]["z_fighting"]["count"] == 0, r["parts"]
+    col.name = "SM_PKids_Copy"
+    r = validate("SM_PKids")
+    assert not r["pass"] and r["parts"]["count"] == 2 and r["parts"]["z_fighting"]["count"] == 6, r["parts"]["z_fighting"]
+    # 30,000 triangles with a hundred loose pieces stay fast
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=170, v_segments=90, radius=0.2)
+    for k in range(100):
+        c = mathutils.Vector((0.25 * ((k * 7) % 11) / 11 - 0.12, 0.25 * ((k * 3) % 13) / 13 - 0.12, 0.25 * ((k * 5) % 17) / 17 - 0.12))
+        for v in bmesh.ops.create_cube(bm, size=0.01)["verts"]:
+            v.co += c
+    me = bpy.data.meshes.new("SM_PBigMesh")
+    bm.to_mesh(me)
+    bm.free()
+    me.calc_loop_triangles()
+    ob = bpy.data.objects.new("SM_PBigMesh", me)
+    bpy.context.scene.collection.objects.link(ob)
+    t = time.time()
+    p = NS["_parts"](ob)
+    took = time.time() - t
+    assert len(me.loop_triangles) > 30000 and p["count"] >= 100 and took < 10, (len(me.loop_triangles), p["count"], took)
+    print("   parts on", len(me.loop_triangles), "triangles,", p["count"], "parts:", round(took, 2), "s")
+
+
+def test_uv_zero(tmp):
+    r = validate(asset("SM_UvOk").name)
+    assert r["pass"] and r["uv_zero_area_share"] == 0.0, r
+    r = validate(asset("SM_UvSome", zero_uv_faces=2).name)             # 2 of 6 faces: not most
+    assert r["pass"] and abs(r["uv_zero_area_share"] - 2 / 6) < 1e-9, r
+    r = validate(asset("SM_UvMost", zero_uv_faces=4).name)
+    assert not r["pass"] and abs(r["uv_zero_area_share"] - 4 / 6) < 1e-9 and r["uv_layers"] == ["UVMap"], r
+    r = validate(asset("SM_UvEmpty", zero_uv_faces=6).name)             # a layer that was never unwrapped
+    assert not r["pass"] and r["uv_zero_area_share"] == 1.0, r
+    me = bpy.data.objects["SM_UvOk"].data.copy()
+    me.uv_layers.remove(me.uv_layers[0])
+    nouv = bpy.data.objects.new("SM_NoUv", me)
+    bpy.context.scene.collection.objects.link(nouv)
+    r = validate("SM_NoUv")
+    assert not r["pass"] and r["uv_layers"] == [] and r["uv_zero_area_share"] is None, r
+
+
 def test_cli(tmp):
     asset("SM_Cli")
+    parts_asset("SM_CliFight", [BODY], [decal(BODY[1][1])])
     blend = os.path.join(tmp, "cli.blend")
     bpy.ops.wm.save_as_mainfile(filepath=blend)
 
@@ -157,13 +279,15 @@ def test_cli(tmp):
     assert rc == 0 and "VALIDATE {" in text and json.load(open(out))["spec"]["dims"]["ok"], (rc, text[-300:])
     assert go("SM_Cli", "--spec", spec_file(tmp, "SM_Cli", dims="[4.5, 0.15, 3.0]"))[0] == 1
     assert go("SM_Cli")[0] == 0 and go("SM_Cli", "--budget-tris", "5")[0] == 1
+    rc, text = go("SM_CliFight")
+    assert rc == 1 and '"z_fighting": {"count": 1' in text, (rc, text[-300:])
     rc, text = go("SM_Nope")
     assert rc == 1 and "VALIDATE ERROR" in text, (rc, text[-200:])
 
 
 def main():
     with tempfile.TemporaryDirectory() as tmp:
-        for fn in (test_plain, test_dims, test_pivot, test_materials, test_loading, test_cli):
+        for fn in (test_plain, test_dims, test_pivot, test_materials, test_loading, test_parts, test_uv_zero, test_cli):
             fn(tmp)
             print("ok", fn.__name__)
     print("SELFTEST validate_mesh PASS")

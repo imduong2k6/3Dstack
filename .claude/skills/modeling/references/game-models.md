@@ -12,6 +12,17 @@ Matt Murch's three workflows. One scene, and even one asset, can mix them.
 | Mid-poly with custom normals | Close to mid distance, most hero props and kit pieces | Bevel the silhouette edges (2 to 3 segments, Harden Normals) and add a Weighted Normal modifier (Face Area, Keep Sharp). No baked normal map needed, so tiling materials and trim sheets work |
 | Low poly with high-poly bake | Assets with sculpted or fine detail (carvings, cloth folds, damage) | High poly by sculpt or SubD. Low poly follows the silhouette. Bake normals and AO with a cage; name pairs `_low` and `_high` |
 
+## Cuts in a curved shell
+
+Bevels plus Weighted Normal work on flat-sided parts. On a domed or rolled shell with a window or a seam cut into it, the cut pulls the shading out of shape around every hole.
+
+1. Keep a copy of the shell before any cut.
+2. Cut along planes (`bmesh.ops.bisect_plane`) or with Booleans, then bevel the edges of the cut.
+3. Give the shell's outer faces the normals of the uncut copy: Data Transfer (custom normals, nearest face interpolated) after Weighted Normal, limited by distance so that cut walls keep their own hard shading. Or write the sampled normals with `normals_split_custom_set`. Apply it, then check the result.
+4. A plate cut from the shell takes the normals of its own surface. If it should read as flat, make it flat instead of inheriting the shell's curve.
+
+Judge the shell in the shiny matcap view (`blender-adapter`, `asset_capture.py`), close up on every cut. Smears and lumps that don't show in a neutral render show there. `validate_mesh.py` can't see them.
+
 ## Nanite or LODs (Unreal 5.8)
 
 - Opaque static meshes default to **Nanite**. Polycount matters much less, but disk size and memory still matter, so don't import a raw multi-million-triangle sculpt when a mid-poly mesh reads the same.

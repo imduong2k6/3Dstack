@@ -11,6 +11,11 @@ Headless, on the asset's file (exit 0 when everything passes, 1 otherwise or on 
 
     bash bin/blender-bg <asset.blend> --python validate_mesh.py -- SM_X [--spec kit/SM_X.md] [--budget-tris N] [--tol-mm MM] [--repo <repo>] [--out validation.json]
 
+It also splits the object (and its mesh children, UCX_ and the other helper parts left out) into connected parts and reports, under `parts`:
+coplanar overlapping faces of two parts (z-fighting: makes `pass` false), back-to-back touching faces, parts fully inside another closed part,
+and small floating fragments (the last three are warnings). Tolerances are shares of the bounding diagonal (coplanar 0.01 %, touching 0.2 %),
+so a decal 0.1 mm proud of a 0.37 m asset is not z-fighting. `pass` is also false when the UV map has no area on most faces.
+
 With a spec (a path to the `kit/*.md`, or its parsed front matter as a dict) it also checks:
   - dims: the bounding box of the object and its mesh children (UCX_, UBX_, UCP_, USP_ and SOCKET_ parts left out) against
     `dims_m` [W (X), D (Y), H (Z)], within 1 cm, or within the tolerance a `done_when` line gives for the size ("bounding box
@@ -30,9 +35,17 @@ import sys
 import bmesh
 import bpy
 import numpy as np
+from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 _HELPER_PREFIX = ("UCX_", "UBX_", "UCP_", "USP_", "SOCKET_")
 _check_spec = None
+# parts check, all as shares of the asset's bounding diagonal
+_COPLANAR = 1e-4        # two faces this close and parallel sit in one plane (a decal 0.1 mm proud of a 0.37 m asset is 2.5 x this)
+_TOUCH = 2e-3           # parts this close count as touching
+_WELD = 1e-6            # vertices this close are one vertex
+_FRAGMENT_AREA = 0.05   # a detached piece with at most this share of the surface is a floating fragment
+_MAX_PARTS = 2000       # more parts than this: the enclosed and floating checks are skipped
 
 
 def _find_check_spec(spec_path=None, repo=None):
@@ -146,6 +159,185 @@ def _spec_report(ob, spec, repo, tolerance_m):
     return rep
 
 
+def _components(n, a, b):
+    """Connected-component label of each of n nodes, given edges a[i]-b[i]."""
+    lab = np.arange(n)
+    while True:
+        m = np.minimum(lab[a], lab[b])
+        new = lab.copy()
+        np.minimum.at(new, a, m)
+        np.minimum.at(new, b, m)
+        new = new[new]
+        if np.array_equal(new, lab):
+            return lab
+        lab = new
+
+
+def _world_tris(o, dg):
+    """Vertices (world, metres), triangles, the face of each triangle and the material name of each face, of the object with its modifiers."""
+    ev = o.evaluated_get(dg)
+    me = ev.to_mesh()
+    me.calc_loop_triangles()
+    co = np.empty(len(me.vertices) * 3, dtype=np.float32)
+    me.vertices.foreach_get("co", co)
+    tr = np.empty(len(me.loop_triangles) * 3, dtype=np.int32)
+    me.loop_triangles.foreach_get("vertices", tr)
+    tp = np.empty(len(me.loop_triangles), dtype=np.int32)
+    me.loop_triangles.foreach_get("polygon_index", tp)
+    mi = np.zeros(len(me.polygons), dtype=np.int32)
+    me.polygons.foreach_get("material_index", mi)
+    names = np.array([s.material.name if s.material else "" for s in o.material_slots] + [""])
+    pm = names[np.minimum(mi, len(names) - 1)]
+    ev.to_mesh_clear()
+    m = np.array(o.matrix_world)
+    return co.reshape(-1, 3).astype(float) @ m[:3, :3].T + m[:3, 3], tr.reshape(-1, 3), tp, pm
+
+
+def _is_inside(tree, p, step):
+    """True when p is inside the closed surface in tree: an odd number of crossings along a skew ray."""
+    d, hits = Vector((0.5773, 0.5779, 0.5767)), 0
+    for _ in range(64):
+        loc = tree.ray_cast(p, d)[0]
+        if loc is None:
+            break
+        hits += 1
+        p = loc + d * step
+    return hits % 2 == 1
+
+
+def _parts(ob):
+    """Split the object (and its mesh children, colliders left out) into connected parts and look for:
+    coplanar overlapping faces of two parts (z-fighting), back-to-back touching faces, parts inside another closed part, and small
+    fragments that touch nothing. Tolerances are shares of the bounding diagonal. Locations are world coordinates in metres."""
+    objs = [o for o in [ob] + list(ob.children_recursive) if o.type == "MESH" and not o.name.startswith(_HELPER_PREFIX)]
+    dg = bpy.context.evaluated_depsgraph_get()
+    raw = [_world_tris(o, dg) for o in objs]
+    raw = [r for r in raw if len(r[1])]
+    if not raw:
+        return {"count": 0, "ok": True, "skipped": "no faces to check", "warnings": []}
+    allv = np.vstack([r[0] for r in raw])
+    diag = float(np.linalg.norm(allv.max(axis=0) - allv.min(axis=0))) or 1.0
+    eps, tol, weld = diag * _COPLANAR, diag * _TOUCH, diag * _WELD
+    V, T, F, voff, foff = [], [], [], 0, 0
+    PM = np.concatenate([r[3] for r in raw])
+    for co, tr, tp, pm in raw:                                # weld per object, so the seams of one mesh do not cut it into parts
+        _, first, inv = np.unique(np.round(co / weld).astype(np.int64), axis=0, return_index=True, return_inverse=True)
+        t = inv.ravel()[tr]
+        keep = (t[:, 0] != t[:, 1]) & (t[:, 1] != t[:, 2]) & (t[:, 0] != t[:, 2])
+        V.append(co[first])
+        T.append(t[keep] + voff)
+        F.append(tp[keep] + foff)
+        voff, foff = voff + len(first), foff + len(pm)
+    V, T, F = np.vstack(V), np.vstack(T), np.concatenate(F)
+    nv = len(V)
+    lab = _components(nv, np.r_[T[:, 0], T[:, 1]], np.r_[T[:, 1], T[:, 2]])
+    uniq, part = np.unique(lab[T[:, 0]], return_inverse=True)
+    part, P = part.ravel(), len(uniq)
+    A, B, C = V[T[:, 0]], V[T[:, 1]], V[T[:, 2]]
+    cr = np.cross(B - A, C - A)
+    tri_area = 0.5 * np.linalg.norm(cr, axis=1)
+    live = tri_area > 1e-18
+    nrm = cr / np.maximum(2 * tri_area, 1e-30)[:, None]
+    cen = (A + B + C) / 3
+    area = np.bincount(part, tri_area, minlength=P)
+    order = np.argsort(part, kind="stable")
+    starts = np.r_[0, np.cumsum(np.bincount(part, minlength=P))[:-1]]
+    lo = np.minimum.reduceat(np.minimum(np.minimum(A, B), C)[order], starts, axis=0)
+    hi = np.maximum.reduceat(np.maximum(np.maximum(A, B), C)[order], starts, axis=0)
+    ptris = [T[order[s:e]] for s, e in zip(starts, list(starts[1:]) + [len(T)])]
+    ekey = np.sort(np.concatenate([T[:, [0, 1]], T[:, [1, 2]], T[:, [2, 0]]]), axis=1)
+    _, einv, ecnt = np.unique(ekey[:, 0] * nv + ekey[:, 1], return_inverse=True, return_counts=True)
+    closed = np.bincount(np.tile(part, 3)[ecnt[einv.ravel()] != 2], minlength=P) == 0
+
+    Vl = V.tolist()
+    tree = BVHTree.FromPolygons(Vl, T.tolist())
+    same, opp = {}, {}                                    # (face, face) -> (part, part, location), once per pair of faces
+    for i in np.nonzero(live)[0]:
+        c = Vector(cen[i])
+        for loc, hn, j, _ in tree.find_nearest_range(c, eps):
+            if part[j] == part[i] or not live[j]:
+                continue
+            dot = hn.dot(Vector(nrm[i]))
+            off = c - loc
+            if abs(dot) > 0.999 and (off - hn * off.dot(hn)).length < eps * 0.01:      # the centre lies over the other face
+                key = (min(F[i], F[j]), max(F[i], F[j]))
+                (same if dot > 0 else opp).setdefault(key, (*sorted((int(part[i]), int(part[j]))), [round(float(x), 4) for x in cen[i]], bool(PM[F[i]] == PM[F[j]])))
+
+    def listing(d):     # same_material: two faces of one material in one plane show no artefact, so those are listed last
+        return {"count": len(d), "same_material": sum(v[3] for v in d.values()),
+                "examples": [{"parts": [a, b], "at_m": at, "same_material": sm} for a, b, at, sm in sorted(d.values(), key=lambda v: v[3])[:5]]}
+    rep = {"count": P, "diagonal_m": round(diag, 4), "coplanar_tol_mm": round(eps * 1000, 4), "touch_tol_mm": round(tol * 1000, 4),
+           "z_fighting": listing(same), "back_to_back": listing(opp), "enclosed": {"count": 0, "examples": []},
+           "floating": {"count": 0, "examples": []}, "detached_large": 0}
+    warnings = []
+    if P > _MAX_PARTS:
+        warnings.append(f"{P} parts: the enclosed and floating checks were skipped")
+    elif P > 1:
+        trees = {}
+
+        def ptree(k):
+            if k not in trees:
+                trees[k] = BVHTree.FromPolygons(Vl, ptris[k].tolist())
+            return trees[k]
+        link = []
+        within = np.all(lo[:, None] >= lo[None] - tol, axis=2) & np.all(hi[:, None] <= hi[None] + tol, axis=2)    # [a, b]: a lies in b's box
+        within &= closed[None, :] & (area[:, None] < area[None, :])
+        for a, b in zip(*np.nonzero(within)):
+            vs = np.unique(ptris[a])
+            vs = vs[::max(1, len(vs) // 16)]
+            if all(_is_inside(ptree(b), Vector(V[v]), weld) for v in vs):
+                rep["enclosed"]["count"] += 1
+                rep["enclosed"]["examples"].append({"part": int(a), "inside_part": int(b), "at_m": [round(float(x), 4) for x in (lo[a] + hi[a]) / 2]})
+                link.append((a, b))
+        near = np.all((lo[:, None] <= hi[None] + tol) & (lo[None] <= hi[:, None] + tol), axis=2)
+        for a, b in zip(*np.nonzero(np.triu(near, 1))):
+            if ptree(a).overlap(ptree(b)) or any(ptree(y).find_nearest(Vl[v], tol)[0] is not None
+                                                 for x, y in ((a, b), (b, a)) for v in np.unique(ptris[x])):
+                link.append((a, b))
+        link = np.array(link, dtype=int).reshape(-1, 2)
+        grp = _components(P, link[:, 0], link[:, 1])
+        share = {g: float(area[grp == g].sum() / area.sum()) for g in np.unique(grp)}
+        main = max(share, key=share.get)
+        body = BVHTree.FromPolygons(Vl, np.vstack([ptris[k] for k in np.nonzero(grp == main)[0]]).tolist())
+        for g, s in share.items():
+            if g == main:
+                continue
+            if s > _FRAGMENT_AREA:
+                rep["detached_large"] += 1
+                continue
+            ks = np.nonzero(grp == g)[0]
+            vs = np.unique(np.vstack([ptris[k] for k in ks]))
+            gap = min(body.find_nearest(Vl[v])[3] for v in vs[::max(1, len(vs) // 32)])
+            rep["floating"]["count"] += 1
+            rep["floating"]["examples"].append({"parts": [int(k) for k in ks][:5], "at_m": [round(float(x), 4) for x in (lo[ks].min(axis=0) + hi[ks].max(axis=0)) / 2],
+                                                "share_of_surface": round(s, 5), "gap_mm": round(float(gap) * 1000, 3)})
+        rep["floating"]["examples"] = rep["floating"]["examples"][:5]
+        rep["enclosed"]["examples"] = rep["enclosed"]["examples"][:5]
+    for key, text in (("back_to_back", "pairs of back-to-back touching faces"), ("enclosed", "parts inside another part"),
+                      ("floating", "small floating fragments")):
+        if rep[key]["count"]:
+            warnings.append(f"{rep[key]['count']} {text}")
+    rep["warnings"] = warnings
+    rep["ok"] = rep["z_fighting"]["count"] == 0       # only z-fighting fails; the rest are warnings
+    return rep
+
+
+def _uv_zero_share(me):
+    """Share of the faces with no area in the active UV map; None when the mesh has no UV map. Needs calc_loop_triangles() done."""
+    if not me.uv_layers:
+        return None
+    uv = np.empty(len(me.loops) * 2, dtype=np.float32)
+    me.uv_layers.active.uv.foreach_get("vector", uv)
+    k = len(me.loop_triangles)
+    tl = np.empty(k * 3, dtype=np.int32)
+    me.loop_triangles.foreach_get("loops", tl)
+    tp = np.empty(k, dtype=np.int32)
+    me.loop_triangles.foreach_get("polygon_index", tp)
+    u = uv.reshape(-1, 2).astype(float)[tl.reshape(-1, 3)]
+    a = 0.5 * ((u[:, 1, 0] - u[:, 0, 0]) * (u[:, 2, 1] - u[:, 0, 1]) - (u[:, 1, 1] - u[:, 0, 1]) * (u[:, 2, 0] - u[:, 0, 0]))
+    return float((np.abs(np.bincount(tp, a, minlength=len(me.polygons))) < 1e-12).mean()) if len(me.polygons) else 0.0
+
+
 def validate(name, budget_tris=None, merge_dist=0.0001, spec=None, repo=None, tolerance_m=None):
     ob = bpy.data.objects[name]
     if ob.type != "MESH":
@@ -176,11 +368,15 @@ def validate(name, budget_tris=None, merge_dist=0.0001, spec=None, repo=None, to
     ev = ob.evaluated_get(dg).to_mesh()
     ev.calc_loop_triangles()
     out["tris_evaluated"] = len(ev.loop_triangles)
+    out["uv_zero_area_share"] = _uv_zero_share(ev)
     ob.evaluated_get(dg).to_mesh_clear()
     out["uv_layers"] = [uv.name for uv in ob.data.uv_layers]
     out["materials"] = [s.material.name if s.material else None for s in ob.material_slots]
+    out["parts"] = _parts(ob)
+    # a UV map must exist and most faces must have area in it
+    uv_ok = bool(out["uv_layers"]) and (out["uv_zero_area_share"] or 0.0) <= 0.5
     checks = [out["transforms_applied"], out["non_manifold_edges"] == 0, out["duplicate_verts"] == 0,
-              out["ngons_under_subd"] == 0, out["flipped_faces"] == 0, bool(out["uv_layers"])]
+              out["ngons_under_subd"] == 0, out["flipped_faces"] == 0, uv_ok, out["parts"]["ok"]]
     if budget_tris:
         out["within_budget"] = out["tris_evaluated"] <= budget_tris
         checks.append(out["within_budget"])
