@@ -60,7 +60,7 @@ Details, the JavaScript send and failure modes: [references/tripo-studio.md](ref
 
 ## 4. Check, export, send to Blender (the Generator)
 
-1. **Look at the result in the viewer**, not the thumbnail. Shards or lumps: regenerate with a higher polycount, views re-cropped at one scale, or a single 3/4 image.
+1. **Look at the result in the viewer**, not the thumbnail, and judge it against the spec's rubric (`generated-asset`, Judge and regenerate: one change per round, three rounds per asset). Shards or lumps: regenerate with a higher polycount, views re-cropped at one scale, or a single 3/4 image.
 2. **Export:** set File Name to the spec's id (`SM_<Name>`, or `SM_<Name>_v2` when a master of that name exists). The name **resets every time the panel closes**. Set Texture Resolution to **1k**.
 3. **Hover "Send to"**, then click **"Send to Blender"** in its submenu. Clicking "Send to" itself does nothing.
 4. **Wait 25 to 40 s**; Studio shows no progress. Never resend while a big model is still transferring, or you get `.001` duplicates. Watch the bridge log (`%TEMP%\tripo3d_blender_bridge.log`, readable as a file) for "Successfully imported".

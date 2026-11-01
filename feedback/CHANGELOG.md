@@ -179,3 +179,20 @@ Asked by the user on 30 Oct 2026 ("Yes, start linear-runs") after the retro of a
 | Pointers to it | `placement-phases`, `lane-integration/templates/lane-brief.md`, `detail-inventory`, `geometry-nodes` (pipeline notes), `CREDITS.md`, `scene-pipeline`, `docs/pipeline/agents.md` |
 
 The self-test passes: 31 checks, about 2 s headless, including a lint run that finds nothing on the built runs. Not yet run on a real project file or in a lane.
+
+## 2026-10-31: eight changes from the skill pack benchmark
+
+Approved by the user on 31 Oct 2026 ("apply 1 to 8") after one wall meter was built blind with our skills and with scenario-labs/skills (MIT, commit `7f4b801`). All code and text were rewritten here, none copied. It is one asset and one run, so the changes rest on what the checks found, not on who won.
+
+| # | Change | Evidence | Files |
+| --- | --- | --- | --- |
+| 1 | `validate_mesh.py` checks parts inside one mesh: z-fighting fails; back-to-back, enclosed and floating parts warn | It passed our meter; the other pack's check found a real z-fight on it | `blender-adapter/scripts/validate_mesh.py`, `selftest_validate_mesh.py` |
+| 2 | New `asset_capture.py`: temporary cameras, mannequin, photo overlay and measured ratios | Both builders wrote their own; `modeling` asked for this with no tool | `blender-adapter/scripts/asset_capture.py`, `check_asset_capture.py`, `modeling/SKILL.md` |
+| 3 | New `uv_check.py` with a trim profile; `validate_mesh.py` fails when most faces have no UV area | Three files promised a texel gate and no script measured it | `blender-adapter/scripts/uv_check.py`, `selftest_uv_check.py`, `modeling/SKILL.md`, `agents/asset-tech.md` |
+| 4 | Cuts in a curved shell: normals from the uncut copy; matcap and culling views | Both builders found this by trial; the matcap showed lumps a neutral render hid | `modeling/references/game-models.md`, `asset_capture.py` |
+| 5 | Blender 5.x API traps, each checked on 5.2.3 by script | The `bmesh.ops.bevel` slot trap painted interior parts wrongly in the benchmark | `blender-adapter/references/blender-5-api.md`, `scripts/check_api_notes.py` |
+| 6 | Skill linter before pipeline commits; `lane-integration` description fixed | An unquoted colon had hidden that skill's description | `checkpoint/scripts/check_skills.py`, `selftest_check_skills.py`, `checkpoint/SKILL.md`, `lane-integration/SKILL.md` |
+| 7 | Rubric before generating, one change per round, three rounds, batch priced first | Generation had no regeneration limit. "Change model after two failures" was dropped because Flux.2 stays the default (`house-rules` 11), and the quote never justifies a cheaper choice (rule 6) | `generated-asset/SKILL.md`, `tripo-props/SKILL.md`, `agents/generator.md` |
+| 8 | Blank frame check on every capture | Nothing stopped an all-white frame reaching a gate | `blender-adapter/scripts/frame_check.py`, `selftest_frame_check.py`, both `capture.py` |
+
+All self-tests pass on Blender 5.2.3. Not yet run on a real project file. The Unreal capture call has only run against a stub, not in the editor.
