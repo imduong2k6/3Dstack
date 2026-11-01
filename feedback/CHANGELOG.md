@@ -214,3 +214,7 @@ Approved by the user on 31 Oct 2026 ("Apply M1 to M10") after reviewing both ben
 | M9 | Mesh approval before UVs and textures, batched by contact sheet | The user's rule; UVs moved out of the mesh checklist; `--stage mesh` | `modeling/SKILL.md`, `scene-pipeline/SKILL.md`, `agents/modeler.md`, `blender-image-to-3d/SKILL.md`, `CREDITS.md` |
 
 The topology warning limits are provisional, set from one asset. M10, the blind rerun, runs after this commit. Self-tests pass on Blender 5.2.3; nothing has run on a project yet.
+
+## 2026-10-31: add-on requests for the user to build
+
+The user offered to build Blender add-ons, and pointed out that the installed ones come with source to build on. New `docs/pipeline/addon-requests.md`: what to build, in order, with requirements, base features and tests, plus what each installed add-on did when run headless. No skill changed; integration waits for the kit test.
