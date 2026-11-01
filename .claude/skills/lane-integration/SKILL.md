@@ -49,6 +49,8 @@ bash bin/blender-bg <gate_copy.blend> --python .claude/skills/lane-integration/s
 
 Any failed assert prints `FAIL`, exits 1 and saves nothing. The manager sends the failure list to the lane's builder; the queue moves on to the next lane. A passed join goes to the live worker with the report: reopen `--out`, log the step with `step_log.py` (`blender-adapter`), run `scene-lint`, capture.
 
+Kit pieces are placed by rows, not by appending a lane's collection: `modular-kit` › Join rows (`kit_library.py join-rows`) does that join with the same rules: headless on a copy, a dry run first, `--backup`, and a rerun that changes nothing.
+
 `append` is the default because the gate's materials, exposure and palette passes need local data. Use `link` only for a rigid lane that never changes material; patches cannot persist on a linked lane and are refused.
 
 ## Live-only fixes

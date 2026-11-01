@@ -10,6 +10,10 @@ object to one piece and rename its master; add a visible and a hidden object to 
 delete the variant's collection), sync dry run (reports, changes nothing, no backups), apply without a backup (refused), apply with
 one (transforms, names, properties, modifiers and the scene's own materials kept, collision not joined, backups written, emptied and
 deleted collections reported and not applied), a second sync that finds nothing, and the undo through the first library copy.
+Then build --refresh on a library of its own: an unchanged asset is left alone (also when the manifest has no file time for it), a stale unedited piece is
+replaced in place (a changed asset, and a scene family that an asset of the same name now replaces), a stale piece the user edited is kept and listed, a
+dry run writes nothing, naming one piece refreshes only that piece, a rerun changes nothing, sync reads the refreshed pieces as unchanged, and
+--exclude / --exclude-from keep assets out of a build.
 """
 import json
 import os
@@ -17,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 import bpy
 
@@ -210,6 +215,157 @@ def probe(blend, root, tag):
         return json.load(f)
 
 
+SCALE_ASSET = r'''
+import bpy
+for v in bpy.data.objects[%r].data.vertices:
+    v.co.z *= 2
+bpy.ops.wm.save_mainfile()
+'''
+
+NEW_ASSET = r'''
+import bpy, os
+bpy.ops.wm.read_factory_settings(use_empty=True)
+me = bpy.data.meshes.new("FAM_Third")
+me.from_pydata([(x, y, z) for x in (-.1, .1) for y in (-.1, .1) for z in (0, .3)], [], [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)])
+me.materials.append(bpy.data.materials.new("M_A"))
+bpy.context.scene.collection.objects.link(bpy.data.objects.new("FAM_Third", me))
+os.makedirs(os.path.dirname(%r))
+bpy.ops.wm.save_as_mainfile(filepath=%r)
+'''
+
+USER_EDIT = r'''
+import bpy
+col = bpy.data.collections["SM_Lamp_Pilot"]
+me = bpy.data.meshes.new("Extra")
+me.from_pydata([(0, 0, 0), (1, 0, 0), (0, 1, 0)], [], [(0, 1, 2)])
+ob = bpy.data.objects.new("Extra", me)
+ob.location = col.instance_offset
+col.objects.link(ob)
+bpy.ops.wm.save_mainfile()
+'''
+
+AFTER_REFRESH = r'''
+import bpy
+c = bpy.data.collections
+assert sorted(o.name for o in c["SM_Test"].objects) == ["SM_Test", "SOCKET_top", "UCX_SM_Test_01"], [o.name for o in c["SM_Test"].objects]
+assert "Extra" in c["SM_Lamp_Pilot"].objects, "the user's object is gone"
+assert [o.name for o in c["FAM_Third"].objects] == ["FAM_Third"]
+assert not [m.name for m in bpy.data.meshes if m.name.endswith(".001")], "duplicate meshes after the replace"
+assert "SM_Test" in [x.name for x in c["Props"].children], "the piece left its section"
+assert sorted(m.name for m in bpy.data.materials) == ["M_A", "M_B"], [m.name for m in bpy.data.materials]
+'''
+
+
+def kit_line(out, tag):
+    line = next((l for l in out.splitlines() if l.startswith(tag + " {")), None)
+    if line is None:
+        print(out[-2500:])
+    return json.loads(line[len(tag) + 1:]) if line else None
+
+
+def digest(*paths):
+    import hashlib
+    return [hashlib.md5(open(p, "rb").read()).hexdigest() for p in paths]
+
+
+def refresh_checks():
+    """build --refresh on a library of its own."""
+    root = tempfile.mkdtemp(prefix="kit_refresh_selftest_")
+    scene, assets = build_assets_and_scene(root)
+    lib = os.path.join(root, "lib", "Kit.blend")
+    man = lib + ".manifest.json"
+    args = ["build", "--scene", scene, "--assets-dir", assets, "--out", lib]
+    code, out = blender(args)
+    m0 = json.load(open(man))["pieces"]
+    check(code == 0 and all(m0[p]["source_mtime"] for p in ("SM_Test", "SM_Test_Open", "SM_Lamp_Pilot")) and m0["FAM_Third"]["source_mtime"] is None,
+          "build records the file time of every asset piece, and none for a scene family")
+
+    code, out = blender(args + ["--refresh", "--dry-run"])
+    r = kit_line(out, "KIT_REFRESH")
+    check(code == 0 and r and r["replace"] == 0 and r["kept_user_edit"] == 0 and r["add"] == 0 and r["current"] == 3, "nothing changed: a refresh replaces and keeps nothing (%s)" % r)
+
+    mf = json.load(open(man))   # an older manifest: no file time for SM_Test, so the shape decides, and the asset has not changed
+    del mf["pieces"]["SM_Test"]["source_mtime"]
+    json.dump(mf, open(man, "w"), indent=1)
+    code, out = blender(args + ["--refresh", "--dry-run"])
+    r = kit_line(out, "KIT_REFRESH")
+    check(code == 0 and r["replace"] == 0, "no recorded file time: an unchanged asset is not stale (compared by mesh, not assumed) (%s)" % r)
+
+    mf["pieces"]["SM_Test"]["source_mtime"] = m0["SM_Test"]["source_mtime"]   # the file time is back: the next replace takes the newer-file path
+    json.dump(mf, open(man, "w"), indent=1)
+    now = time.time() + 10   # the assets change: SM_Test and SM_Lamp_Pilot get taller, FAM_Third is an asset now
+    for piece in ("SM_Test", "SM_Lamp_Pilot"):
+        run_py(SCALE_ASSET % piece, os.path.join(assets, piece, piece + ".blend"))
+    third = os.path.join(assets, "FAM_Third", "FAM_Third.blend")
+    run_py(NEW_ASSET % (third, third))
+    for piece in ("SM_Test", "SM_Lamp_Pilot", "FAM_Third"):
+        path = os.path.join(assets, piece, piece + ".blend")
+        os.utime(path, (now, now))
+    run_py(USER_EDIT, lib)   # the user edits SM_Lamp_Pilot in the library, whose asset is now newer too
+    before = digest(lib, man)
+    nbk = len(backups(lib))
+    code, out = blender(args + ["--refresh", "--dry-run"])
+    r = kit_line(out, "KIT_LIBRARY")["refresh"]
+    check(code == 0 and sorted(r["replace"]) == ["FAM_Third", "SM_Test"], "dry run: the changed asset and the scene family now an asset are replaced (%s)" % sorted(r["replace"]))
+    check(sorted(r["kept_user_edit"]) == ["SM_Lamp_Pilot"], "dry run: the stale piece the user edited is kept and listed (%s)" % r["kept_user_edit"])
+    check(digest(lib, man) == before and len(backups(lib)) == nbk, "dry run writes nothing: library, manifest and backups unchanged")
+
+    code, out = blender(args + ["--refresh", "SM_Lamp_Pilot"])
+    r = kit_line(out, "KIT_REFRESH")
+    check(code == 0 and r["replace"] == 0 and r["kept_user_edit"] == 1 and json.load(open(man))["pieces"]["SM_Lamp_Pilot"]["hash"] == m0["SM_Lamp_Pilot"]["hash"],
+          "naming an edited piece keeps it")
+    code, out = blender(args + ["--refresh", "SM_Nope"])
+    check(code != 0 and "SM_Nope" in out, "an unknown piece name is refused")
+
+    nbk = len(backups(lib))
+    code, out = blender(args + ["--refresh", "FAM_Third"])
+    r = kit_line(out, "KIT_LIBRARY")
+    mm = json.load(open(man))["pieces"]
+    check(code == 0 and list(r["refresh"]["replace"]) == ["FAM_Third"] and mm["SM_Test"]["hash"] == m0["SM_Test"]["hash"],
+          "naming one piece refreshes only that piece")
+    check(mm["FAM_Third"]["source"] == "asset" and mm["FAM_Third"]["prev_hash"] == m0["FAM_Third"]["hash"] and abs(mm["FAM_Third"]["bbox_m"][1][2] - 0.3) < 1e-5
+          and len(backups(lib)) == nbk + 1, "scene family replaced by its asset: source, new shape, prev_hash, a library copy first")
+
+    nbk = len(backups(lib))
+    code, out = blender(args + ["--refresh"])
+    r = kit_line(out, "KIT_LIBRARY")
+    mm = json.load(open(man))["pieces"]
+    check(code == 0 and list(r["refresh"]["replace"]) == ["SM_Test"] and list(r["refresh"]["kept_user_edit"]) == ["SM_Lamp_Pilot"],
+          "refresh: the stale unedited piece is replaced, the edited one kept (%s)" % r["refresh"])
+    t = mm["SM_Test"]
+    check(t["hash"] != m0["SM_Test"]["hash"] and t["prev_hash"] == m0["SM_Test"]["hash"] and abs(t["bbox_m"][1][2] - 0.08) < 1e-5 and mm["SM_Test_Open"]["hash"] == m0["SM_Test_Open"]["hash"],
+          "SM_Test is taller (0.04 -> 0.08 m), its variant from the same file is untouched")
+    check(mm["SM_Lamp_Pilot"]["hash"] == m0["SM_Lamp_Pilot"]["hash"] and len(backups(lib)) == nbk + 1, "the edited piece keeps its manifest entry; one library copy before the replace")
+    run_py(AFTER_REFRESH, lib)
+    check(True, "library after the replace: collision and socket from the asset, the user's object kept, no duplicate meshes, same section, materials not duplicated")
+
+    nbk, pieces1 = len(backups(lib)), json.load(open(man))["pieces"]
+    code, out = blender(args + ["--refresh"])
+    r = kit_line(out, "KIT_LIBRARY")
+    check(code == 0 and not r["refresh"]["replace"] and json.load(open(man))["pieces"] == pieces1 and len(backups(lib)) == nbk, "a rerun replaces nothing, changes no piece, writes no library copy")
+
+    report = os.path.join(root, "sync.json")
+    code, out = blender(["sync", "--library", lib, "--manifest", man, "--report", report], blend=scene)
+    rows = {x["piece"] for x in json.load(open(report))["pieces"]}
+    check(code == 0 and rows == {"SM_Lamp_Pilot"}, "sync reads the refreshed pieces as unchanged and only the user's edit as a change (%s)" % sorted(rows))
+
+    lib3 = os.path.join(root, "lib3", "Kit.blend")
+    ex = os.path.join(root, "exclude.json")
+    json.dump({"assets": {"FAM_Third": {}}}, open(ex, "w"))
+    a3 = ["build", "--scene", scene, "--assets-dir", assets, "--out", lib3, "--exclude", "SM_Lamp_Pilot", "--exclude-from", ex]
+    code, out = blender(a3 + ["--dry-run"])
+    r = kit_line(out, "KIT_LIBRARY")
+    check(code == 0 and not os.path.exists(lib3) and "SM_Test" in r["added"] and not {"SM_Lamp_Pilot", "FAM_Third"} & set(r["added"]),
+          "build --dry-run writes no library and lists what would be added, without the excluded names (%s)" % r["added"])
+    code, out = blender(a3)
+    m3 = json.load(open(lib3 + ".manifest.json"))["pieces"]
+    check(code == 0 and "SM_Test" in m3 and not {"SM_Lamp_Pilot", "FAM_Third"} & set(m3), "--exclude and --exclude-from keep the named assets out of the library (%s)" % sorted(m3))
+    if not FAILS:
+        shutil.rmtree(root, ignore_errors=True)
+    else:
+        print("refresh selftest folder kept:", root)
+
+
 def backups(lib):
     d = os.path.splitext(lib)[0] + "_backups"
     return sorted(f for f in os.listdir(d) if f.endswith(".blend")) if os.path.isdir(d) else []
@@ -308,6 +464,7 @@ def main():
         shutil.rmtree(root, ignore_errors=True)
     else:
         print("selftest folder kept:", root)
+    refresh_checks()
     print("KIT_LIBRARY_SELFTEST", "FAIL %d" % len(FAILS) if FAILS else "PASS")
     return 1 if FAILS else 0
 
