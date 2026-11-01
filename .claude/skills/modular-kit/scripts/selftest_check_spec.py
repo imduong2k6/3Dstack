@@ -143,6 +143,10 @@ def test_template():
         assert old in GOOD, old
         assert "form" in codes(GOOD.replace(old, new, 1))[0], (old, new)
     assert codes(GOOD.replace("symmetry: [x]", "symmetry: []\n      why_none: a real offset door", 1))[0] == []
+    # 6 segments need a reason; other counts that aren't a multiple of 4 stay refused even with one
+    assert "form" in codes(GOOD.replace("segments: 24, repeat: 6", "segments: 6, repeat: 6", 1))[0]
+    assert codes(GOOD.replace("segments: 24, repeat: 6", "segments: 6, repeat: 6, why_6: no room to retopologise", 1))[0] == []
+    assert "form" in codes(GOOD.replace("segments: 24, repeat: 6", "segments: 10, repeat: 1, why_6: no room", 1))[0]
     no_form = GOOD[:GOOD.index("form:\n")] + GOOD[GOOD.index("method: null"):]
     assert "missing_key" in codes(no_form)[0], "a modelled asset needs a form block"
     for old, new in (("method: null", "method: fast_cg"), ("method: null", "method: repair"), ("validation: null", "validation: {pass: true}")):

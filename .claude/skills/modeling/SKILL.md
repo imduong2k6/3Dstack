@@ -13,7 +13,7 @@ Read the spec, the `measure` and `form` references, `plan/metrics.yaml`, and the
 
 | Situation | Method | Read |
 | --- | --- | --- |
-| CG close-up, product or hero prop | SubD with quads and holding loops, a Boolean only on a prepared base | [quad-subd.md](references/quad-subd.md), [volume-methods.md](references/volume-methods.md), and [subd-recipes.md](references/subd-recipes.md) when a count changes or a circle sits in a plate |
+| CG close-up, product or hero prop | SubD with quads and holding loops, a Boolean only on a prepared base | [quad-subd.md](references/quad-subd.md), [volume-methods.md](references/volume-methods.md), [subd-blockout.md](references/subd-blockout.md) for a flat or prismatic part, and [subd-recipes.md](references/subd-recipes.md) when a count changes or a circle sits in a plate |
 | Game hero or mid-distance prop | Mid-poly: bevelled silhouette with weighted or custom normals. Low poly plus a high-poly bake only when it needs sculpted detail | [game-models.md](references/game-models.md) |
 | Game modular kit piece | Grid-snapped, trim sheet, custom normals, Nanite or LODs by rule | [game-models.md](references/game-models.md), `modular-kit` skill |
 | Far or background, any route | Ultra low poly with hard edges, cards or impostors | [game-models.md](references/game-models.md) |
@@ -75,6 +75,8 @@ Read [hard-surface-topology.md](references/hard-surface-topology.md) first. Buil
 - **Big: the masses at real scale.** Use the dimensions from the blueprint, the spec and metrics (`dims_source` says where they come from; an AI image or a generated mesh never sets a size, `house-rules` rule 11). Only the points needed to describe the form. Capture front, side and top against the blueprint.
 - **Medium: openings, panels and separate parts.** Plan the loops round each opening, using the chosen method. Add loops only where the form bends or a detail sits. Add bevels as live modifiers, with even segments ([game-models.md](references/game-models.md)). Check `--modes wire,matcap`, and add `reflect` on curved faces.
 - **Small: screws, labels raised off the surface, ribs and fittings.** Model one and Array it. Check close-ups (`--close`) in `solid` and `wire`.
+
+**A flat or prismatic part on the SubD method takes the blockout route instead of these three levels** ([subd-blockout.md](references/subd-blockout.md)): a blockout from simple shapes, big to small, then Boolean or union, then clean the new edges, then SubD. A cut into a curved face stays on the loop flow. Without autopilot, show the user the Boolean shape before the clean-up.
 
 The rest of the build, at the level each belongs to:
 

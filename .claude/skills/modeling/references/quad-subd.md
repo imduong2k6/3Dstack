@@ -21,13 +21,15 @@ Catmull-Clark subdivision smooths every corner, so anything that should stay sha
 | Crease | Vertex crease 1.0 only on a border corner that can't take the three-quad fix. No edge crease: it may not survive export and it still needs support nearby. The game route uses bevel plus weighted normals instead (see game-models.md) |
 
 - **Support only the edges that are sharp in the reference:** base edge, lip, a ring edge, both edges of a groove, a foot. Rounded areas such as a bottle shoulder or a rounded cap edge stay soft.
+- **Every sharp edge gets a bevel of 2 or 4 segments, chosen from the reference.** Use 2 on a tight edge and on a hidden face, and 4 where the reference shows a visible radius. In a tight spot use half the width, and if that doesn't fit, report the edge.
 - **Inner faces need support too.** Anything with thickness (cap, cup, bowl) needs holding loops at the inner corners as well, or the inside bows.
 - **Round objects: avoid extra vertical cuts.** Uneven point spacing on a circle makes the subdivided edge kink. If a cut is unavoidable, re-space the ring straight after it and make it round again (`space_edge_loops_evenly`, `circularize`). In scripts, space smooth rings evenly by angle, cluster points only on ribbed rings, and blend between the two over one or two rings.
 
 ## Hard surface
 
 - The rules shared with the game route (quads lead, openings from the loop flow, parts split like the real product) are in [hard-surface-topology.md](hard-surface-topology.md).
-- **Build from the loop flow first; a Boolean is a tool, not the plan.** On an unprepared grid it leaves n-gons, triangles and broken flow, and SubD then warps the surface around the hole. All three solvers left n-gons on a simple cut in Blender 5.2, and Manifold returned the target untouched, with no error, for an open cutter. It can work on a prepared base (Frank Polygon's tutorials): base edges matched to the cutter, Merge by Distance and Limited Dissolve after, no stray edges, and room left for the loops. Anything curved must still come out in quads. On an unprepared curved wall, replace the patch round the cut rather than repair it: see [subd-recipes.md](subd-recipes.md) section 8. A repair that keeps the solver's rim is still untested.
+- **A flat or prismatic part starts from a blockout and Booleans:** [subd-blockout.md](subd-blockout.md).
+- **On a curved part, build from the loop flow first; a Boolean is a tool, not the plan.** On an unprepared grid it leaves n-gons, triangles and broken flow, and SubD then warps the surface around the hole. All three solvers left n-gons on a simple cut in Blender 5.2, and Manifold returned the target untouched, with no error, for an open cutter. It can work on a prepared base (Frank Polygon's tutorials): base edges matched to the cutter, Merge by Distance and Limited Dissolve after, no stray edges, and room left for the loops. Anything curved must still come out in quads. On an unprepared curved wall, replace the patch round the cut rather than repair it: see [subd-recipes.md](subd-recipes.md) section 8. A repair that keeps the solver's rim is still untested.
 - **Shells are single-layer surfaces** with the edge folded inward: a holding loop just under the lip, the wall, then a short fold inward. Use Solidify only when the thickness itself is visible.
 - **Rounded corners:** don't put the core grid's corner on the outline. Inset the grid by 0.3R or more (R = corner radius) and let concentric rings wrap the corner, or the corner face flattens to nearly 180°. Keep face angles between about 35° and 145° on curved faces. Flat plates read 29° to 158° in tests and their rims still held.
 - **Matching a source shape** (a scan, the user's base mesh, a higher-resolution model):
@@ -44,7 +46,7 @@ Catmull-Clark subdivision smooths every corner, so anything that should stay sha
 | --- | --- |
 | Bevel uneven or skewed | Apply Scale first, or scale in Edit Mode |
 | Bevel goes one way only | There are duplicate vertices or edges. Run Merge by Distance |
-| SubD surface wobbles near a hole | A Boolean, an n-gon, a pole on the curve or uneven spacing: pure quads wobble too. Rebuild the hole from the loop flow, keep poles two rows off the curve, even the spacing |
+| SubD surface wobbles near a hole | A Boolean, an n-gon, a pole on the curve or uneven spacing: pure quads wobble too. Rebuild the hole from the loop flow, or on a flat part re-plan its lines ([subd-blockout.md](subd-blockout.md)). Keep poles two rows off the curve, even the spacing |
 | Rim kinks after SubD | Uneven spacing on a round loop. Re-space with `space_edge_loops_evenly` |
 | Dent or ridge where a ring changes count | A wide edge left below the reduction, or a row too short. Even both rings, make the row taller, then fit ([subd-recipes.md](subd-recipes.md)) |
 | Inside of a cup bows | No holding loops on the inner corners |

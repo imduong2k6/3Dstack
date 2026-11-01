@@ -76,7 +76,7 @@ form:                          # source model, unless method is fast_cg or repai
       tol_mm: 1                # validate_mesh.py fails a mirror off by more than this
       features:                # rectangles for the blueprint
         - {name: door_opening, box_m: [[-0.45, 0, 0], [0.45, 0.15, 2.04]]}
-      circles:                 # full and half; segments a multiple of 4 and of repeat
+      circles:                 # full and half; segments a multiple of 4 and of repeat, or 6 on a small hole with why_6
         - {name: vent, kind: full, center_m: [1.2, 0, 2.5], axis: y, diameter_m: 0.16, segments: 24, repeat: 6, photo_px: {center: [640, 212], size: [38, 30]}}
       repeats:                 # in a row: model one, Array the rest
         - {name: hinge, count: 3, pitch_m: [0, 0, 0.8]}

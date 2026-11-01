@@ -2,6 +2,19 @@
 
 Every skill change, with the evidence and the user's approval.
 
+## 2026-11-01: Blockout route and bevel counts for flat SubD parts
+
+The user proposed the order (blockout, Boolean or union, clean the new edges, SubD) and the count rules, and asked to model their reference with the updated skill, so these went in without a report first. The evidence is one scripted run on a drawn plate, not a blind test, and `subd-blockout.md` says so.
+
+| # | Change | Evidence | Where |
+| --- | --- | --- | --- |
+| 1 | The blockout route for flat and prismatic parts, with a stop at the Boolean shape. Curved cuts stay on the loop flow | Plate of 11 shapes: 223 faces after the Boolean, 876 in the cage, 0 folds at level 2, holes within 0.09 mm. Script-picked split lines passed the numbers and gave poor flow, so the route asks for planned lines, not yet run | `subd-blockout.md`, `modeling/SKILL.md`, `quad-subd.md`, `hard-surface-topology.md`, `hard-surface-workflows.md` |
+| 2 | Every sharp edge gets a bevel of 2 or 4 segments from the reference. Half the width in a tight spot, replacing "leave that edge out" | The user's rule. Faces at the Boolean fell from 678 to 223 | `subd-blockout.md`, `quad-subd.md`, `subd-recipes.md` section 6, `hard-surface-topology.md` |
+| 3 | Circles a multiple of 4 and always even, with 6 only on a small hole and a `why_6` in the spec | The user's rule. Grid Fill gives nothing on an odd ring, with no error | `check_spec.py`, its self-test, `modular-kit/SKILL.md`, `hard-surface-topology.md` |
+| 4 | Sharp edges come from a list, with an angle of about 70 degrees as a check | A limit of 35 made rounded hexagons of the screw holes. 70 found all 244, with 69.6 against 71.4 as the margin | `subd-blockout.md` |
+
+Left as they are: `game-models.md` and the `shell` module's "No Boolean" in `addon-requests.md`, because both are about curved shells. A `clean` add-on module waits for after the kit test, in the order the user set.
+
 ## 2026-11-01: Fold warning, whole-shape recipes and pairs rectify from measured tests 10 to 14
 
 Three fresh agents built plates, domes, dishes, seams and ribs against exact targets, and two tests ran by script. Every final file was re-measured at level 4 with separate tools. The user approved all eleven edits on 1 Nov 2026. Reports are outside the repo, in the test bench.

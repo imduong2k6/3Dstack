@@ -707,8 +707,8 @@ def _check_form(form, err):
             seg = c.get("segments")
             if not _int(seg) or seg < 4:
                 err("form", at, "segments is the round count, a whole number of 4 or more")
-            elif seg % 4 or seg % rep:
-                err("form", at, f"segments {seg} must be a multiple of 4 and of repeat {rep}, so vertices land on the mirror planes and every sector matches")
+            elif seg % rep or (seg % 4 and not (seg == 6 and _text(c.get("why_6")))):
+                err("form", at, f"segments {seg} must be a multiple of 4 and of repeat {rep}, so vertices land on the mirror planes and every sector matches. 6 is allowed only on a small hole, with why_6 saying why that section can't be retopologised")
 
 
 def _check_slots(slots, groups, err, warn):
