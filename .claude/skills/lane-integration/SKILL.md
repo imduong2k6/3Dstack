@@ -1,6 +1,6 @@
 ---
 name: lane-integration
-description: Split a blockout (or any big placement batch) into parallel lanes and join them back into one gate file without the usual defects (instances at the origin, lanes re-appended wholesale, an old material re-applied, empty material slots). It covers the lane brief, seam owners, the freeze rule, the merge queue and the headless join script, and fix lanes: a long fix list split by area into tested patches that the live worker replays. Use it whenever two or more agents build or fix parts of the same scene at once.
+description: "Split a blockout (or any big placement batch) into parallel lanes and join them back into one gate file without the usual defects (instances at the origin, lanes re-appended wholesale, an old material re-applied, empty material slots). It covers the lane brief, seam owners, the freeze rule, the merge queue and the headless join script, and fix lanes: a long fix list split by area into tested patches that the live worker replays. Use it whenever two or more agents build or fix parts of the same scene at once."
 ---
 
 # Lane integration

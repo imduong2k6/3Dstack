@@ -20,5 +20,6 @@ At the end of each phase, each lighting pass and each decision the user sends. N
 When a skill, a doc, a `knowledge/` note, a `feedback/` file or a `toolbox/` file changes.
 
 1. **Stage by path:** `.claude/`, `docs/`, `knowledge/`, `feedback/`, `toolbox/` (not raw scans), `CLAUDE.md`, `README.md`. Never stage `projects/`, captures, engine binaries or the work folder; `git status` shows nothing from them. A lesson from a project reaches `feedback/` only with the user's OK, with private names and places taken out.
-2. **Message:** `[pipeline] <what changed>`, on the working branch.
-3. **Push** after every commit. Never force-push. If a push fails, keep the commit, retry with backoff, and if it still fails tell the user in chat.
+2. **Lint** when a skill or agent file changed: `python .claude/skills/checkpoint/scripts/check_skills.py`. Fix its errors (a broken description hides a skill from the list). Warnings are for review.
+3. **Message:** `[pipeline] <what changed>`, on the working branch.
+4. **Push** after every commit. Never force-push. If a push fails, keep the commit, retry with backoff, and if it still fails tell the user in chat.
