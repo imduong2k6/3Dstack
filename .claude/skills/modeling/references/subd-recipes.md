@@ -94,7 +94,7 @@ A ring of radius r ends at r x (4 + 2 cos(360 / n)) / 6, whatever the loops or t
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Factor | .6667 | .8333 | .9024 | .9363 | .9553 | .9670 | .9746 | .9886 | .9936 | .9984 |
 
-- **To hold a size, scale the ring by 1 / factor.** On a 16 to 8 three-quad cell that cuts the error 2 to 6 times and leaves a ridge of 0.5 % of the radius. On a six-face cell it about halves the error and leaves 3.5 %.
+- **To hold a size, scale the ring by 1 / factor.** On a 16 to 8 three-quad cell that cuts the error 1.5 to 5 times and leaves a ridge of 0.5 % of the radius. On a six-face cell it about halves the error and leaves 3.5 %.
 - **Fit** moves each cage vertex along the normal by the gap between its SubD position and a target surface, about 12 times. It cut normal error by 2 to 4 times and ripple by about 4 times, moving the cage 3 to 11 % of an edge. It needs a target; a dense copy is untested. On a three-quad halving it doesn't beat scaled rings on normal error (1.79 against 1.66 at row 1), but it brings the ridge from 0.5 % towards 0. A run with an exact fit read 0.73 degrees on 24 to 12.
 - Fit alone is the default, because it leaves the rows where they are. On a closed ring, even the rings and then fit. Relax first only on a 3 to 1 where fit leaves too much: it bends the rows, and the stripes wave.
 
