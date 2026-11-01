@@ -218,3 +218,5 @@ The topology warning limits are provisional, set from one asset. M10, the blind 
 ## 2026-10-31: add-on requests for the user to build
 
 The user offered to build Blender add-ons, and pointed out that the installed ones come with source to build on. New `docs/pipeline/addon-requests.md`: what to build, in order, with requirements, base features and tests, plus what each installed add-on did when run headless. No skill changed; integration waits for the kit test.
+
+The user then decided the add-ons are written from scratch on native Blender only, because another user may not own third-party plugins. The spec was rewritten that way: the `vendors` module is gone, cables and an outline of later modules were added, and the source goes in this repo.

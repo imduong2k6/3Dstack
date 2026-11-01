@@ -1,77 +1,52 @@
 # Blender add-on requests
 
-What the user is building so that modelling runs stop rewriting the same helpers. Written on 31 Oct 2026 after reading the installed add-ons' source and running them headless. Integration (a `toolbox/tools/` file, skill pointers) comes after the current kit test.
+What the user is building so that modelling runs stop rewriting the same helpers. Integration (a `toolbox/tools/` file, skill pointers) comes after the current kit test.
+
+## The rule: from scratch, native Blender only
+
+Decided by the user on 31 Oct 2026: these add-ons are written from scratch and rely on no third-party add-on, because another user may not own those plugins.
+
+- **Native Blender and Python only.** That means `bpy`, `bmesh`, `mathutils`, modifiers, Geometry Nodes and Cycles.
+- **No calling, wrapping or copying third-party add-ons,** free ones included. Reading one to learn a technique is fine, but the code is our own.
+- **The source lives in this repo,** at `addons/pipeline_tools/`, so a new user gets it with the pipeline. It contains no third-party code, so this doesn't break the rule in `CLAUDE.md`. Add install steps to `docs/setup-windows.md`.
+- **Licence `SPDX:GPL-3.0-or-later`,** the usual choice for Blender add-ons. It only matters if the add-on is shared.
 
 ## Why these
 
 Three builds of one test prop each wrote their own helpers from scratch: 1,104, 857 and 1,016 lines. All three wrote a loft or strip, a box, a revolve, a rounded outline, a spline tube, text to mesh and a screw. A project's 76 scripts (6,022 lines) repeat the same small functions: 26 of them cast rays, and `cast` and `islands` appear 5 times each, `gap` and `bb` 4 times, `floor_at` and `host_sockets` 3 times.
 
-Those helpers also cost review rounds: 17 floating parts, about 36 kit misfits, a bevel helper that bevelled 0 edges without saying so, and a normals helper that bent window normals.
+Those helpers also cost review rounds: 17 floating parts, about 36 kit misfits, 9 cables through solids and then 132 found by lint, a bevel helper that bevelled 0 edges without saying so, and a normals helper that bent window normals.
 
-## Use the installed source, by these rules
+## What native Blender did in tests
 
-1. **Call it as installed** when it works headless and does the job.
-2. **Copy the pure function** into our add-on when the source is GPL and the useful part is a plain function. Keep its copyright notice.
-3. **Never edit a vendor's folder.** An update wipes the edit, and every update becomes a merge.
-4. **Native first.** Native Blender beat several add-ons on the tests below.
-5. **No licence stated means call only.** Don't copy it.
+Run on Blender 5.2.3 on small fixtures. Faces were counted; nothing was judged by eye.
 
-Our add-on contains GPL code, so it is GPL too (`SPDX:GPL-3.0-or-later`). That costs nothing while it stays private. Keep its source in its own repo, not this one (`CLAUDE.md`: no third-party files here). This repo gets only the `toolbox/tools/` instruction file.
+| Native tool | Result |
+| --- | --- |
+| Grid Fill on a round cap | 8 points to 4 quads, 12 to 9, 16 to 16, 32 to 64 |
+| Bridge, 16-point ring to a square split to 16 points | 16 quads. Unsplit, it gives 20 tris |
 
-## How installed add-ons load headless
+Not tested yet: QuadriFlow remesh, native UV packing and the Cycles bake, all headless. Test them before building modules 8 and 9.
 
-`bin/blender-bg` runs `--factory-startup`, so no add-on is on. This loaded 11 of the 12 that first failed, in a run that doesn't save preferences:
-
-```python
-import addon_utils, gpu
-gpu.init()            # only for third-party add-ons that build shaders in register()
-addon_utils.enable("bl_ext.user_default.hardops", default_set=True, persistent=False)
-```
-
-- `default_set=True` matters: several add-ons read their own entry in the preferences during `register()`.
-- `EXEC_DEFAULT` often isn't enough. MESHmachine sets `init`, `hypercursor` and `decalmachine` only in `invoke()`. Setting them on the class reaches the real code without changing its files:
-
-```python
-cls = bpy.types.Operator.bl_rna_get_subclass_py("MACHIN3_OT_fuse")
-cls.init, cls.hypercursor, cls.decalmachine = True, False, False
-bpy.ops.machin3.fuse("EXEC_DEFAULT", segments=4)
-```
-
-## What the installed add-ons did
-
-Run on Blender 5.2.3, on small cube and ring fixtures. Faces were counted; nothing was judged by eye and nothing ran on a real asset. Licences are what the files state.
-
-| Add-on | Source | Headless result | Verdict |
-| --- | --- | --- | --- |
-| Extra Mesh Objects | GPL | `round_cube()` returns plain verts and faces. 0.174 x 0.09 x 0.3 m, radius 3 cm: 150 quads, 0 tris | **Copy** as the shell's corners |
-| BoltFactory | GPL | Works, but too dense: a 5.6 mm pan head at 16 divisions is 1,594 tris, a hex nut 1,048 | **Copy** head and drive proportions from `createMesh.py`, not the density |
-| MESHmachine 0.20.1 | Its licence file covers only the assets; no code licence stated | Works with the class attributes above. Fuse on a chamfer: all new faces quads. Unchamfer, Unbevel and Unfuse changed the mesh as expected. Refuse finished with no change in counts, not understood | **Call**, for repairs |
-| Native Grid Fill | Blender | Round cap: 8 to 4, 12 to 9, 16 to 16, 32 to 64 quads | **Use** for caps |
-| Native bridge | Blender | 16-point ring to a square split to 16 points: 16 quads. Unsplit, it gives 20 tris | **Use** for ring patches |
-| Multi Grid Fill 1.1.1 | No licence stated | Same counts as native Grid Fill on 12, 16 and 32 | Not needed |
-| LoopTools 4.7.7 | GPL | Circle and Relax finish. Shape not checked | Call if needed |
-| Bool Tool 2.0 | GPL | One difference worked and left 4 n-gons | Use for the Boolean test (research R7) |
-| Perspective Plotter 1.2.7 | GPL | `calc_view` returns at once with no screen. `find_orthocenter` is plain maths. Not run | **Copy** the solver for the fSpy test (research R6) |
-| Kushiro Tools 1.18 | GPL | Loads with `gpu.init()`. Safe Inset and Soft Bevel give quads. One tool crashed Blender in a batch and wasn't pinned down | Reserve; run it in its own process |
-| EdgeFlow 1.1.2 | GPL | Its poll asks for a 3D view | Copy later if loops on curved shells need it |
-| Hard Ops 0.9.88 | GPL | 124,000 lines. Of the tools tried, 25 finished and 59 raised, then `st3_array` crashed Blender | **Skip**: most tools that finished only add native modifiers, and the crash ends the whole run |
-| BoxCutter 7.20 | GPL | Loads; not run. Built around shapes drawn with the mouse | Skip |
-| Cablerator 1.4.9 | GPL | Loads; not run | Skip: `linear-runs` covers it |
-| Quad Filler 1.0.2 | No licence stated | Refused a single open loop: it needs two edge chains | Skip |
-| Modifier Tools, Smart Fill, Even Loop | Mixed | Don't load: a removed Blender panel, a dot in the folder name, no `register()` | Skip |
-
-UV add-ons (UVPackmaster, Auto Unwrap, Mio3) load but weren't assessed: UVs come after mesh approval.
+For size targets, a 5.6 mm pan-head screw in one free add-on came to 1,594 tris at 16 divisions and a hex nut to 1,048. That is too dense for a game prop, which is why `screw` has a limit below.
 
 ## Shared requirements
 
 One extension, `pipeline_tools`, with one module per section below. One version and one `enable()` call suit a run where nothing is on by default. Build the modules in order; each is useful alone.
 
 ```
-pipeline_tools/
+addons/pipeline_tools/
   blender_manifest.toml   LICENSE   __init__.py
   core.py                 # Report, PipelineToolError, topology count
-  parts.py  shell.py  rounds.py  finish.py  seat.py  vendors.py  camera.py
+  parts.py  shell.py  rounds.py  finish.py  seat.py  cables.py  ...
   tests/selftest.py
+```
+
+`bin/blender-bg` runs `--factory-startup`, so no add-on is on. Scripts enable this one first:
+
+```python
+import addon_utils
+addon_utils.enable("bl_ext.user_default.pipeline_tools", default_set=True, persistent=False)
 ```
 
 Every module:
@@ -91,25 +66,25 @@ Every module:
 
 The largest saving, and the simplest to build.
 
-| Function | Base features | Start from |
-| --- | --- | --- |
-| `ring_circle(r, n, phase=0)`, `ring_rounded_rect(w, h, r, seg)` | Point rings, same count at the same index so they loft cleanly | New |
-| `strip(bm, rings, closed=True, cap_start=None, cap_end=None, material=0)` | Lofts rings of equal count; raises on a mismatch; caps are `"ngon"`, `"grid"` or None | New |
-| `lattice(bm, xs, zs, depth_fn, material=0)` | Quad patch from two lists of cuts and a depth function | New |
-| `box(bm, min, max, material=0)`, `prism(bm, outline, y0, y1, material=0)` | Closed solids with correct normals | New |
-| `round_box(bm, size, radius, arc_div, lin_div=0, material=0)` | All quads, even `arc_div` | `round_cube()` in `extra_mesh_objects/add_mesh_round_cube.py` |
-| `revolve(bm, profile, n, center, axis, material=0)` | Profile round an axis; `n` a multiple of 4; closes on the axis without a fan where it can | New |
-| `tube(bm, points, radius, sides, step, material=0)` | Catmull-Rom, no twist along the path, a radius per point, sides a multiple of 4 | New |
-| `screw(bm, head, drive, dia, head_h, shank, segments=16, material=0)` | `head`: pan, hex, socket. `drive`: cross, slot, hex, none. **At most 300 tris with a cross recess** | Proportions from BoltFactory `create_pan_head`, `create_hex_head`, `create_phillips_bit`, `create_allen_bit` |
-| `hex_nut(bm, flats, h, chamfer=True)`, `thread_rings(bm, r, pitch, count, sides)`, `knurl(bm, r, h, count)` | Game density: rings instead of a helix, sector-based so they can use a radial Array | BoltFactory `add_hex_nut` for proportions |
-| `flat_text(bm, text, height, at, width=None, font=None, offset=0.00015, merge=0.00012, material=0)` | Font to flat faces, normals facing out, closed outlines, merged enough to pass the 0.1 mm double check | New |
-| `wrapped_text(bm, text, height, radius, angle, axis, ...)` | The same, wrapped on a cylinder, for drums and dials | New |
+| Function | Base features |
+| --- | --- |
+| `ring_circle(r, n, phase=0)`, `ring_rounded_rect(w, h, r, seg)` | Point rings, same count at the same index so they loft cleanly |
+| `strip(bm, rings, closed=True, cap_start=None, cap_end=None, material=0)` | Lofts rings of equal count; raises on a mismatch; caps are `"ngon"`, `"grid"` or None |
+| `lattice(bm, xs, zs, depth_fn, material=0)` | Quad patch from two lists of cuts and a depth function |
+| `box(bm, min, max, material=0)`, `prism(bm, outline, y0, y1, material=0)` | Closed solids with correct normals |
+| `round_box(bm, size, radius, arc_div, lin_div=0, material=0)` | All quads, even `arc_div` |
+| `revolve(bm, profile, n, center, axis, material=0)` | Profile round an axis; `n` a multiple of 4; closes on the axis without a fan where it can |
+| `tube(bm, points, radius, sides, step, material=0)` | Catmull-Rom, no twist along the path, a radius per point, sides a multiple of 4 |
+| `screw(bm, head, drive, dia, head_h, shank, segments=16, material=0)` | `head`: pan, hex, socket. `drive`: cross, slot, hex, none. **At most 300 tris with a cross recess** |
+| `hex_nut(bm, flats, h, chamfer=True)`, `thread_rings(bm, r, pitch, count, sides)`, `knurl(bm, r, h, count)` | Game density: rings instead of a helix, sector-based so they can use a radial Array |
+| `flat_text(bm, text, height, at, width=None, font=None, offset=0.00015, merge=0.00012, material=0)` | Font curve to flat faces, normals facing out, closed outlines, merged enough to pass the 0.1 mm double check. The default font is Blender's own, so it works on any machine |
+| `wrapped_text(bm, text, height, radius, angle, axis, ...)` | The same, wrapped on a cylinder, for drums and dials |
 
 **Done when:** a test prop's helper block can be replaced by these calls and its triangle count doesn't rise.
 
 ## 2. `shell`: a rounded housing with openings planned in the loops
 
-This answers the first feedback on the test prop: random cuts and loops that weren't straight. The later blind build fixed that by hand (85.8 % quads, 2.5 % idle vertices against 77.6 % and 15.4 %), and spent about a dozen functions on it. If its wireframe is approved, lift them from `build_shell`, `lattice`, `patch_xz`, `dome`, `shell_xs`, `shell_zs`, `roll_points` and `wall_point` in that run's `src/build_meter.py`. That code is ours, so there is no licence question.
+This answers the first feedback on the test prop: random cuts and loops that weren't straight. The later blind build fixed that by hand (85.8 % quads, 2.5 % idle vertices against 77.6 % and 15.4 %), and spent about a dozen functions on it. If its wireframe is approved, use them as a guide: `build_shell`, `lattice`, `patch_xz`, `dome`, `shell_xs`, `shell_zs`, `roll_points` and `wall_point` in that run's `src/build_meter.py`. That code is ours.
 
 ```python
 shell(name, width, height, depth, corner_radius, dome=0.0, draft=0.0, arc_div=8, max_cell=0.02,
@@ -128,7 +103,7 @@ shell(name, width, height, depth, corner_radius, dome=0.0, draft=0.0, arc_div=8,
 
 ## 3. `rounds`: round details on square grids
 
-From the feedback's suggestion: find circles, model one sector, array it. Native bridge and Grid Fill already make the quads (see the table), so this module is small.
+From the feedback's suggestion: find circles, model one sector, array it. Native bridge and Grid Fill already make the quads (see the table above), so this module is small.
 
 ```python
 ring_patch(bm, face, center, radius, segments=16, loops=1, cap="grid")   # cap: "grid", "open" (a hole) or "boss"
@@ -160,7 +135,7 @@ export_fbx(obj, path)                                                          #
 
 ## 5. `seat`: place things on real surfaces
 
-No add-on has this. Use `mathutils.bvhtree.BVHTree` on evaluated meshes.
+Use `mathutils.bvhtree.BVHTree` on evaluated meshes.
 
 ```python
 seat(obj, hosts, direction="-Z", gap=0.0, align="none", sample="corners")     # align: none or normal
@@ -173,35 +148,38 @@ gap(a, b, reach=0.1), world_box(obj), islands(obj), first_hit(origin, direction,
 
 **Done when:** a box 5 cm above a tilted plane lands within 0.1 mm at every corner with `align="normal"`, and a box with nothing below raises.
 
-## 6. `vendors`: installed tools without the setup
+## 6. `cables`: hanging cables and bundles
 
-For the repair route (generated meshes, research R7), not for new builds, where a live Bevel is better.
-
-```python
-use("MESHmachine")                                  # enable() as above, class attributes set, version checked
-mm_fuse(obj, faces, segments=4, tension=0.7)        # also mm_unbevel, mm_unchamfer, mm_unfuse, mm_change_width
-lt_circle(obj, verts), lt_relax(obj, verts)         # LoopTools
-bool_difference(target, cutter)                     # Bool Tool
-```
-
-- Each wrapper sets the selection and mode itself, and restores them.
-- A tested-version list: an unknown version warns, and the self-test reruns the real tools after any update.
-- Run risky tools with `isolated=True`, in their own Blender process, since a crash ends the whole process.
-
-**Done when:** each wrapper's result matches the table above, and a wrong selection raises instead of doing nothing.
-
-## 7. `camera`: a camera from lines in a photo
-
-Test first, as research R6 says, and only after 1 to 5. It would replace the hand-worked parallax in a form read and the separate fSpy install.
+`linear-runs` already routes runs along walls. This adds what it doesn't have.
 
 ```python
-solve_camera(image_size, lines={"x": [((x0, y0), (x1, y1)), ...], "z": [...], "y": [...]}, reference=None, sensor=36.0)
+hang(start, end, sag, radius, sides=8, hosts=None, material=0)                # catenary between two anchors
+bundle(start, end, count, spread, sag, radius, seed=0, ties=0, hosts=None)    # varied cables, never parallel copies
+clips(path, spacing, kind="saddle", hosts=None)                               # fixings seated on the host
 ```
 
-- Lift the maths from Perspective Plotter's `util.py` (`find_orthocenter`, and the solve inside `calc_view`, which needs no screen once it's out of the operator).
-- Returns focal length, principal point, rotation and residual in pixels. Raises when a pair of lines is parallel in the image.
+- With `hosts` given, a path through a solid raises and names the host and the point.
+- Both ends must sit at their anchors. The report adds `length_m`, `min_bend_radius_m`, `clearance_m`.
 
-**Done when:** lines projected from a known Blender camera return its focal length within 1 % and its rotation within 0.5°.
+**Done when:** a bundle of 5 between two points has no two cables with the same sag, and a path through a test wall raises.
+
+## Later modules
+
+Outlines only, for now. Each still needs a spec before it is built.
+
+| # | Module | Base features | Native base |
+| --- | --- | --- | --- |
+| 7 | `bake` | Low and high from one mesh, normal and AO bake, cage, check for bad bake areas. Wait for the SubD comparison | Cycles bake |
+| 8 | `repair` | Clean, symmetrise, remesh to a target face count, fix scale and pivot, report how far the shape moved | QuadriFlow, voxel remesh, Decimate |
+| 9 | `uv` | Trim or box projection, texel density, pack, report | Smart UV Project, Pack Islands |
+| 10 | `instancing` | Find identical meshes, swap them for instances, report the saving | Linked mesh data |
+| 11 | `facade` | Bays on a grid, row and floor repeats, controlled variation | Geometry Nodes |
+| 12 | `signage` | Panels, raised letters, lightboxes, brackets that seat on the wall | `parts`, `seat` |
+| 13 | `scatter` | Scatter by zone and density, keep walk paths clear, always instanced | Geometry Nodes |
+| 14 | `collision_lod` | UCX proxies, LOD chain, naming | Convex hull, Decimate |
+| 15 | `camera` | Camera from lines in a photo; focal length, rotation and pixel error. Test first (research R6). Done when lines from a known camera return its focal length within 1 % and rotation within 0.5° | `mathutils`, vanishing-point maths written fresh |
+
+Modules 8 and 9 will probably be weaker than paid tools at first: native remeshing and packing don't match dedicated products. Judge them against the checks in `validate_mesh.py` and `uv_check.py`.
 
 ## Not on this list
 
@@ -212,8 +190,3 @@ These stay scripts in the repo, and I change them myself:
 - **`blueprint.py`:** `rectify` can't extend past the given rectangle; `--underlay` stretches.
 - **`asset_capture.py`:** fixed close-up direction; glass blocks the view; one comparison box for parts on different planes.
 - **Lint, captures, conduit routing:** already scripted.
-
-## Not checked
-
-- No fixture was judged by eye, and none is a real asset. The numbers show that tools run and count faces, not that the shapes are good.
-- Licence readings are from the files, not legal advice. Check them before publishing anything.
