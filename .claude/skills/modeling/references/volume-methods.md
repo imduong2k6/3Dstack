@@ -55,7 +55,7 @@ The hardest class: no axis, no mirror. The job is to redraw the mesh so it hugs 
 - **Rule 1, simple to complex:** start from the volume that is an unmodified primitive and grow the others from it.
 - **Rule 2, few edges to many:** start from the volume with the fewest edges (a cube) and step up to the one with the most (a cylinder).
 - Step up with loop cuts. Avoid Subdivide and Knife, which spread unwanted points. Avoid Inset; extrude, then round the ring with `circularize` or To Sphere.
-- **Changing edge counts:** prefer a mirrored pair of 2 to 1s set apart, then a 4 to 2, then a 3 to 1. All mix with 1-to-1 rows. Recipes and row heights are in [subd-recipes.md](subd-recipes.md).
+- **Changing edge counts:** to halve a ring, a three-quad 4 to 2 in every unit. For a small local change, a mirrored pair of 2 to 1s set apart, then a 4 to 2, then a 3 to 1. All mix with 1-to-1 rows. Recipes and row heights are in [subd-recipes.md](subd-recipes.md).
 - **Square base to round neck:** extrude the top face of the cube, round the new ring with `circularize`, and add holding loops at the shoulder.
 - **Separate caps** sit as their own objects with a 0.2 to 0.6 mm gap. Interleave ribs with the body's flow instead of fighting it.
 
