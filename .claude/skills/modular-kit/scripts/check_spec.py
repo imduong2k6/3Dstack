@@ -7,7 +7,9 @@ Checks: required keys; enums (type, source, mount, camera_tier, method); dims_m 
 dims_source is present and every `metrics.<row>` it names is a row of metrics.yaml; asset equals the file name; collision is
 `UCX_<asset>_NN` or `none` with a reason (`collision_reason: ...`, a value that starts "none: ...", or a comment after it); ports are well formed
 (pos_m, unit dir, kind, size_m); slots are {material_group, texture_set, ...} rows; asset_tech is a mapping; service_id is a node, run
-or network id in services.yaml; the pivot word is one that validate_mesh.py can check. A spec with `superseded_by` (the piece that
+or network id in services.yaml; the pivot word is one that validate_mesh.py can check; `form` (the form read: sections, symmetry,
+circles, repeats, true asymmetries) is required for `source: model` unless the method is fast_cg or repair, or the spec already has a
+`validation` result, and round segment counts are multiples of 4 and of the repeat count. A spec with `superseded_by` (the piece that
 replaces it) needs only `asset` and `type`: nothing is built from it, so the build fields are not required (they are still checked
 when present). Legacy keys are errors that name the replacement. --migrate renames `id` to `asset` and
 `source: build` to `model`, and `material: X` to `material_group: [X]`; `ends_local` needs a person (ports have a kind and a
@@ -446,7 +448,10 @@ REQUIRED = ("asset", "type", "phase", "source", "priority", "count_in_scene", "p
 KIT_REQUIRED = ("kit", "snap_grid_m", "ports")
 OPTIONAL = ("sockets", "clearance_m", "texture_set", "texel_density_px_m", "service_id", "landmarks", "generated",
             "collision_reason", "method", "why", "expected_tris", "classification", "file", "validation",
-            "slots", "asset_tech", "superseded_by")
+            "slots", "asset_tech", "superseded_by", "form")
+FORM_EXEMPT_METHODS = ("fast_cg", "repair")    # a projection seen from one camera; a mesh that already exists
+AXES = ("x", "y", "z")
+CIRCLE_KINDS = ("full", "half")
 # old key -> (new key, whether --migrate can do it alone)
 LEGACY_KEYS = {"id": ("asset", True), "material": ("material_group", True), "ends_local": ("ports", False)}
 LEGACY_VALUES = {("source", "build"): "model"}
@@ -635,7 +640,75 @@ def check_spec(data, stem=None, metrics=None, service_ids=None, comments=None):
     et = data.get("expected_tris")
     if et is not None and not (_int(et) and et > 0):
         err("type", "expected_tris", "expected_tris is a positive whole number")
+    fm = data.get("form")
+    if fm is not None:
+        _check_form(fm, err)
+    elif (data.get("source") == "model" and data.get("method") not in FORM_EXEMPT_METHODS and not superseded
+          and data.get("validation") is None):       # a spec that already has a validation result was built before this rule
+        err("missing_key", "form", "a modelled asset needs the `form` block before any mesh: sections, symmetry, circles, repeats (modeling step 2)")
     return out
+
+
+def _box(x):
+    return isinstance(x, list) and len(x) == 2 and _vec(x[0], 3) and _vec(x[1], 3) and all(a < b for a, b in zip(*x))
+
+
+def _check_form(form, err):
+    if not (isinstance(form, dict) and isinstance(form.get("sections"), list) and form["sections"]):
+        err("form", "form", "form is a mapping with a list of sections")
+        return
+    if not _text(form.get("measured_from")):
+        err("form", "form.measured_from", "measured_from is the rectified photo or orthographic sheet the sizes come from (never a raw perspective photo)")
+    for n, s in enumerate(form["sections"]):
+        where = f"form.sections[{n}]"
+        if not (isinstance(s, dict) and _text(s.get("name"))):
+            err("form", where, "a section is a mapping with a name")
+            continue
+        where += f" ({s['name']})"
+        if not _box(s.get("box_m")):
+            err("form", where + ".box_m", "box_m is [[x0, y0, z0], [x1, y1, z1]] in the asset's frame, min corner first")
+        sym = s.get("symmetry")
+        if not (isinstance(sym, list) and all(a in AXES for a in sym)):
+            err("form", where + ".symmetry", "symmetry is the list of mirror axes, x, y, z, or [] with why_none")
+        elif not sym and not _text(s.get("why_none")):
+            err("form", where + ".why_none", "symmetry [] needs why_none: what on the real object breaks every mirror (camera perspective is not a reason)")
+        if s.get("parts") is not None and not (isinstance(s["parts"], list) and all(_text(p) for p in s["parts"])):
+            err("form", where + ".parts", "parts is a list of object or material names, or left out for the whole asset")
+        pl = s.get("plane_m")
+        if pl is not None and not (isinstance(pl, dict) and all(k in AXES and _num(v) for k, v in pl.items())):
+            err("form", where + ".plane_m", "plane_m maps an axis to where its mirror plane sits, such as {x: 0}")
+        if s.get("tol_mm") is not None and not (_num(s["tol_mm"]) and s["tol_mm"] > 0):
+            err("form", where + ".tol_mm", "tol_mm is a positive number")
+        for k in ("features", "circles", "repeats", "asymmetries"):
+            if s.get(k) is not None and not isinstance(s[k], list):
+                err("form", f"{where}.{k}", f"{k} is a list")
+        for m, f in enumerate(s.get("features") if isinstance(s.get("features"), list) else []):
+            if not (isinstance(f, dict) and _text(f.get("name")) and _box(f.get("box_m"))):
+                err("form", f"{where}.features[{m}]", "a feature has a name and box_m")
+        for m, a in enumerate(s.get("asymmetries") if isinstance(s.get("asymmetries"), list) else []):
+            if not (isinstance(a, dict) and _text(a.get("what")) and _text(a.get("evidence")) and _box(a.get("box_m"))):
+                err("form", f"{where}.asymmetries[{m}]", "an asymmetry has what, evidence and box_m (the mirror check skips that box)")
+        for m, r in enumerate(s.get("repeats") if isinstance(s.get("repeats"), list) else []):
+            if not (isinstance(r, dict) and _text(r.get("name")) and _int(r.get("count")) and r["count"] >= 2):
+                err("form", f"{where}.repeats[{m}]", "a repeat has a name and a count of 2 or more; model one and Array it")
+        for m, c in enumerate(s.get("circles") if isinstance(s.get("circles"), list) else []):
+            at = f"{where}.circles[{m}]"
+            if not (isinstance(c, dict) and _text(c.get("name"))):
+                err("form", at, "a circle has a name")
+                continue
+            if c.get("kind") not in CIRCLE_KINDS:
+                err("form", at, f"kind is one of {' | '.join(CIRCLE_KINDS)}")
+            if not _vec(c.get("center_m"), 3) or c.get("axis") not in AXES or not (_num(c.get("diameter_m")) and c["diameter_m"] > 0):
+                err("form", at, "a circle needs center_m, axis (x, y or z) and diameter_m")
+            rep = c.get("repeat", 1)
+            if not (_int(rep) and rep >= 1):
+                err("form", at, "repeat is how many equal sectors go round the circle, 1 for none")
+                rep = 1
+            seg = c.get("segments")
+            if not _int(seg) or seg < 4:
+                err("form", at, "segments is the round count, a whole number of 4 or more")
+            elif seg % 4 or seg % rep:
+                err("form", at, f"segments {seg} must be a multiple of 4 and of repeat {rep}, so vertices land on the mirror planes and every sector matches")
 
 
 def _check_slots(slots, groups, err, warn):

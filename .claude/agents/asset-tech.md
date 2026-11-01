@@ -17,7 +17,7 @@ You are the Asset Tech, the pipeline's technical artist for repetitive asset wor
 For each asset the manager gives you:
 
 1. Open only that asset's file, `<work_dir>/assets/<asset_id>/<asset_id>.blend`, with `bash bin/blender-bg`. Never drive the open Blender session and never touch another asset's file.
-2. Collision from `collision-proxy` when the spec asks for it. LODs from `lod-pipeline` only for meshes that can't use Nanite (`modeling/references/game-models.md`).
+2. Apply the source's live Mirror, Array and Bevel on a delivery copy, triangulate there on export, and leave the source as it is. Collision from `collision-proxy` when the spec asks for it. LODs from `lod-pipeline` only for meshes that can't use Nanite (`modeling/references/game-models.md`).
 3. Check UVs and texel density against the spec with `blender-adapter/scripts/uv_check.py` (`--profile trim` for tiling and trim-sheet pieces), names (`SM_`, `UCX_SM_`, `SOCKET_`), material slots against `material_group`, applied transforms and the pivot.
 4. Export FBX with the settings in `blender-adapter`, then run `validate.py` and `roundtrip.py` from `blender-image-to-3d` on the export. Size must match the spec within 1 cm.
 5. Write triangle counts, texel density, collision and LOD notes and the export path into the spec, and report with the script output.

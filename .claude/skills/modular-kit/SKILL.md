@@ -29,7 +29,7 @@ One format for every piece. Check it before the spec goes to a Modeler (it exits
 python .claude/skills/modular-kit/scripts/check_spec.py projects/<slug>/kit/*.md [--metrics projects/<slug>/plan/metrics.yaml] [--services projects/<slug>/plan/services.yaml] [--json] [--out report.json]
 ```
 
-`collision: none` needs its reason in a comment after it or in `collision_reason`. A piece that a later spec replaces keeps its file: set `superseded_by` to the replacement and only `asset` and `type` are required (the other keys are still checked when present; nothing is deleted).
+`collision: none` needs its reason in a comment after it or in `collision_reason`. The `form` block is required for a modelled piece; `modeling` step 2 says how to read it. A piece that a later spec replaces keeps its file: set `superseded_by` to the replacement and only `asset` and `type` are required (the other keys are still checked when present; nothing is deleted).
 
 ```yaml
 ---
@@ -65,6 +65,23 @@ collision: UCX_SM_Office_Wall_Door_A_01   # or none, with the reason
 service_id: null               # the id in plan/services.yaml, for electrical, cable and pipe parts
 landmarks: kit/SM_Office_Wall_Door_A.landmarks.json   # camera_match and full_cg: read by fit_check.py
 generated: null                # source generate: the block in generated-asset
+form:                          # source model, unless method is fast_cg or repair: read before any mesh (modeling step 2); same local frame as ports
+  measured_from: ref/C05_rect.png   # the rectified photo or orthographic sheet, never a raw perspective photo
+  sections:
+    - name: wall
+      parts: [upper_wall]      # material or child object names; left out means the whole asset
+      box_m: [[-2, 0, 0], [2, 0.15, 3]]   # min corner, max corner
+      symmetry: [x]            # mirror axes, or [] with why_none: what on the real object breaks every mirror
+      plane_m: {x: 0}          # where each plane sits, 0 if left out
+      tol_mm: 1                # validate_mesh.py fails a mirror off by more than this
+      features:                # rectangles for the blueprint
+        - {name: door_opening, box_m: [[-0.45, 0, 0], [0.45, 0.15, 2.04]]}
+      circles:                 # full and half; segments a multiple of 4 and of repeat
+        - {name: vent, kind: full, center_m: [1.2, 0, 2.5], axis: y, diameter_m: 0.16, segments: 24, repeat: 6, photo_px: {center: [640, 212], size: [38, 30]}}
+      repeats:                 # in a row: model one, Array the rest
+        - {name: hinge, count: 3, pitch_m: [0, 0, 0.8]}
+      asymmetries:             # real ones only, each with evidence; the mirror check skips the box
+        - {what: light switch, evidence: "C05: one switch, left of the door", box_m: [[-0.7, 0, 1.0], [-0.6, 0.02, 1.2]]}
 done_when:                     # measurable acceptance, like an outsourcing brief
   - every landmark in landmarks.json within 5 px at CAM_A, 600 x 800
   - snaps to the 0.5 m grid with no gaps against SM_Office_Wall_Plain_A

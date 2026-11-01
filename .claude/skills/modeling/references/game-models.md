@@ -9,19 +9,27 @@ Matt Murch's three workflows. One scene, and even one asset, can mix them.
 | Workflow | Use for | How |
 | --- | --- | --- |
 | Ultra low poly, hard edges | Far props, background buildings, filler | Silhouette only. Hard edges where faces meet at sharp angles, UV seams on the hard edges, tiling or trim textures |
-| Mid-poly with custom normals | Close to mid distance, most hero props and kit pieces | Bevel the silhouette edges (2 to 3 segments, Harden Normals) and add a Weighted Normal modifier (Face Area, Keep Sharp). No baked normal map needed, so tiling materials and trim sheets work |
+| Mid-poly with custom normals | Close to mid distance, most hero props and kit pieces | Bevel the silhouette edges (see Bevels below, Harden Normals) and add a Weighted Normal modifier (Face Area, Keep Sharp). No baked normal map needed, so tiling materials and trim sheets work |
 | Low poly with high-poly bake | Assets with sculpted or fine detail (carvings, cloth folds, damage) | High poly by sculpt or SubD. Low poly follows the silhouette. Bake normals and AO with a cage; name pairs `_low` and `_high` |
 
-## Cuts in a curved shell
+## Bevels
 
-Bevels plus Weighted Normal work on flat-sided parts. On a domed or rolled shell with a window or a seam cut into it, the cut pulls the shading out of shape around every hole.
+- **Even segments, always:** 2 or 4 most of the time. The larger the curve, the more it needs, so go above 4 only for a big radius that shows. An odd count, 1 included, gets a warning from `validate_mesh.py`.
+- Take the width from the real radius on the rectified reference.
+- Keep the bevel a live modifier until the mesh is approved, so the topology under it stays simple to change.
+- The SubD route keeps its holding loops instead ([quad-subd.md](quad-subd.md)).
 
-1. Keep a copy of the shell before any cut.
-2. Cut along planes (`bmesh.ops.bisect_plane`) or with Booleans, then bevel the edges of the cut.
-3. Give the shell's outer faces the normals of the uncut copy: Data Transfer (custom normals, nearest face interpolated) after Weighted Normal, limited by distance so that cut walls keep their own hard shading. Or write the sampled normals with `normals_split_custom_set`. Apply it, then check the result.
-4. A plate cut from the shell takes the normals of its own surface. If it should read as flat, make it flat instead of inheriting the shell's curve.
+## Openings in a curved shell
 
-Judge the shell in the shiny matcap view (`blender-adapter`, `asset_capture.py`), close up on every cut. Smears and lumps that don't show in a neutral render show there. `validate_mesh.py` can't see them.
+Plan a window or seam in a domed or rolled shell into the shell's loops from the start, as [hard-surface-topology.md](hard-surface-topology.md) describes. Don't slice a finished shell with `bmesh.ops.bisect_plane` or a Boolean: that gave the random cuts on the first benchmark meter.
+
+If a shell is already cut and the shading has pulled out of shape around the hole, normal transfer is the repair, not the method:
+
+1. Rebuild the shell without the opening as the source.
+2. Give the cut shell's outer faces the source's normals: Data Transfer (custom normals, nearest face interpolated) after Weighted Normal, limited by distance so that cut walls keep their own hard shading. Or write the sampled normals with `normals_split_custom_set`. Apply it, then check the result.
+3. A plate cut from the shell takes the normals of its own surface. If it should read as flat, make it flat instead of inheriting the shell's curve.
+
+Judge the shell in the shiny matcap view (`blender-adapter`, `asset_capture.py`), close up on every opening. Smears and lumps that don't show in a neutral render show there. `validate_mesh.py` can't see them.
 
 ## Nanite or LODs (Unreal 5.8)
 

@@ -285,9 +285,124 @@ def test_cli(tmp):
     assert rc == 1 and "VALIDATE ERROR" in text, (rc, text[-200:])
 
 
+def form_box(name, move=None, mats=("M_body",)):
+    """A box 0.2 x 0.1 x 0.3, centred on X. move: (vertex near this corner, offset)."""
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    for v in bm.verts:
+        v.co = (v.co.x * 0.2, v.co.y * 0.1, v.co.z * 0.3)
+    if move:
+        corner, off = move
+        v = min(bm.verts, key=lambda q: (q.co - mathutils.Vector(corner)).length)
+        v.co += mathutils.Vector(off)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    for m in mats:
+        me.materials.append(bpy.data.materials.new(m))
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(ob)
+    return ob
+
+
+def test_form(tmp):
+    sec = {"name": "body", "symmetry": ["x"]}
+    good = NS["_form"](form_box("Fm_good"), {"sections": [sec]})
+    assert good["ok"] and good["sections"][0]["axes"]["x"]["max_mm"] < 0.01, good
+    corner = (0.1, -0.05, 0.15)
+    bad = form_box("Fm_bad", move=(corner, (0.005, 0, 0)))
+    r = NS["_form"](bad, {"sections": [sec]})
+    ax = r["sections"][0]["axes"]["x"]
+    assert not r["ok"] and 3 < ax["max_mm"] <= 5.1, r
+    box = [[0.09, -0.06, 0.14], [0.11, -0.04, 0.16]]
+    r = NS["_form"](bad, {"sections": [dict(sec, asymmetries=[{"what": "seal", "evidence": "real", "box_m": box}])]})
+    assert r["ok"] and r["sections"][0]["axes"]["x"]["skipped_as_asymmetry"] == 2, r
+    assert NS["_form"](bad, {"sections": [dict(sec, tol_mm=6)]})["ok"], "tol_mm widens it"
+    assert NS["_form"](bad, {"sections": [dict(sec, symmetry=[])]})["ok"], "a section with no mirror is not measured"
+    r = NS["_form"](bad, {"sections": [dict(sec, parts=["nothing"])]})
+    assert not r["ok"] and "match no" in r["sections"][0]["reason"], r
+    assert NS["_form"](form_box("Fm_mat"), {"sections": [dict(sec, parts=["m_body"])]})["ok"], "parts by material name"
+    # a mirror plane away from zero, and a child object as a section
+    root = form_box("Fm_root")
+    root.location = (0, 0, 0)
+    kid = form_box("Fm_lug", mats=("M_lug",))
+    kid.parent = root
+    kid.location = (0.3, 0, 0)
+    bpy.context.view_layer.update()
+    assert NS["_form"](root, {"sections": [dict(sec, parts=["lug"], plane_m={"x": 0.3})]})["ok"], "plane at 0.3 on the child"
+    assert not NS["_form"](root, {"sections": [dict(sec, parts=["lug"])]})["ok"], "the child off the plane at 0 fails"
+    # through validate, from a spec
+    ob = form_box("SM_FormSpec", move=(corner, (0.005, 0, 0)))
+    p = os.path.join(tmp, "SM_FormSpec.md")
+    with open(p, "w", encoding="utf-8") as f:
+        f.write("---\nasset: SM_FormSpec\ntype: prop\ndims_m: [0.205, 0.1, 0.3]\npivot: center\nmaterial_group: [body]\nbudget_tris: 100\ndone_when:\n  - box\n"
+                "form:\n  measured_from: ref/a.png\n  sections:\n    - {name: body, box_m: [[-0.1, -0.05, -0.15], [0.1, 0.05, 0.15]], symmetry: [x]}\n---\n")
+    rep = validate(ob.name, spec=p, repo=REPO, stage="mesh")
+    assert rep["form"]["ok"] is False and rep["pass"] is False, rep["form"]
+    assert validate("Fm_good", stage="mesh")["form" if False else "object"] == "Fm_good"
+
+
+def test_topology(tmp):
+    bm = bmesh.new()
+    bmesh.ops.create_grid(bm, x_segments=10, y_segments=10, size=0.5)
+    me = bpy.data.meshes.new("Topo_grid")
+    bm.to_mesh(me)
+    bm.free()
+    grid = bpy.data.objects.new("Topo_grid", me)
+    bpy.context.scene.collection.objects.link(grid)
+    t = NS["_topology"](grid)
+    assert t["quads"] == 100 and t["quad_share"] == 1.0 and t["idle_flat_verts"] == 81 and t["verts"] == 121, t
+    assert any("flat areas" in w for w in t["warnings"]), t["warnings"]
+    # triangulated: the quad warning; a long triangle counts as thin, a bevel strip of quads does not
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    for v in bm.verts:
+        v.co.x *= 0.02
+    bmesh.ops.triangulate(bm, faces=bm.faces)
+    me = bpy.data.meshes.new("Topo_tri")
+    bm.to_mesh(me)
+    bm.free()
+    tri = bpy.data.objects.new("Topo_tri", me)
+    bpy.context.scene.collection.objects.link(tri)
+    t = NS["_topology"](tri)
+    assert t["quads"] == 0 and t["thin_tris"] == 8 and any("quads" in w for w in t["warnings"]) and any("thin" in w for w in t["warnings"]), t
+    # an n-gon that lies flat is fine; one that doesn't is named
+    for lift, n in ((0.0, 0), (0.2, 1)):
+        bm = bmesh.new()
+        vs = [bm.verts.new((__import__("math").cos(k * 1.2566), __import__("math").sin(k * 1.2566), lift if k == 0 else 0)) for k in range(5)]
+        bm.faces.new(vs)
+        me = bpy.data.meshes.new("Topo_ng")
+        bm.to_mesh(me)
+        bm.free()
+        ng = bpy.data.objects.new("Topo_ng", me)
+        bpy.context.scene.collection.objects.link(ng)
+        t = NS["_topology"](ng)
+        assert t["ngons"] == 1 and t["ngons_not_flat"] == n, (lift, t)
+    # a Bevel modifier with odd segments warns, an even one does not, and modifiers count in the numbers
+    box = form_box("Topo_bev")
+    m = box.modifiers.new("B", "BEVEL")
+    m.width, m.segments = 0.005, 3
+    bpy.context.view_layer.update()
+    t = NS["_topology"](box)
+    assert t["odd_bevels"] and any("odd" in w for w in t["warnings"]) and t["faces"] > 6, t
+    m.segments = 2
+    bpy.context.view_layer.update()
+    assert not NS["_topology"](box)["odd_bevels"]
+    # a mesh waiting for approval needs no UVs; the final one does
+    plain = form_box("Topo_stage")
+    assert validate("Topo_stage", stage="mesh")["pass"] is True
+    assert validate("Topo_stage")["pass"] is False
+    assert plain.data.uv_layers.get("UVMap") is None
+    try:
+        validate("Topo_stage", stage="uv")
+        raise AssertionError("a bad stage must be refused")
+    except ValueError:
+        pass
+
+
 def main():
     with tempfile.TemporaryDirectory() as tmp:
-        for fn in (test_plain, test_dims, test_pivot, test_materials, test_loading, test_parts, test_uv_zero, test_cli):
+        for fn in (test_plain, test_dims, test_pivot, test_materials, test_loading, test_parts, test_uv_zero, test_form, test_topology, test_cli):
             fn(tmp)
             print("ok", fn.__name__)
     print("SELFTEST validate_mesh PASS")

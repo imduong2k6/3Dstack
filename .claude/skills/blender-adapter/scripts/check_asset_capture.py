@@ -58,12 +58,12 @@ try:
 
     # ---- run 1: all modes, photo, features, mask, a close-up
     out1 = os.path.join(work, 'out1')
-    code, rep, log = go(out1, '--object', 'SM_Test', '--modes', 'cycles,solid,matcap,culling', '--res', '200', '--samples', '4', '--close', 'cu:0.2,-0.1,0.4:0.5',
-                        '--photo', photo, '--photo-box', '100', '50', '300', '650', '--photo-mask', mask1,
+    code, rep, log = go(out1, '--object', 'SM_Test', '--modes', 'cycles,solid,matcap,culling,wire', '--res', '200', '--samples', '4', '--close', 'cu:0.2,-0.1,0.4:0.5',
+                        '--photo', photo, '--photo-kind', 'rectified', '--photo-box', '100', '50', '300', '650', '--photo-mask', mask1,
                         '--feature', 'Part_A:190,200,250,350', '--feature', 'M_front:100,50,300,650', '--feature', 'NoSuchPart:0,0,10,10')
     assert code == 0 and rep and rep['ok'], (code, log)
     views = ac.VIEWS + ['cu']
-    for mode in ('cycles', 'solid', 'matcap', 'culling'):
+    for mode in ('cycles', 'solid', 'matcap', 'culling', 'wire'):
         for v in views:
             f = os.path.join(out1, mode, v + '.png')
             assert os.path.exists(f) and os.path.getsize(f) > 100, f
@@ -85,6 +85,15 @@ try:
     assert (lambda p: p[0] > 0.9 and p[2] > 0.9 and p[1] < 0.1)(ac.load(os.path.join(out1, 'culling', 'front.png'))[0, 0, :3])
     m = ac.load(os.path.join(out1, 'matcap', 'front.png'))[100, 50, :3]; assert abs(m[0] - m[2]) < 0.1, ('matcap should be neutral', m)
 
+    # wire: thin black lines over a grey surface, in every view; the same width in a close-up and a wide shot; the file stays free of the copies
+    for v in ('front', 'three_quarter_l', 'cu'):
+        im = ac.load(os.path.join(out1, 'wire', v + '.png'))[..., :3]
+        dark = (im.max(-1) < 0.4).mean()     # darker than both the surface and the ground
+        assert dark > 0.002 and (v == 'three_quarter_l' or dark < 0.25), ('wire lines', v, dark)     # a side turned from the light is dark too
+    wf = ac.load(os.path.join(out1, 'wire', 'front.png'))[..., :3]
+    assert wf[100, 50].min() > 0.2, ('the middle of a flat face has no line', wf[100, 50])
+    assert wf[100, 50].max() - wf[100, 50].min() < 0.02, ('wire colours the surface a plain grey, not by material', wf[100, 50])
+
     # known ratios: photo box 200 x 600 (1/3), asset 0.4 x 0.8 (0.5) -> +50 %; 750 px per metre
     ph = rep['photo']
     near(ph['photo_w_over_h'], 1 / 3, 1e-3, 'photo ratio'); near(ph['render_w_over_h'], 0.5, 1e-4, 'render ratio'); near(ph['w_over_h_error_pct'], 50, 0.1, 'ratio error')
@@ -100,7 +109,7 @@ try:
     assert ph['iou'] > 0.98, ph['iou']
 
     # ---- run 2: mask only (box from the mask's own box 200..400 x 50..650, so the render is centred on it and clipped at x 400): IoU 200 / 250
-    code, rep2, log = go(os.path.join(work, 'out2'), '--object', 'SM_Test', '--modes', 'solid', '--res', '200', '--photo-mask', mask2)
+    code, rep2, log = go(os.path.join(work, 'out2'), '--object', 'SM_Test', '--modes', 'solid', '--res', '200', '--photo-mask', mask2, '--photo-kind', 'ortho')
     assert code == 0 and rep2['ok'], (code, log)
     near(rep2['photo']['iou'], 0.8, 0.02, 'IoU'); assert 'from the mask' in rep2['photo']['box_source']
     assert not os.path.exists(os.path.join(work, 'out2', 'compare_side.png'))
@@ -110,9 +119,14 @@ try:
     assert code == 1 and rep3 and not rep3['ok'] and 'missing object' in rep3['error'], (code, rep3, log)
     assert not any(f.endswith('.png') for _, _, fs in os.walk(os.path.join(work, 'out3')) for f in fs)
 
+    # ---- run 4: a photo that isn't declared flat is refused before anything renders
+    code, rep4, log = go(os.path.join(work, 'out4'), '--object', 'SM_Test', '--modes', 'solid', '--res', '200', '--photo', photo, '--photo-box', '100', '50', '300', '650')
+    assert code == 1 and rep4 and 'photo-kind' in rep4['error'], (code, rep4, log)
+    assert not any(f.endswith('.png') for _, _, fs in os.walk(os.path.join(work, 'out4')) for f in fs)
+
     # ---- the source file was never saved
     assert (sha(blend), os.listdir(asset_dir), os.path.getmtime(blend)) == before, 'the .blend changed'
-    print('asset_capture self-check ok: 4 modes x', len(views), 'views, ratio error', ph['w_over_h_error_pct'], '%, IoU', ph['iou'], '/', rep2['photo']['iou'], ', missing object exit', code)
+    print('asset_capture self-check ok: 5 modes x', len(views), 'views, ratio error', ph['w_over_h_error_pct'], '%, IoU', ph['iou'], '/', rep2['photo']['iou'], ', missing object exit', code)
     if len(argv) < 2:
         shutil.rmtree(work, ignore_errors=True)
 except Exception:

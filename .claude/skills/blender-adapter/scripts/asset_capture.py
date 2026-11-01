@@ -2,8 +2,8 @@
 (tested headless with bpy 5.2.3 using Workbench and Cycles).
 
     bash bin/blender-bg <asset>.blend --python .claude/skills/blender-adapter/scripts/asset_capture.py -- --object SM_Name --out <dir>
-        [--modes solid,matcap,culling] [--res 800] [--samples 32] [--close name:x,y,z[:distance_m]]...
-        [--photo img --photo-box x0 y0 x1 y1 [--feature name:x0,y0,x1,y1]...] [--photo-mask img]
+        [--modes solid,matcap,culling,wire] [--res 800] [--samples 32] [--close name:x,y,z[:distance_m]]...
+        [--photo img --photo-kind rectified|ortho --photo-box x0 y0 x1 y1 [--feature name:x0,y0,x1,y1]...] [--photo-mask img]
 
 Exit 0 done, 1 any failure (Blender itself exits 0 when a script raises). Writes <out>/<mode>/<view>.png and <out>/capture_report.json.
 
@@ -13,10 +13,13 @@ left, right, top and bottom; the two three-quarters are perspective. Close-ups a
 left and above at `distance` (default half the longest extent).
 
 Modes: solid (Workbench, material colours: a Principled base colour that is not textured is used), matcap (shiny neutral grey matcap, pearl: smears and
-edge highlights), culling (Workbench with back-face culling on a magenta ground: holes and inside-out faces show through), cycles (opt-in,
-slow, fixed exposure). Default solid,matcap,culling.
+edge highlights), culling (Workbench with back-face culling on a magenta ground: holes and inside-out faces show through), wire (the edges of
+the final mesh, modifiers applied, about one pixel wide over a plain grey surface; edges behind the surface stay hidden), cycles (opt-in,
+slow, fixed exposure). Default solid,matcap,culling,wire.
 
-Photo: --photo-box is the object's box in photo pixels (x right, y down). The front render is scaled so its height equals the box height and
+Photo: the overlay is an orthographic front render, so it only means something against a flat image. --photo-kind says which: `rectified`
+(modeling/scripts/blueprint.py rectify) or `ortho` (a sheet). A perspective photo is refused: matching it copies the camera into the mesh.
+--photo-box is the object's box in photo pixels (x right, y down). The front render is scaled so its height equals the box height and
 centred on the box, then written as compare_front_render.png (photo-sized, transparent) with compare_side.png (photo | render),
 compare_blend.png (50 %) and compare_edge.png (red render outline, yellow photo box, green photo feature boxes, cyan render feature boxes).
 The report holds width/height in both, and for each --feature (photo pixels) the size and position error against the same box projected
@@ -33,7 +36,7 @@ import bpy
 import numpy as np
 from mathutils import Matrix, Vector
 
-MODES = ("cycles", "solid", "matcap", "culling")
+MODES = ("cycles", "solid", "matcap", "culling", "wire")
 GEOM = {"MESH", "CURVE", "SURFACE", "FONT", "META"}
 # camera looks along d, image up is u
 AXES = {"front": ((0, 1, 0), (0, 0, 1)), "back": ((0, -1, 0), (0, 0, 1)), "left": ((1, 0, 0), (0, 0, 1)),
@@ -126,6 +129,8 @@ def run(a):
     bad = [m for m in modes if m not in MODES]
     if bad or not modes:
         raise RuntimeError(f"bad --modes {a.modes!r}: choose from {', '.join(MODES)}")
+    if (a.photo or a.photo_mask) and not a.photo_kind:
+        raise RuntimeError("--photo needs --photo-kind rectified|ortho: rectify a perspective photo first (modeling/scripts/blueprint.py rectify)")
     roots = []
     for n in a.object.split(","):
         o = bpy.data.objects.get(n)
@@ -241,6 +246,7 @@ def run(a):
         rel = allv - np.array(c)
         D = 1.06 * float(np.max(np.maximum(abs(rel @ np.array(rv)), abs(rel @ np.array(uv_))) / (18 / 50) - rel @ np.array(d)))
         shots.append((nm, add_cam(nm, c - d * D, d, (0, 0, 1), lens=50), a.res, a.res))
+        shots[-1][1]["ac_dist"] = D
     wm = mx + 0.27 - lo[0]
     hm = max(ext[2], 1.8)
     s_, w, h = frame(wm, hm, a.res)
@@ -257,6 +263,13 @@ def run(a):
             raise RuntimeError(f"--close name {parts[0]!r} is a view name")
         d = -Vector((-0.35, -1, 0.3)).normalized()
         shots.append((parts[0], add_cam(parts[0], t - d * dist, d, (0, 0, 1), lens=85), a.res, a.res))
+        shots[-1][1]["ac_dist"] = dist
+
+    def pixel_m(cam, w, h):
+        """How many metres one pixel covers at the object, so wire lines stay the same width in every view."""
+        if cam.data.type == "ORTHO":
+            return cam.data.ortho_scale / max(w, h)
+        return cam["ac_dist"] * 36 / cam.data.lens / max(w, h)
 
     def render(path, cam, w, h):
         scene.camera, (r.resolution_x, r.resolution_y), r.filepath = cam, (w, h), os.path.abspath(path)
@@ -273,12 +286,27 @@ def run(a):
             sh.light, sh.color_type, sh.single_color = "MATCAP", "SINGLE", (0.6, 0.6, 0.6)
             ml = [s.name for s in bpy.context.preferences.studio_lights if s.type == "MATCAP"]
             sh.studio_light = "pearl.exr" if "pearl.exr" in ml else ml[0]
+        wires = []
+        if mode == "wire":     # Workbench draws no overlays, so the edges are real thin geometry on temporary copies of the final mesh
+            sh.color_type = "OBJECT"
+            for o in geo:
+                o.color = (0.7, 0.7, 0.7, 1)
+                w_ob = bpy.data.objects.new("ac_wire_" + o.name, bpy.data.meshes.new_from_object(o.evaluated_get(dg)))
+                w_ob.matrix_world, w_ob.color = o.matrix_world, (0.01, 0.01, 0.01, 1)
+                scene.collection.objects.link(w_ob)
+                m_ = w_ob.modifiers.new("ac_wire", "WIREFRAME")
+                m_.use_replace, m_.use_boundary, m_.use_even_offset = True, True, False
+                wires.append((w_ob, m_))
         os.makedirs(os.path.join(a.out, mode), exist_ok=True)
         for nm, cam, w, h in shots:
             for o in mq:
                 o.hide_render = nm != "scale"
+            for w_ob, m_ in wires:
+                m_.thickness = 1.3 * pixel_m(cam, w, h) / max(max(w_ob.matrix_world.to_scale()), 1e-6)
             render(os.path.join(a.out, mode, nm + ".png"), cam, w, h)
             rep["files"].setdefault(mode, []).append(os.path.join(a.out, mode, nm + ".png"))
+        for w_ob, _ in wires:
+            bpy.data.objects.remove(w_ob)
     for o in mq:
         o.hide_render = True
 
@@ -310,7 +338,7 @@ def run(a):
     rend = load(os.path.join(a.out, "compare_front_render.png"))
     al = rend[..., 3] > 0.5
     proj = lambda v: [float(x) for x in (cx + (v[:, 0].min() - c.x) * s, cy - (v[:, 2].max() - c.z) * s, cx + (v[:, 0].max() - c.x) * s, cy - (v[:, 2].min() - c.z) * s)]
-    ph = {"file": a.photo, "mask": a.photo_mask, "size": [W, H], "box": [round(v, 2) for v in box], "box_source": src, "px_per_m": round(s, 3),
+    ph = {"file": a.photo, "mask": a.photo_mask, "kind": a.photo_kind, "size": [W, H], "box": [round(v, 2) for v in box], "box_source": src, "px_per_m": round(s, 3),
           "photo_w_over_h": round(bw / bh, 4), "render_w_over_h": round(float(ext[0] / ext[2]), 4)}
     ph["w_over_h_error_pct"] = round((ph["render_w_over_h"] / ph["photo_w_over_h"] - 1) * 100, 2)
     feats, fb = [], []
@@ -373,11 +401,12 @@ def _main(argv):
     ap.error = lambda m: (_ for _ in ()).throw(RuntimeError(m))
     ap.add_argument("--object", required=True, help="object name(s), comma-separated; children are included")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--modes", default="solid,matcap,culling")
+    ap.add_argument("--modes", default="solid,matcap,culling,wire")
     ap.add_argument("--res", type=int, default=800, help="long edge in pixels")
     ap.add_argument("--samples", type=int, default=32, help="Cycles samples")
     ap.add_argument("--close", action="append", default=[], help="name:x,y,z[:distance_m]")
     ap.add_argument("--photo")
+    ap.add_argument("--photo-kind", choices=("rectified", "ortho"), help="the photo or mask is flat: rectified or an orthographic sheet")
     ap.add_argument("--photo-box", nargs=4, type=float, metavar=("X0", "Y0", "X1", "Y1"))
     ap.add_argument("--feature", action="append", default=[], help="name:x0,y0,x1,y1 in photo pixels")
     ap.add_argument("--photo-mask")

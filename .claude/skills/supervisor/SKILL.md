@@ -14,7 +14,7 @@ The worker's capture set (review cameras, a top view, a close-up of what changed
 ## Order of work
 
 1. **Read the worker's `lint.json`** (`reviews/<gate>-r<n>/`). Rerun `scene-lint` only when it is older than the gate copy, and then with `--out` in your own folder, never over the shared file. Scripts count, reviewers judge (`house-rules` rule 9), so don't recount what lint counts. Every lint blocker and major goes into the fix list as lint reports it. In `lint.json`, `summary.skipped`, `no_subjects` and `errors` are never a pass, and a check with `checked: 0` looked at nothing. Cable and conduit items marked `unresolved` (minor) are checked by eye on the cameras listed in `seen_by`.
-2. **Then add judgement:** what only a person sees in the captures and the references. Use `stats.json` and `measure.py` for numbers.
+2. **Then add judgement:** what only a person sees in the captures and the references. Use `stats.json` and `measure.py` for numbers. On a single asset, open `wire/` as well as `solid/`, close up on each opening, and read `form` and `topology` in `validation.json`. Random cuts, kinked loops, a grid on a flat face, or an asymmetry that perspective explains are Majors, whatever the solid render looks like.
 3. **No per-round probe scripts.** A count you need and lint lacks is a lint gap: report it to the manager and judge by eye until it is added.
 4. **Scope is what the walk paths and review cameras see** (unless `brief.yaml › review_scope` is `whole_scene`) (`visible_set.json`: eye height along the walk paths, looking in any direction including up; on the CG route the cameras only). Report the rest under Later.
 

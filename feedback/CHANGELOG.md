@@ -196,3 +196,21 @@ Approved by the user on 31 Oct 2026 ("apply 1 to 8") after one wall meter was bu
 | 8 | Blank frame check on every capture | Nothing stopped an all-white frame reaching a gate | `blender-adapter/scripts/frame_check.py`, `selftest_frame_check.py`, both `capture.py` |
 
 All self-tests pass on Blender 5.2.3. Not yet run on a real project file. The Unreal capture call has only run against a stub, not in the editor.
+
+## 2026-10-31: form read, topology and mesh approval, from the user's review of the benchmark meter
+
+Approved by the user on 31 Oct 2026 ("Apply M1 to M10") after reviewing both benchmark meters in Blender. The user also corrected the bevel rule to even segments. Rules already written didn't hold because nothing checked them: `volume-methods.md` said to mirror symmetric objects and `quad-subd.md` said no Boolean cuts, but our builder wrote "asymmetric" with no mirror in its script, and the topology rules sat where the game route never read them.
+
+| # | Change | Evidence | Files |
+| --- | --- | --- | --- |
+| M1 | Required `form` block, read before any mesh | Neither build noticed the object is symmetric; ours has 3.7 mm median and 35 mm worst mirror error | `modular-kit/scripts/check_spec.py`, `selftest_check_spec.py`, `modular-kit/SKILL.md`, `modeling/SKILL.md` |
+| M2 | Measure from a rectified photo; a perspective photo is refused by the overlay | Our builder mapped pixels at one scale and copied a 2.7 degree lean into the geometry | `modeling/scripts/blueprint.py`, `blender-adapter/scripts/asset_capture.py`, `house-rules/SKILL.md` |
+| M3 | Flat blueprint and marked reference, used as the modelling guide | The user's suggestion | `modeling/scripts/blueprint.py`, `selftest_blueprint.py` |
+| M4 | Build by Mirror and Array; mirrors measured surface to surface; round segments a multiple of 4 and of the repeat | As M1 | `blender-adapter/scripts/validate_mesh.py`, `selftest_validate_mesh.py`, `modeling/references/volume-methods.md`, `agents/asset-tech.md` |
+| M5 | Topology rules for every route; plane cuts removed as the method for a curved shell | Random cuts and non-straight loops; 232 n-gons | `modeling/references/hard-surface-topology.md`, `game-models.md`, `quad-subd.md` |
+| M6 | `topology` warnings and a `wire` capture that the supervisor must read | Our build saved no wireframes and the comparison showed none; 15.4 % of our vertices sat idle on flats | `validate_mesh.py`, `asset_capture.py`, `check_asset_capture.py`, `supervisor/SKILL.md` |
+| M7 | Even bevel segments, 2 or 4 most of the time, more for larger curves | The user's rule, replacing "2 to 3" | `modeling/references/game-models.md`, `validate_mesh.py` |
+| M8 | Big, medium, small, with a check at the end of each | The user's rule | `modeling/SKILL.md`, `agents/modeler.md` |
+| M9 | Mesh approval before UVs and textures, batched by contact sheet | The user's rule; UVs moved out of the mesh checklist; `--stage mesh` | `modeling/SKILL.md`, `scene-pipeline/SKILL.md`, `agents/modeler.md`, `blender-image-to-3d/SKILL.md`, `CREDITS.md` |
+
+The topology warning limits are provisional, set from one asset. M10, the blind rerun, runs after this commit. Self-tests pass on Blender 5.2.3; nothing has run on a project yet.

@@ -48,6 +48,18 @@ generated: null
 done_when:
   - snaps to the 0.5 m grid with no gaps against SM_Office_Wall_Plain_A
   - door leaf opening 0.90 x 2.04 m within 1 cm
+form:
+  measured_from: ref/C05_rect.png
+  sections:
+    - name: wall
+      box_m: [[-2, 0, 0], [2, 0.15, 3]]
+      symmetry: [x]
+      circles:
+        - {name: peephole, kind: full, center_m: [0, 0, 1.5], axis: y, diameter_m: 0.04, segments: 24, repeat: 6}
+      repeats:
+        - {name: hinge, count: 3, pitch_m: [0, 0, 0.8]}
+      asymmetries:
+        - {what: door, evidence: real door off centre in C05, box_m: [[-1.4, 0, 0], [-0.5, 0.15, 2.04]]}
 method: null
 validation: null
 ---
@@ -123,6 +135,19 @@ def test_template():
         assert old in GOOD, old
         e, _, _ = codes(GOOD.replace(old, new, 1), metrics={"wall_module": {}}, services={"LP01"})
         assert want in e, (old, new, want, e)
+    # the form read: every way of getting it wrong, and who is exempt
+    for old, new in (("symmetry: [x]", "symmetry: [q]"), ("symmetry: [x]", "symmetry: []"), ("measured_from: ref/C05_rect.png\n", ""),
+                     ("box_m: [[-2, 0, 0], [2, 0.15, 3]]", "box_m: [[2, 0, 0], [-2, 0.15, 3]]"), ("segments: 24, repeat: 6", "segments: 26, repeat: 6"),
+                     ("segments: 24, repeat: 6", "segments: 18, repeat: 6"), ("kind: full", "kind: round"), ("count: 3", "count: 1"),
+                     ("evidence: real door off centre in C05, ", ""), ("axis: y", "axis: q")):
+        assert old in GOOD, old
+        assert "form" in codes(GOOD.replace(old, new, 1))[0], (old, new)
+    assert codes(GOOD.replace("symmetry: [x]", "symmetry: []\n      why_none: a real offset door", 1))[0] == []
+    no_form = GOOD[:GOOD.index("form:\n")] + GOOD[GOOD.index("method: null"):]
+    assert "missing_key" in codes(no_form)[0], "a modelled asset needs a form block"
+    for old, new in (("method: null", "method: fast_cg"), ("method: null", "method: repair"), ("validation: null", "validation: {pass: true}")):
+        assert codes(no_form.replace(old, new, 1))[0] == [], (old, new)
+    assert codes(no_form.replace("source: model", "source: library", 1))[0] == []
     # a port role of opening or inset (a bay's opening and what fills it) is fine
     for role in ("end", "opening", "inset"):
         assert codes(GOOD.replace("dir: [1, 0, 0], kind", f"dir: [1, 0, 0], role: {role}, kind", 1))[0] == [], role

@@ -14,7 +14,11 @@ Headless, on the asset's file (exit 0 when everything passes, 1 otherwise or on 
 It also splits the object (and its mesh children, UCX_ and the other helper parts left out) into connected parts and reports, under `parts`:
 coplanar overlapping faces of two parts (z-fighting: makes `pass` false), back-to-back touching faces, parts fully inside another closed part,
 and small floating fragments (the last three are warnings). Tolerances are shares of the bounding diagonal (coplanar 0.01 %, touching 0.2 %),
-so a decal 0.1 mm proud of a 0.37 m asset is not z-fighting. `pass` is also false when the UV map has no area on most faces.
+so a decal 0.1 mm proud of a 0.37 m asset is not z-fighting. `pass` is also false when the UV map has no area on most faces, unless
+`--stage mesh` says this is the mesh waiting for approval, before UVs exist.
+
+`topology` measures the evaluated mesh: quad share, n-gons and the ones that don't lie flat, thin triangles, high poles, vertices inside flat
+areas that shape nothing, and Bevel modifiers with an odd segment count. Warnings only; it never fails `pass`. Read it with the wire captures.
 
 With a spec (a path to the `kit/*.md`, or its parsed front matter as a dict) it also checks:
   - dims: the bounding box of the object and its mesh children (UCX_, UBX_, UCP_, USP_ and SOCKET_ parts left out) against
@@ -25,6 +29,8 @@ With a spec (a path to the `kit/*.md`, or its parsed front matter as a dict) it 
   - materials: no empty slot, one slot per `material_group`, and the groups on the slots (the material's `material_group` custom
     property, else its name without the M_ prefix) are the groups the spec lists
   - the object is named like the spec's `asset`, and `budget_tris` is the budget when none is passed
+  - form: for each section with `symmetry`, how far every vertex, mirrored, lands from the section's own surface. Over `tol_mm` (1 mm) fails,
+    except inside an `asymmetries` box. `parts` picks the section by material or child object name; a name that matches nothing fails
 """
 import argparse
 import json
@@ -46,6 +52,15 @@ _TOUCH = 2e-3           # parts this close count as touching
 _WELD = 1e-6            # vertices this close are one vertex
 _FRAGMENT_AREA = 0.05   # a detached piece with at most this share of the surface is a floating fragment
 _MAX_PARTS = 2000       # more parts than this: the enclosed and floating checks are skipped
+_MIRROR_TOL_MM = 1.0    # default for a form section
+_MIRROR_SAMPLES = 20000 # vertices tested per section and axis
+# topology warnings, provisional: set from the first rerun of the benchmark meter, one asset, so read them with the wire captures
+_TOPO_MAX_FACES = 500000
+_MIN_QUAD_SHARE = 0.6
+_MAX_THIN_TRI_SHARE = 0.15
+_THIN_TRI_ASPECT = 10
+_MAX_IDLE_SHARE = 0.1
+_MAX_VALENCE = 8
 
 
 def _find_check_spec(spec_path=None, repo=None):
@@ -322,6 +337,113 @@ def _parts(ob):
     return rep
 
 
+def _meshes(ob):
+    return [o for o in [ob] + list(ob.children_recursive) if o.type == "MESH" and not o.name.startswith(_HELPER_PREFIX)]
+
+
+def _topology(ob):
+    """Counts on the evaluated mesh, so live Mirror and Bevel modifiers count. Warnings only."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    t = {"faces": 0, "quads": 0, "tris": 0, "ngons": 0, "ngons_not_flat": 0, "thin_tris": 0, "high_poles": 0, "max_valence": 0,
+         "verts": 0, "idle_flat_verts": 0, "odd_bevels": []}
+    for o in _meshes(ob):
+        t["odd_bevels"] += [f"{o.name}: {m.name} ({m.segments})" for m in o.modifiers if m.type == "BEVEL" and m.segments % 2]
+        ev = o.evaluated_get(dg)
+        bm = bmesh.new()
+        bm.from_mesh(ev.to_mesh())
+        ev.to_mesh_clear()
+        t["faces"] += len(bm.faces)
+        if t["faces"] > _TOPO_MAX_FACES:
+            bm.free()
+            return {"skipped": f"more than {_TOPO_MAX_FACES} faces", "warnings": []}
+        for f in bm.faces:
+            k = len(f.verts)
+            if k == 3:
+                t["tris"] += 1
+                es = [e.calc_length() for e in f.edges]
+                t["thin_tris"] += max(es) > _THIN_TRI_ASPECT * max(min(es), 1e-9)
+            elif k == 4:
+                t["quads"] += 1
+            else:
+                t["ngons"] += 1
+                c, tol = f.calc_center_median(), 0.002 * max(e.calc_length() for e in f.edges)
+                t["ngons_not_flat"] += any(abs(f.normal.dot(v.co - c)) > tol for v in f.verts)
+        t["verts"] += len(bm.verts)
+        for v in bm.verts:
+            fs = v.link_faces
+            if not fs or any(e.is_boundary for e in v.link_edges):
+                continue
+            n = len(v.link_edges)
+            t["high_poles"] += n >= 6
+            t["max_valence"] = max(t["max_valence"], n)
+            if len({f.material_index for f in fs}) == 1 and all(f.normal.dot(fs[0].normal) > 0.9998 for f in fs):      # within about 1 degree
+                t["idle_flat_verts"] += 1
+        bm.free()
+    t["quad_share"] = round(t["quads"] / max(t["faces"], 1), 3)
+    t["thin_tri_share"] = round(t["thin_tris"] / max(t["tris"], 1), 3)
+    t["idle_share"] = round(t["idle_flat_verts"] / max(t["verts"], 1), 3)
+    w = []
+    if t["quad_share"] < _MIN_QUAD_SHARE:
+        w.append(f"only {t['quad_share']:.0%} quads: keep a mostly-quad source and triangulate at export")
+    if t["ngons_not_flat"]:
+        w.append(f"{t['ngons_not_flat']} n-gons don't lie flat: their shading depends on how the engine triangulates them")
+    if t["thin_tri_share"] > _MAX_THIN_TRI_SHARE:
+        w.append(f"{t['thin_tri_share']:.0%} of the triangles are thin")
+    if t["idle_share"] > _MAX_IDLE_SHARE:
+        w.append(f"{t['idle_share']:.0%} of the vertices sit inside flat areas and shape nothing: a grid on a flat face, or loops that end nowhere")
+    if t["max_valence"] > _MAX_VALENCE:
+        w.append(f"a vertex with {t['max_valence']} edges")
+    if t["odd_bevels"]:
+        w.append("Bevel modifiers with odd segments: " + ", ".join(t["odd_bevels"]))
+    t["warnings"] = w
+    return t
+
+
+def _form(ob, form):
+    """The measured mirror check: each vertex of a section, mirrored, against the section's own surface, in the asset's frame."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    inv = np.array(ob.matrix_world.inverted())
+    raw = [(o, *_world_tris(o, dg)) for o in _meshes(ob)]
+    rep = {"sections": [], "ok": True}
+    for s in form.get("sections") or []:
+        names = [str(p).lower() for p in s.get("parts") or []]
+        V, T, off = [], [], 0
+        for o, co, tr, tp, pm in raw:
+            keep = np.ones(len(tr), bool)
+            if names:
+                by_mat = np.array([any(n in str(m).lower() for n in names) for m in pm], bool)[tp] if len(pm) else np.zeros(len(tr), bool)
+                keep = by_mat | (o is not ob and any(n in o.name.lower() for n in names))
+            if keep.any():
+                V.append(co @ inv[:3, :3].T + inv[:3, 3])
+                T.append(tr[keep] + off)
+                off += len(co)
+        row = {"name": s.get("name"), "axes": {}, "ok": True}
+        if not T and s.get("symmetry"):
+            row.update(ok=False, reason=f"parts {s.get('parts')} match no material or child object")
+        elif T:
+            V, T = np.vstack(V), np.vstack(T)
+            tree = BVHTree.FromPolygons(V.tolist(), T.tolist())
+            pts = V[np.unique(T)]
+            pts = pts[::max(1, len(pts) // _MIRROR_SAMPLES)]
+            tol = float(s.get("tol_mm") or _MIRROR_TOL_MM)
+            boxes = [np.array(a["box_m"], float) for a in s.get("asymmetries") or []]
+            for ax in s.get("symmetry") or []:
+                i = "xyz".index(ax)
+                mir = pts.copy()
+                mir[:, i] = 2 * float((s.get("plane_m") or {}).get(ax, 0)) - mir[:, i]
+                free = np.zeros(len(pts), bool)
+                for b in boxes:        # skip what the listed asymmetry covers, and its other side
+                    free |= np.all((pts >= b[0] - 1e-4) & (pts <= b[1] + 1e-4), axis=1) | np.all((mir >= b[0] - 1e-4) & (mir <= b[1] + 1e-4), axis=1)
+                d = np.array([tree.find_nearest(Vector(p))[3] for p in mir[~free]]) * 1000 if (~free).any() else np.zeros(1)
+                worst = pts[~free][int(np.argmax(d))] if (~free).any() else pts[0]
+                row["axes"][ax] = {"median_mm": round(float(np.median(d)), 3), "p95_mm": round(float(np.percentile(d, 95)), 3), "max_mm": round(float(d.max()), 3),
+                                   "worst_at_m": [round(float(x), 4) for x in worst], "skipped_as_asymmetry": int(free.sum()), "tol_mm": tol, "ok": bool(d.max() <= tol)}
+            row["ok"] = all(a["ok"] for a in row["axes"].values())
+        rep["sections"].append(row)
+        rep["ok"] = rep["ok"] and row["ok"]
+    return rep
+
+
 def _uv_zero_share(me):
     """Share of the faces with no area in the active UV map; None when the mesh has no UV map. Needs calc_loop_triangles() done."""
     if not me.uv_layers:
@@ -338,7 +460,9 @@ def _uv_zero_share(me):
     return float((np.abs(np.bincount(tp, a, minlength=len(me.polygons))) < 1e-12).mean()) if len(me.polygons) else 0.0
 
 
-def validate(name, budget_tris=None, merge_dist=0.0001, spec=None, repo=None, tolerance_m=None):
+def validate(name, budget_tris=None, merge_dist=0.0001, spec=None, repo=None, tolerance_m=None, stage="final"):
+    if stage not in ("mesh", "final"):
+        raise ValueError(f"stage is mesh or final, not {stage}")
     ob = bpy.data.objects[name]
     if ob.type != "MESH":
         raise ValueError(f"{name} is a {ob.type}: validate a mesh object")
@@ -348,7 +472,7 @@ def validate(name, budget_tris=None, merge_dist=0.0001, spec=None, repo=None, to
         spec_file = None
     if spec and budget_tris is None and isinstance(spec.get("budget_tris"), int):
         budget_tris = spec["budget_tris"]
-    out = {"object": name}
+    out = {"object": name, "stage": stage}
     out["transforms_applied"] = (all(abs(s - 1) < 1e-6 for s in ob.scale)
                                  and all(abs(a) < 1e-6 for a in ob.rotation_euler))
     out["dimensions_m"] = [round(d, 4) for d in ob.dimensions]
@@ -373,10 +497,14 @@ def validate(name, budget_tris=None, merge_dist=0.0001, spec=None, repo=None, to
     out["uv_layers"] = [uv.name for uv in ob.data.uv_layers]
     out["materials"] = [s.material.name if s.material else None for s in ob.material_slots]
     out["parts"] = _parts(ob)
-    # a UV map must exist and most faces must have area in it
-    uv_ok = bool(out["uv_layers"]) and (out["uv_zero_area_share"] or 0.0) <= 0.5
+    out["topology"] = _topology(ob)
+    # a UV map must exist and most faces must have area in it, once the mesh is past approval
+    uv_ok = stage == "mesh" or (bool(out["uv_layers"]) and (out["uv_zero_area_share"] or 0.0) <= 0.5)
     checks = [out["transforms_applied"], out["non_manifold_edges"] == 0, out["duplicate_verts"] == 0,
               out["ngons_under_subd"] == 0, out["flipped_faces"] == 0, uv_ok, out["parts"]["ok"]]
+    if spec and isinstance(spec.get("form"), dict):
+        out["form"] = _form(ob, spec["form"])
+        checks.append(out["form"]["ok"])
     if budget_tris:
         out["within_budget"] = out["tris_evaluated"] <= budget_tris
         checks.append(out["within_budget"])
@@ -396,9 +524,10 @@ def main(argv):
     ap.add_argument("--merge-dist", type=float, default=0.0001)
     ap.add_argument("--tol-mm", type=float, help="size and pivot tolerance; the default is the spec's done_when, else 10 mm")
     ap.add_argument("--repo", help="the repo folder, when check_spec.py cannot be found from here")
+    ap.add_argument("--stage", choices=("mesh", "final"), default="final", help="mesh: waiting for approval, UVs not made yet")
     ap.add_argument("--out", help="write the result as JSON here")
     a = ap.parse_args(argv)
-    rep = validate(a.name, a.budget_tris, a.merge_dist, spec=a.spec, repo=a.repo, tolerance_m=a.tol_mm / 1000 if a.tol_mm else None)
+    rep = validate(a.name, a.budget_tris, a.merge_dist, spec=a.spec, repo=a.repo, tolerance_m=a.tol_mm / 1000 if a.tol_mm else None, stage=a.stage)
     if a.out:
         with open(a.out, "w", encoding="utf-8") as f:
             json.dump(rep, f, indent=1)

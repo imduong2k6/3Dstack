@@ -28,9 +28,8 @@ Catmull-Clark subdivision smooths every corner, so anything that should stay sha
 
 The course's preferred hard-surface method.
 
-- **Quads lead.** Every hole, slot and button comes from the loop flow. Leave the loops in place, delete the faces inside the hole, and put the poles (3- or 5-edge vertices) at the hole corners so they turn the flow.
+- The rules shared with the game route (quads lead, openings from the loop flow, parts split like the real product) are in [hard-surface-topology.md](hard-surface-topology.md).
 - **No Boolean cuts.** Booleans leave n-gons, triangles and broken flow. SubD then warps and the surface around the hole ripples.
-- **Split parts like the real product.** A seam is a real gap between two separate pieces, not a groove carved into one mesh.
 - **Shells are single-layer surfaces** with the edge folded inward: a holding loop just under the lip, the wall, then a short fold inward. Use Solidify only when the thickness itself is visible.
 - **Rounded corners:** don't put the core grid's corner on the outline. Inset the grid by 0.3R or more (R = corner radius) and let concentric rings wrap the corner, or the corner face flattens to nearly 180°. Keep face angles between about 35° and 145°.
 - **Matching a source shape** (a scan, the user's base mesh, a higher-resolution model):

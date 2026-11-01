@@ -29,6 +29,9 @@ Classify first, then build.
 
 - Mirror on three axes and build 1/8; two axes, build 1/4; one axis, build 1/2.
 - Vertices on a mirror plane sit exactly at 0, with Clipping and Merge on.
+- A photo taken from one side still shows a symmetric object. A taper, a lean or one wider side that perspective explains is not asymmetry.
+- Keep the Mirror live in the source. Apply it only on the delivery copy. A real asymmetry (a seal, a cable, one lug) goes on top as its own part, listed in the spec's `form`.
+- **Repeats round a centre:** one sector, Array round an empty, merge. See [hard-surface-topology.md](hard-surface-topology.md).
 - Simple cases: scale from a primitive.
 - **Crimped ends** (a tube tail): build the body up to the transition loop, duplicate that loop (Shift+D), separate it (P), and grow the crimp as its own flat-shaded object. Space the crimp points with LoopTools Space, leaving out the end points. Two crimp types are common: herringbone and raised rib.
 
