@@ -34,6 +34,7 @@ With a spec (a path to the `kit/*.md`, or its parsed front matter as a dict) it 
 """
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -60,7 +61,10 @@ _MIN_QUAD_SHARE = 0.6
 _MAX_THIN_TRI_SHARE = 0.15
 _THIN_TRI_ASPECT = 10
 _MAX_IDLE_SHARE = 0.1
+_CLEAR_ROWS = 2         # flat rows beside a curve or edge have a job: they keep poles off the curve and rims regular
 _MAX_VALENCE = 8
+_MAX_SPACING_DEG = 5.0  # a wide edge left beside a narrow one on a curve reads 8 to 17; a ring evened after a reduction reads under 5
+_MAX_BEND = 1.0         # radians: a sharper turn between two edges of a loop is a held edge, not a curve
 
 
 def _find_check_spec(spec_path=None, repo=None):
@@ -341,17 +345,73 @@ def _meshes(ob):
     return [o for o in [ob] + list(ob.children_recursive) if o.type == "MESH" and not o.name.startswith(_HELPER_PREFIX)]
 
 
+def _islands(bm):
+    """The faces of each edge-connected island."""
+    seen = set()
+    for first in bm.faces:
+        if first in seen:
+            continue
+        seen.add(first)
+        stack, island = [first], []
+        while stack:
+            f = stack.pop()
+            island.append(f)
+            for e in f.edges:
+                for g in e.link_faces:
+                    if g not in seen:
+                        seen.add(g)
+                        stack.append(g)
+        yield island
+
+
+def _border_edges(island):
+    return {e for f in island for e in f.edges if e.is_boundary}
+
+
+def _flipped_faces(bm):
+    """Faces wound against recalc_face_normals. On a closed island it knows which side is out. On an open one it picks a side
+    by shape, and can pick either, so there only a mixed winding counts; culling captures show a shell that is all inside out."""
+    before = {f: f.normal.copy() for f in bm.faces}
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    total = 0
+    for island in _islands(bm):
+        k = sum(1 for f in island if f.normal.dot(before[f]) < 0)
+        total += min(k, len(island) - k) if _border_edges(island) else k
+    return total
+
+
+def _spacing_error(v):
+    """Degrees of normal error from uneven edges along a loop through v: difference / (3 x radius), the radius read from how far the loop bends out of the surface."""
+    worst = 0.0
+    for e in v.link_edges:
+        for x in v.link_edges:
+            if x.index > e.index and not set(x.link_faces) & set(e.link_faces):
+                a, b = e.calc_length(), x.calc_length()
+                d1, d2 = (v.co - e.other_vert(v).co).normalized(), (x.other_vert(v).co - v.co).normalized()
+                bend = abs((d2 - d1).dot(v.normal))
+                if bend < _MAX_BEND:
+                    worst = max(worst, math.degrees(abs(a - b) * 2 * bend / (3 * max(a + b, 1e-9))))
+    return worst
+
+
 def _topology(ob):
-    """Counts on the evaluated mesh, so live Mirror and Bevel modifiers count. Warnings only."""
+    """Counts on the evaluated mesh with SubD off, so live Mirror and Bevel modifiers count and the cage is what gets read. Warnings only."""
     dg = bpy.context.evaluated_depsgraph_get()
     t = {"faces": 0, "quads": 0, "tris": 0, "ngons": 0, "ngons_not_flat": 0, "thin_tris": 0, "high_poles": 0, "max_valence": 0,
-         "verts": 0, "idle_flat_verts": 0, "odd_bevels": []}
+         "verts": 0, "idle_flat_verts": 0, "odd_border_islands": 0, "uneven_on_curves": 0, "max_spacing_deg": 0.0, "odd_bevels": []}
     for o in _meshes(ob):
         t["odd_bevels"] += [f"{o.name}: {m.name} ({m.segments})" for m in o.modifiers if m.type == "BEVEL" and m.segments % 2]
+        subd = [m for m in o.modifiers if m.type == "SUBSURF" and m.show_viewport]
+        for m in subd:
+            m.show_viewport = False
+        dg.update()
         ev = o.evaluated_get(dg)
         bm = bmesh.new()
         bm.from_mesh(ev.to_mesh())
         ev.to_mesh_clear()
+        for m in subd:
+            m.show_viewport = True
+        dg.update()
         t["faces"] += len(bm.faces)
         if t["faces"] > _TOPO_MAX_FACES:
             bm.free()
@@ -369,6 +429,9 @@ def _topology(ob):
                 c, tol = f.calc_center_median(), 0.002 * max(e.calc_length() for e in f.edges)
                 t["ngons_not_flat"] += any(abs(f.normal.dot(v.co - c)) > tol for v in f.verts)
         t["verts"] += len(bm.verts)
+        t["odd_border_islands"] += sum(len(_border_edges(island)) % 2 for island in _islands(bm))
+        bm.edges.index_update()
+        flat, near = [], set()
         for v in bm.verts:
             fs = v.link_faces
             if not fs or any(e.is_boundary for e in v.link_edges):
@@ -376,8 +439,16 @@ def _topology(ob):
             n = len(v.link_edges)
             t["high_poles"] += n >= 6
             t["max_valence"] = max(t["max_valence"], n)
+            spacing = _spacing_error(v) if n == 4 else 0.0     # a pole has no straight loop through it
+            t["max_spacing_deg"] = round(max(t["max_spacing_deg"], spacing), 2)
+            t["uneven_on_curves"] += spacing > _MAX_SPACING_DEG
             if len({f.material_index for f in fs}) == 1 and all(f.normal.dot(fs[0].normal) > 0.9998 for f in fs):      # within about 1 degree
-                t["idle_flat_verts"] += 1
+                flat.append(v)
+            else:
+                near.add(v)
+        for _ in range(_CLEAR_ROWS):
+            near |= {e.other_vert(v) for v in near for e in v.link_edges}
+        t["idle_flat_verts"] += sum(v not in near for v in flat)
         bm.free()
     t["quad_share"] = round(t["quads"] / max(t["faces"], 1), 3)
     t["thin_tri_share"] = round(t["thin_tris"] / max(t["tris"], 1), 3)
@@ -390,7 +461,11 @@ def _topology(ob):
     if t["thin_tri_share"] > _MAX_THIN_TRI_SHARE:
         w.append(f"{t['thin_tri_share']:.0%} of the triangles are thin")
     if t["idle_share"] > _MAX_IDLE_SHARE:
-        w.append(f"{t['idle_share']:.0%} of the vertices sit inside flat areas and shape nothing: a grid on a flat face, or loops that end nowhere")
+        w.append(f"{t['idle_share']:.0%} of the vertices sit inside flat areas, more than {_CLEAR_ROWS} rows from any curve or edge: a grid on a flat face, or loops that end nowhere")
+    if t["odd_border_islands"]:
+        w.append(f"{t['odd_border_islands']} islands have an odd number of border edges: they can't be all quads until one border vertex is added or removed")
+    if t["uneven_on_curves"]:
+        w.append(f"{t['uneven_on_curves']} vertices on a curve have uneven edges along a loop, up to about {t['max_spacing_deg']:.0f} degrees of normal error: even the ring straight after the reduction, then look at --modes reflect")
     if t["max_valence"] > _MAX_VALENCE:
         w.append(f"a vertex with {t['max_valence']} edges")
     if t["odd_bevels"]:
@@ -484,9 +559,7 @@ def validate(name, budget_tris=None, merge_dist=0.0001, spec=None, repo=None, to
     has_subd = any(m.type == "SUBSURF" for m in ob.modifiers)
     out["ngons"] = sum(1 for f in bm.faces if len(f.verts) > 4)
     out["ngons_under_subd"] = out["ngons"] if has_subd else 0
-    before = [f.normal.copy() for f in bm.faces]
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    out["flipped_faces"] = sum(1 for f, n in zip(bm.faces, before) if f.normal.dot(n) < 0)
+    out["flipped_faces"] = _flipped_faces(bm)
     bm.free()
     dg = bpy.context.evaluated_depsgraph_get()
     ev = ob.evaluated_get(dg).to_mesh()

@@ -2,6 +2,23 @@
 
 Every skill change, with the evidence and the user's approval.
 
+## 2026-11-01: SubD refinement from blind quad tests 01 to 05
+
+Asked for by the user on 1 Nov 2026: "from these test, refine the skill and research about hard surface modeling workflow". On branch `pipeline/subd-refine` until the user approves the report.
+
+| # | Change | Evidence | Files |
+| --- | --- | --- | --- |
+| 1 | New measured reference: parity rules, reduction recipes, row height, spacing, radius factor, fit, circles in a plate, support loop width, native tools | Tests 01 to 05, on test plates and tubes only | `modeling/references/subd-recipes.md` |
+| 2 | Support loops: corner cut = w / 6 replaces 0.3 to 1 mm. Bevel is allowed as a loop inserter with Loop Slide off. Vertex crease only on a border corner | Test 02; Frank Polygon | `quad-subd.md` |
+| 3 | "No Boolean" becomes "only on a prepared base", curved faces still in quads. Not yet tested here | Frank Polygon; split opinion; native solvers run on 5.2.3 | `quad-subd.md`, `modeling/SKILL.md` |
+| 4 | LoopTools replaced by `circularize` and `space_edge_loops_evenly`. A wire ring with no faces is left unchanged | Run on 5.2.3; add-ons native only | `quad-subd.md`, `volume-methods.md`, `subd-recipes.md` |
+| 5 | Rule collisions settled: "flat faces carry no grid" gets its exception, face angles 35 to 145 apply to curved faces | Tests 01 to 03 | `hard-surface-topology.md`, `quad-subd.md` |
+| 6 | Opening in a curved wall: match segments, use wall edges as support. Marked as one artist's method | Frank Polygon; our test not run | `hard-surface-topology.md` |
+| 7 | Bake row: where the low comes from, tight cage, UV splits, tangent basis. The "same mesh at a lower level" claim recorded as unsupported | Research | `game-models.md`, `docs/pipeline/hard-surface-workflows.md` |
+| 8 | `reflect` capture mode: stripes that show kinks matcap misses | Test 03; run on test 05 meshes | `asset_capture.py`, `check_asset_capture.py`, `blender-adapter/SKILL.md`, `modeling/SKILL.md` |
+| 9 | Validator: no false flips on open patches, the cage is read with SubD off, flat rows beside a curve don't count as idle, odd borders warn, uneven edges on a curve warn above 5 degrees | Tests 01 to 04; sweep of the test files | `validate_mesh.py`, `selftest_validate_mesh.py` |
+| 10 | Research note added to the list checked on every change request. `fit` proposed as an add-on, not asked for yet | | `CLAUDE.md`, `docs/pipeline/README.md`, `docs/pipeline/addon-requests.md` |
+
 ## 2026-10-29: revision after the corridor pilot (v6)
 
 Asked by pika on 29 Oct 2026 after reviewing the corridor pilot, with answers to 17 questions at 03:50Z. The pipeline's default job is now a detailed, accurate blockout with flat colours for the user to texture; effort scales with the input.

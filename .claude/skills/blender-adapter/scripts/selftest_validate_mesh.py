@@ -388,6 +388,53 @@ def test_topology(tmp):
     m.segments = 2
     bpy.context.view_layer.update()
     assert not NS["_topology"](box)["odd_bevels"]
+    # flat rows beside a bend have a job: the bend's row and two more are kept, the rows past them are idle
+    bm = bmesh.new()
+    rows = [[bm.verts.new((i, j, max(i, 0) * 0.5)) for j in range(5)] for i in range(-5, 2)]
+    for a, b in zip(rows, rows[1:]):
+        for j in range(4):
+            bm.faces.new((a[j], b[j], b[j + 1], a[j + 1]))
+    me = bpy.data.meshes.new("Topo_bend")
+    bm.to_mesh(me)
+    bm.free()
+    bend = bpy.data.objects.new("Topo_bend", me)
+    bpy.context.scene.collection.objects.link(bend)
+    t = NS["_topology"](bend)
+    assert t["idle_flat_verts"] == 6 and t["odd_border_islands"] == 0, t
+    # a gentle curve at SubD density must not read as flat: the cage gets read, and the modifier comes back on
+    bm = bmesh.new()
+    rings = [[bm.verts.new((__import__("math").cos(k * 6.28318 / 64), __import__("math").sin(k * 6.28318 / 64), z)) for k in range(64)] for z in range(4)]
+    for a, b in zip(rings, rings[1:]):
+        for k in range(64):
+            bm.faces.new((a[k], a[(k + 1) % 64], b[(k + 1) % 64], b[k]))
+    me = bpy.data.meshes.new("Topo_tube")
+    bm.to_mesh(me)
+    bm.free()
+    tube = bpy.data.objects.new("Topo_tube", me)
+    bpy.context.scene.collection.objects.link(tube)
+    sub = tube.modifiers.new("Subdivision", "SUBSURF")
+    sub.levels = 3
+    bpy.context.view_layer.update()
+    t = NS["_topology"](tube)
+    assert t["idle_flat_verts"] == 0 and t["faces"] == 192 and sub.show_viewport, t
+    assert t["uneven_on_curves"] == 0 and t["max_spacing_deg"] < 0.01, t
+    # a wide edge left beside narrow ones on a curve warns (radius 2.546, edges 3 and 1: difference / (3 x radius) is 15 degrees)
+    bm = bmesh.new()
+    angles = [0.0] + [(3 + k) / 2.546 for k in range(13)]
+    rings = [[bm.verts.new((2.546 * __import__("math").cos(a), 2.546 * __import__("math").sin(a), z)) for a in angles] for z in range(4)]
+    for a, b in zip(rings, rings[1:]):
+        for k in range(14):
+            bm.faces.new((a[k], a[(k + 1) % 14], b[(k + 1) % 14], b[k]))
+    me = bpy.data.meshes.new("Topo_wide")
+    bm.to_mesh(me)
+    bm.free()
+    wide = bpy.data.objects.new("Topo_wide", me)
+    bpy.context.scene.collection.objects.link(wide)
+    bpy.context.view_layer.update()
+    t = NS["_topology"](wide)
+    assert 12 < t["max_spacing_deg"] < 17 and t["uneven_on_curves"] == 4 and any("uneven edges" in w for w in t["warnings"]), t
+    # parity: a five-sided patch can't be all quads, whichever face it is split into
+    assert ng.data and NS["_topology"](ng)["odd_border_islands"] == 1 and any("odd number of border" in w for w in NS["_topology"](ng)["warnings"])
     # a mesh waiting for approval needs no UVs; the final one does
     plain = form_box("Topo_stage")
     assert validate("Topo_stage", stage="mesh")["pass"] is True
@@ -400,9 +447,37 @@ def test_topology(tmp):
         pass
 
 
+def test_flipped(tmp):
+    def patch(name, reverse=()):
+        bm = bmesh.new()
+        rows = [[bm.verts.new((i, j, (i - 3) * (j - 3) * 0.1)) for j in range(7)] for i in range(7)]      # a saddle: recalc can pick either side
+        for a, b in zip(rows, rows[1:]):
+            for j in range(6):
+                bm.faces.new((a[j], b[j], b[j + 1], a[j + 1]))
+        bm.faces.ensure_lookup_table()
+        bmesh.ops.reverse_faces(bm, faces=[bm.faces[i] for i in reverse])
+        bm.normal_update()
+        me = bpy.data.meshes.new(name)
+        bm.to_mesh(me)
+        bm.free()
+        ob = bpy.data.objects.new(name, me)
+        bpy.context.scene.collection.objects.link(ob)
+        return validate(name, stage="mesh")["flipped_faces"]
+    assert patch("Flip_open") == 0 and patch("Flip_open_rev", range(36)) == 0, "an open shell wound either way is consistent"
+    assert patch("Flip_mixed", (7,)) == 1 and patch("Flip_mixed_rev", [i for i in range(36) if i != 7]) == 1, "one face against the rest"
+    box = asset("Flip_box")
+    bm = bmesh.new()
+    bm.from_mesh(box.data)
+    bmesh.ops.reverse_faces(bm, faces=bm.faces)
+    bm.to_mesh(box.data)
+    bm.free()
+    box.data.update()
+    assert validate("Flip_box")["flipped_faces"] == 6, "a closed shell inside out still fails"
+
+
 def main():
     with tempfile.TemporaryDirectory() as tmp:
-        for fn in (test_plain, test_dims, test_pivot, test_materials, test_loading, test_parts, test_uv_zero, test_form, test_topology, test_cli):
+        for fn in (test_plain, test_dims, test_pivot, test_materials, test_loading, test_parts, test_uv_zero, test_form, test_topology, test_flipped, test_cli):
             fn(tmp)
             print("ok", fn.__name__)
     print("SELFTEST validate_mesh PASS")

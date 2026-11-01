@@ -13,7 +13,7 @@ Read the spec, the `measure` and `form` references, `plan/metrics.yaml`, and the
 
 | Situation | Method | Read |
 | --- | --- | --- |
-| CG close-up, product or hero prop | SubD with quads and holding loops, no Boolean | [quad-subd.md](references/quad-subd.md), [volume-methods.md](references/volume-methods.md) |
+| CG close-up, product or hero prop | SubD with quads and holding loops, a Boolean only on a prepared base | [quad-subd.md](references/quad-subd.md), [volume-methods.md](references/volume-methods.md), and [subd-recipes.md](references/subd-recipes.md) when a count changes or a circle sits in a plate |
 | Game hero or mid-distance prop | Mid-poly: bevelled silhouette with weighted or custom normals. Low poly plus a high-poly bake only when it needs sculpted detail | [game-models.md](references/game-models.md) |
 | Game modular kit piece | Grid-snapped, trim sheet, custom normals, Nanite or LODs by rule | [game-models.md](references/game-models.md), `modular-kit` skill |
 | Far or background, any route | Ultra low poly with hard edges, cards or impostors | [game-models.md](references/game-models.md) |
@@ -67,7 +67,7 @@ A photo shows the object through a camera. Model the object. Skip this step only
 Read [hard-surface-topology.md](references/hard-surface-topology.md) first. Build one half or one sector with live Mirror and Array modifiers, in `<asset>.blend`. Apply them only on the delivery copy. Work in three levels, and capture and check at the end of each before you start the next, because a big-form fix after small detail is a rebuild:
 
 - **Big: the masses at real scale.** Use the dimensions from the blueprint, the spec and metrics (`dims_source` says where they come from; an AI image or a generated mesh never sets a size, `house-rules` rule 11). Only the points needed to describe the form. Capture front, side and top against the blueprint.
-- **Medium: openings, panels and separate parts.** Plan the loops round each opening, using the chosen method. Add loops only where the form bends or a detail sits. Add bevels as live modifiers, with even segments ([game-models.md](references/game-models.md)). Check `--modes wire,matcap`.
+- **Medium: openings, panels and separate parts.** Plan the loops round each opening, using the chosen method. Add loops only where the form bends or a detail sits. Add bevels as live modifiers, with even segments ([game-models.md](references/game-models.md)). Check `--modes wire,matcap`, and add `reflect` on curved faces.
 - **Small: screws, labels raised off the surface, ribs and fittings.** Model one and Array it. Check close-ups (`--close`) in `solid` and `wire`.
 
 The rest of the build, at the level each belongs to:
@@ -98,7 +98,7 @@ The size tolerance is 1 cm unless a `done_when` line on the size says otherwise 
 - [ ] Only quads under SubD; n-gons are allowed only on flat, non-subdivided faces
 - [ ] Triangle count at LOD0 or render level within budget
 - [ ] Names follow the convention (`SM_`, `UCX_`, `SOCKET_`, and so on) and the material slots match `material_group`
-- [ ] Captures: `asset_capture.py` writes front, side, back, top, three-quarter and the 1.8 m mannequin shot, saved for the supervisor. Look at `culling/` for holes and inside-out faces, `matcap/` for smears and lumps and `wire/` for the flow, close up on every opening (`--close`)
+- [ ] Captures: `asset_capture.py` writes front, side, back, top, three-quarter and the 1.8 m mannequin shot, saved for the supervisor. Look at `culling/` for holes and inside-out faces, `matcap/` for smears and lumps, `reflect/` for kinks on curved faces and `wire/` for the flow, close up on every opening (`--close`)
 
 ## 5. Mesh approval, then UVs
 

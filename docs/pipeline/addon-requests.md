@@ -170,6 +170,7 @@ Outlines only, for now. Each still needs a spec before it is built.
 | # | Module | Base features | Native base |
 | --- | --- | --- | --- |
 | 7 | `bake` | Low and high from one mesh, normal and AO bake, cage, check for bad bake areas. Wait for the SubD comparison | Cycles bake |
+| 7b | `fit` | Proposed from the SubD tests, not asked for yet. Takes a cage and a target surface (a dense copy), moves each cage vertex along the normal by its gap under SubD, about 12 passes, and reports normal error before and after. Scale rings by 1 / factor first. Tested only against an exact target | `bmesh`, BVH tree |
 | 8 | `repair` | Clean, symmetrise, remesh to a target face count, fix scale and pivot, report how far the shape moved | QuadriFlow, voxel remesh, Decimate |
 | 9 | `uv` | Trim or box projection, texel density, pack, report | Smart UV Project, Pack Islands |
 | 10 | `instancing` | Find identical meshes, swap them for instances, report the saving | Linked mesh data |

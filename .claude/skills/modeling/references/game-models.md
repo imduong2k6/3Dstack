@@ -9,8 +9,8 @@ Matt Murch's three workflows. One scene, and even one asset, can mix them.
 | Workflow | Use for | How |
 | --- | --- | --- |
 | Ultra low poly, hard edges | Far props, background buildings, filler | Silhouette only. Hard edges where faces meet at sharp angles, UV seams on the hard edges, tiling or trim textures |
-| Mid-poly with custom normals | Close to mid distance, most hero props and kit pieces | Bevel the silhouette edges (see Bevels below, Harden Normals) and add a Weighted Normal modifier (Face Area, Keep Sharp). No baked normal map needed, so tiling materials and trim sheets work |
-| Low poly with high-poly bake | Assets with sculpted or fine detail (carvings, cloth folds, damage) | High poly by sculpt or SubD. Low poly follows the silhouette. Bake normals and AO with a cage; name pairs `_low` and `_high` |
+| Mid-poly with custom normals | Close to mid distance, most hero props and kit pieces | Bevel the silhouette edges (see Bevels below, Harden Normals) and add a Weighted Normal modifier (Face Area, Keep Sharp). No baked normal map needed, so tiling materials and trim sheets work. Inset panels may need their normals edited by hand |
+| Low poly with high-poly bake | Assets with sculpted or fine detail (carvings, cloth folds, damage) | High poly by sculpt or SubD. Low poly follows the silhouette: a separate mesh, or the SubD cage with its support loops or modifier stack stripped, which is one way among several ([hard-surface-workflows.md](../../../../docs/pipeline/hard-surface-workflows.md)). Bake normals and AO with a tight cage, split UVs at every hard edge, keep one tangent basis (MikkTSpace), and name pairs `_low` and `_high` |
 
 ## Bevels
 
@@ -29,7 +29,7 @@ If a shell is already cut and the shading has pulled out of shape around the hol
 2. Give the cut shell's outer faces the source's normals: Data Transfer (custom normals, nearest face interpolated) after Weighted Normal, limited by distance so that cut walls keep their own hard shading. Or write the sampled normals with `normals_split_custom_set`. Apply it, then check the result.
 3. A plate cut from the shell takes the normals of its own surface. If it should read as flat, make it flat instead of inheriting the shell's curve.
 
-Judge the shell in the shiny matcap view (`blender-adapter`, `asset_capture.py`), close up on every opening. Smears and lumps that don't show in a neutral render show there. `validate_mesh.py` can't see them.
+Judge the shell in the shiny matcap and `reflect` stripe views (`blender-adapter`, `asset_capture.py`), close up on every opening. Smears and lumps that don't show in a neutral render show there, and kinks that matcap misses show in the stripes. `validate_mesh.py` can't see most of them.
 
 ## Nanite or LODs (Unreal 5.8)
 
@@ -82,6 +82,8 @@ In Blender 5.x, auto smooth is replaced by the Smooth by Angle modifier, and Wei
 ## Sources
 
 - [Matt Murch: leveraging multiple workflows](https://mattmurch.artstation.com/blog/Oba9/leveraging-multiple-workflows)
+- [80.lv: the mid-poly workflow in UE5](https://80.lv/articles/creating-assets-within-the-mid-poly-workflow-in-ue5/)
+- [Marmoset: baking a hard-surface weapon](https://marmoset.co/posts/baking-a-hard-surface-weapon-in-toolbag/)
 - [80.lv: the stages of environment art in gamedev](https://80.lv/articles/the-stages-of-environment-art-in-gamedev)
 - [80.lv: a guide on Nanite by the Unreal Engine team](https://80.lv/articles/a-guide-on-nanite-by-the-unreal-engine-team/)
 - [Unreal Engine: Nanite, the end of polycounts](https://www.unrealengine.com/en-US/blog/nanite-in-ue5-the-end-of-polycounts)

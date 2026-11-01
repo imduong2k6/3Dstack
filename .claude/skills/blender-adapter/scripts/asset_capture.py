@@ -2,7 +2,7 @@
 (tested headless with bpy 5.2.3 using Workbench and Cycles).
 
     bash bin/blender-bg <asset>.blend --python .claude/skills/blender-adapter/scripts/asset_capture.py -- --object SM_Name --out <dir>
-        [--modes solid,matcap,culling,wire] [--res 800] [--samples 32] [--close name:x,y,z[:distance_m]]...
+        [--modes solid,matcap,reflect,culling,wire] [--res 800] [--samples 32] [--close name:x,y,z[:distance_m]]...
         [--photo img --photo-kind rectified|ortho --photo-box x0 y0 x1 y1 [--feature name:x0,y0,x1,y1]...] [--photo-mask img]
 
 Exit 0 done, 1 any failure (Blender itself exits 0 when a script raises). Writes <out>/<mode>/<view>.png and <out>/capture_report.json.
@@ -13,7 +13,8 @@ left, right, top and bottom; the two three-quarters are perspective. Close-ups a
 left and above at `distance` (default half the longest extent).
 
 Modes: solid (Workbench, material colours: a Principled base colour that is not textured is used), matcap (shiny neutral grey matcap, pearl: smears and
-edge highlights), culling (Workbench with back-face culling on a magenta ground: holes and inside-out faces show through), wire (the edges of
+edge highlights), reflect (opt-in, the stripe matcap check_reflection_horizontal: a kink, ridge or ripple on a curved face bends the stripes where
+matcap shows nothing; the stripes follow the view, so compare two meshes only from the same camera), culling (Workbench with back-face culling on a magenta ground: holes and inside-out faces show through), wire (the edges of
 the final mesh, modifiers applied, about one pixel wide over a plain grey surface; edges behind the surface stay hidden), cycles (opt-in,
 slow, fixed exposure). Default solid,matcap,culling,wire.
 
@@ -36,7 +37,7 @@ import bpy
 import numpy as np
 from mathutils import Matrix, Vector
 
-MODES = ("cycles", "solid", "matcap", "culling", "wire")
+MODES = ("cycles", "solid", "matcap", "reflect", "culling", "wire")
 GEOM = {"MESH", "CURVE", "SURFACE", "FONT", "META"}
 # camera looks along d, image up is u
 AXES = {"front": ((0, 1, 0), (0, 0, 1)), "back": ((0, -1, 0), (0, 0, 1)), "left": ((1, 0, 0), (0, 0, 1)),
@@ -282,10 +283,11 @@ def run(a):
         world.color = (1.0, 0.0, 1.0) if mode == "culling" else (0.22, 0.22, 0.22)
         sh.show_backface_culling, sh.show_cavity, sh.show_shadows, sh.show_object_outline = mode == "culling", False, False, False
         sh.light, sh.color_type, sh.show_specular_highlight = "STUDIO", "MATERIAL", True
-        if mode == "matcap":
+        if mode in ("matcap", "reflect"):
             sh.light, sh.color_type, sh.single_color = "MATCAP", "SINGLE", (0.6, 0.6, 0.6)
             ml = [s.name for s in bpy.context.preferences.studio_lights if s.type == "MATCAP"]
-            sh.studio_light = "pearl.exr" if "pearl.exr" in ml else ml[0]
+            want = "pearl.exr" if mode == "matcap" else "check_reflection_horizontal.exr"
+            sh.studio_light = want if want in ml else ml[0]
         wires = []
         if mode == "wire":     # Workbench draws no overlays, so the edges are real thin geometry on temporary copies of the final mesh
             sh.color_type = "OBJECT"

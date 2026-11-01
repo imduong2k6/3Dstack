@@ -84,6 +84,7 @@ After G2 two lanes run at once: the asset lane builds kit pieces and props headl
 | [agents.md](agents.md) | Agents, models, the interview, the Modeler, the Asset Tech, Generator and pipeline clerk, the toolbox scanner, researchers and the retro |
 | [parallel.md](parallel.md) | What runs at the same time, what stays single, and the settings |
 | [studio-workflows.md](studio-workflows.md) | How game and VFX studios staff and run environment work, and what v4 took from it |
+| [hard-surface-workflows.md](hard-surface-workflows.md) | What practitioners say about SubD, Booleans, bakes and mid-poly, set against what the blind tests measured |
 | [data-and-commits.md](data-and-commits.md) | Project folder layout, `brief.yaml` keys, data contracts for the form and board, save points and commits |
 | [improvements.md](improvements.md) | What changed in v5 and v4, suggestions, and what still needs a test |
 | [addon-requests.md](addon-requests.md) | The Blender add-ons the user is building for the pipeline, and how the installed ones behave headless |

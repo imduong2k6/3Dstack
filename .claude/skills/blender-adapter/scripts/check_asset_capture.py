@@ -58,12 +58,12 @@ try:
 
     # ---- run 1: all modes, photo, features, mask, a close-up
     out1 = os.path.join(work, 'out1')
-    code, rep, log = go(out1, '--object', 'SM_Test', '--modes', 'cycles,solid,matcap,culling,wire', '--res', '200', '--samples', '4', '--close', 'cu:0.2,-0.1,0.4:0.5',
+    code, rep, log = go(out1, '--object', 'SM_Test', '--modes', 'cycles,solid,matcap,reflect,culling,wire', '--res', '200', '--samples', '4', '--close', 'cu:0.2,-0.1,0.4:0.5',
                         '--photo', photo, '--photo-kind', 'rectified', '--photo-box', '100', '50', '300', '650', '--photo-mask', mask1,
                         '--feature', 'Part_A:190,200,250,350', '--feature', 'M_front:100,50,300,650', '--feature', 'NoSuchPart:0,0,10,10')
     assert code == 0 and rep and rep['ok'], (code, log)
     views = ac.VIEWS + ['cu']
-    for mode in ('cycles', 'solid', 'matcap', 'culling', 'wire'):
+    for mode in ('cycles', 'solid', 'matcap', 'reflect', 'culling', 'wire'):
         for v in views:
             f = os.path.join(out1, mode, v + '.png')
             assert os.path.exists(f) and os.path.getsize(f) > 100, f
@@ -126,7 +126,7 @@ try:
 
     # ---- the source file was never saved
     assert (sha(blend), os.listdir(asset_dir), os.path.getmtime(blend)) == before, 'the .blend changed'
-    print('asset_capture self-check ok: 5 modes x', len(views), 'views, ratio error', ph['w_over_h_error_pct'], '%, IoU', ph['iou'], '/', rep2['photo']['iou'], ', missing object exit', code)
+    print('asset_capture self-check ok: 6 modes x', len(views), 'views, ratio error', ph['w_over_h_error_pct'], '%, IoU', ph['iou'], '/', rep2['photo']['iou'], ', missing object exit', code)
     if len(argv) < 2:
         shutil.rmtree(work, ignore_errors=True)
 except Exception:

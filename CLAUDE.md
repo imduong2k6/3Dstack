@@ -4,7 +4,7 @@ Claude Code pipeline that builds 3D scenes in Unreal Engine 5.8 and Blender 5.2 
 
 ## Working rules
 
-- **Check every change request first.** When the user asks for a change, compare it with the research in `docs/pipeline/` (`studio-workflows.md`, `lighting.md`, `improvements.md`) and with the earlier decisions it touches. Say plainly if it conflicts with something, or if the research points to a better option, and recommend one. Then make the change unless it changes the goal, in which case ask first.
+- **Check every change request first.** When the user asks for a change, compare it with the research in `docs/pipeline/` (`studio-workflows.md`, `hard-surface-workflows.md`, `lighting.md`, `improvements.md`) and with the earlier decisions it touches. Say plainly if it conflicts with something, or if the research points to a better option, and recommend one. Then make the change unless it changes the goal, in which case ask first.
 - **One writer per live editor.** Only the Unreal worker changes the Unreal editor, and only the route's Blender worker drives the open Blender. Parallel agents work headless on their own asset files.
 - **Keep the repo free of third-party files.** Don't commit third-party reference photos, `.blend`, `.uasset` or `.fbx` files. Reference photos stay in the work folder; `refs/index.yaml` keeps the source link for each one.
 - **Third-party skills** keep their `LICENSE` (and `NOTICE`) files. Note every change to them in the skill's "Pipeline notes" and in `.claude/skills/CREDITS.md`.
