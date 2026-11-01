@@ -34,7 +34,7 @@ Catmull-Clark subdivision smooths every corner, so anything that should stay sha
   - Take the top edge from the source surface after subdivision.
   - Take wall loops from the real intersection of a section plane with the source, not from an outline. An outline misses undercuts such as a U-shaped wall bottom.
   - Place anchor vertices at the corners first and connect each top-edge anchor to its matching bottom-edge point.
-  - **Compensate for SubD shrinkage iteratively.** Move each vertex along one fixed direction per region (vertical for top faces, along the normal for walls) so loops don't slide across each other. Measured as "fit" in [subd-recipes.md](subd-recipes.md): about 12 passes, against a target surface.
+  - **Compensate for SubD shrinkage iteratively.** Move each vertex along one fixed direction per region (vertical for top faces, along the normal for walls) so loops don't slide across each other. Measured as "fit" in [subd-recipes.md](subd-recipes.md): about 12 passes against a target surface, or one solve on an exact height field.
   - Measure against the source subdivided at level 4, surface to surface, not to vertices. Reference result from the course: mean deviation about 0.06 to 0.09 mm, with 95% of points under 0.3 mm.
   - Don't snap each vertex to its nearest point on the source. Loops near the edge cross and the flow tangles.
 

@@ -50,6 +50,12 @@ A photo shows the object through a camera. Model the object. Skip this step only
    python .claude/skills/modeling/scripts/blueprint.py rectify <photo> --corners x0,y0 x1,y1 x2,y2 x3,y3 --size-m W H --out ref/<asset>_rect.png
    ```
 
+   With no rectangle of known size, use two pairs of edges parallel on the object and points round one true circle, all on one plane. It gives true proportions and no scale, so size it from `dims_m`. In simulation it read 1.3 to 2 % at every lens, tilt and crop at 1 px of pick error; it hasn't been tried on a real image, so check `circle_spread_pct` in its report. Don't use a rectangle and a guessed focal length instead: 5 to 16 % on an off-centre crop, and a panel cut from a bigger picture is one. A circle alone is fine from about 135 mm up, and 10 to 25 % wrong at wide lenses.
+
+   ```
+   python .claude/skills/modeling/scripts/blueprint.py rectify-pairs <photo> --pair-a x,y x,y x,y x,y --pair-b x,y x,y x,y x,y --circle x,y x,y x,y x,y x,y ... --out ref/<asset>_rect.png
+   ```
+
 2. **Split a complex object into sections**: parts that are built and that mirror differently (body, cover, window, gland). Classify each one as axial, symmetric or asymmetric ([volume-methods.md](references/volume-methods.md)). Getting this right first is what keeps the mesh simple.
 3. **Write the `form` block in the spec** (template in `modular-kit`), one row per section:
    - Mirror planes. Assume the object was made symmetric until the real object shows otherwise: a taper, a lean or one wider side that perspective explains is not asymmetry.

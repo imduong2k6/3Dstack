@@ -530,6 +530,37 @@ def test_topology(tmp):
         pass
 
 
+def test_folds(tmp):
+    box = asset("Fold_box", dims=(1, 1, 1))     # a slab about 10 % thick with no support rows flags: its rim is that sharp at level 2
+    t = NS["_topology"](box)
+    assert t["folded_edges"] == 0, "no SubD, no fold count"
+    sub = box.modifiers.new("s", "SUBSURF")
+    sub.levels = 3
+    t = NS["_topology"](box)
+    assert t["folded_edges"] == 0 and sub.levels == 3, "a smooth box doesn't fold, and its level comes back"
+
+    def plate(name, push):
+        """A flat grid with one inner vertex pushed along the plate, in cells. Level 2 smooths out a push under about 2.5."""
+        bm = bmesh.new()
+        rows = [[bm.verts.new((i, j, 0)) for j in range(7)] for i in range(7)]
+        rows[3][3].co.x += push
+        for a, b in zip(rows, rows[1:]):
+            for j in range(6):
+                bm.faces.new((a[j], b[j], b[j + 1], a[j + 1]))
+        me = bpy.data.meshes.new(name)
+        bm.to_mesh(me)
+        bm.free()
+        ob = bpy.data.objects.new(name, me)
+        bpy.context.scene.collection.objects.link(ob)
+        ob.modifiers.new("s", "SUBSURF")
+        return ob
+    assert NS["_topology"](plate("Fold_even", 0.3))["folded_edges"] == 0, "a bent row on a flat isn't a fold"
+    t = NS["_topology"](plate("Fold_over", 2.5))
+    assert t["folded_edges"] > 0 and t["fold_places"][0]["object"] == "Fold_over", "a face turned over in the plane is found, and named"
+    assert any("turn back past" in w for w in t["warnings"])
+    assert validate("Fold_over", stage="mesh")["topology"]["folded_edges"] == t["folded_edges"], "and it stays a warning"
+
+
 def test_flipped(tmp):
     def patch(name, reverse=()):
         bm = bmesh.new()
@@ -560,7 +591,7 @@ def test_flipped(tmp):
 
 def main():
     with tempfile.TemporaryDirectory() as tmp:
-        for fn in (test_plain, test_dims, test_pivot, test_materials, test_loading, test_parts, test_uv_zero, test_form, test_topology, test_flipped, test_cli):
+        for fn in (test_plain, test_dims, test_pivot, test_materials, test_loading, test_parts, test_uv_zero, test_form, test_topology, test_folds, test_flipped, test_cli):
             fn(tmp)
             print("ok", fn.__name__)
     print("SELFTEST validate_mesh PASS")

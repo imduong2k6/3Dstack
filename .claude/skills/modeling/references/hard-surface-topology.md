@@ -26,7 +26,7 @@ Applies to every modelled hard-surface asset, SubD or game. Not to Tripo stand-i
 ## Round details
 
 - **Segments are a multiple of 4 and of the repeat count,** so vertices land on the mirror planes and every sector matches. An 8-bolt flange has 8, 16 or 24. `check_spec.py` refuses anything else.
-- A larger circle needs more. Step up 8, 16, 32 for the small, the medium and the large at the same distance. Changing the count along one form is in [subd-recipes.md](subd-recipes.md).
+- A larger circle needs more. Step up 8, 16, 32 for the small, the medium and the large at the same distance. Changing the count along one form, and whole plates, domes, dishes, seams and ribs, are in [subd-recipes.md](subd-recipes.md).
 - **A circle in a flat face:** make a ring of quads round it that ends on a square, so the surrounding grid meets four straight sides.
 - **Repeating round a centre:** model one sector, Array it round an empty, and merge. Half circles are a full circle's segment count cut on a mirror plane, so a vertex sits on the plane.
 
@@ -42,4 +42,4 @@ A script makes the same mistakes faster. Build each part as a parametric patch f
 
 ## Check it
 
-`validate_mesh.py` reports the numbers under `topology`, as warnings. `asset_capture.py --modes wire` shows the edges, and `--modes reflect` shows kinks on curved faces that matcap misses. Compare two meshes in stripes only from the same camera. Look at the wire from every side, close up on each opening, before you report a mesh as done: the numbers find a problem, the wire shows it. The supervisor reads the same views.
+`validate_mesh.py` reports the numbers under `topology`, as warnings. `asset_capture.py --modes wire` shows the edges, and `--modes reflect` shows kinks on curved faces that matcap misses. Compare two meshes in stripes only from the same camera. Look at the wire from every side, close up on each opening, before you report a mesh as done: the numbers find a problem, the wire shows it. A fold in a flat face reads 0 mm and doesn't show in stripes, so `topology.folded_edges` counts them ([subd-recipes.md](subd-recipes.md), section 9). The supervisor reads the same views.

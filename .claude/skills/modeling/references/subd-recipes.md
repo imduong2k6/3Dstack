@@ -1,6 +1,6 @@
 # SubD recipes: counts, reductions, circles, loops
 
-Read this when a ring or row changes its count, a circle sits in a plate, a support loop goes in, a round runs out, a branch or a Boolean meets a curved wall, or a SubD surface kinks.
+Read this when a ring or row changes its count, a circle sits in a plate, a support loop goes in, a round runs out, a branch or a Boolean meets a curved wall, a SubD surface kinks or folds, or you plan a whole plate, dome, dish, seam or set of ribs.
 
 The numbers were measured on Blender 5.2 on test plates and tubes, against an exact surface. None has been judged on a real asset under real light, so use the degrees to compare options, not as limits. The web evidence is in `docs/pipeline/hard-surface-workflows.md`.
 
@@ -99,6 +99,8 @@ A ring of radius r ends at r x (4 + 2 cos(360 / n)) / 6, whatever the loops or t
 - **To hold a size, scale the ring by 1 / factor.** On a 16 to 8 three-quad cell that cuts the error 1.5 to 5 times and leaves a ridge of 0.5 % of the radius. On a six-face cell it about halves the error and leaves 3.5 %.
 - **Fit** moves each cage vertex along the normal by the gap between its SubD position and a target surface, about 12 times. It cut normal error by 2 to 4 times and ripple by about 4 times, moving the cage 3 to 11 % of an edge. It needs a target; a dense copy is untested. On a three-quad halving it doesn't beat scaled rings on normal error (1.79 against 1.66 at row 1), but it brings the ridge from 0.5 % towards 0. A run with an exact fit read 0.73 degrees on 24 to 12.
 - Fit alone is the default, because it leaves the rows where they are. On a closed ring, even the rings and then fit. Relax first only on a 3 to 1 where fit leaves too much: it bends the rows, and the stripes wave.
+- **One solve instead of passes, on an exact height field.** SubD is linear in the cage, so one least-squares solve in z over the subdivided surface replaces the passes and leaves xy where it is. Two agents reached this separately: a grid went from 2237 faces to 509 at the same tolerance, and a rim fit from 2.57 to 0.71 degrees on the same points. The price: a solved cage sits off the surface, up to 1.43 mm on one part, so it can't be edited by hand and a form change means solving again. It needs an exact target, which a part from an image doesn't have.
+- **A held edge's line moves with its neighbour during a fit.** One agent: held still, it read 0.0797 mm; moved on every pass, 0.0405.
 
 ## 5. Circles in a plate
 
@@ -109,9 +111,11 @@ A ring of radius r ends at r x (4 + 2 cos(360 / n)) / 6, whatever the loops or t
   - **Every face touching it lies in its plane,** so it needs a support row all round. A 16-gon cap on a cylinder with a row dips 0.0001 and reads 0.13 degrees; with none it dips 0.052 and reads 11.19. On a plate with no rows the rim reads 12 to 20 % spread near its edge, against 0.80 % with them.
   - **Its centre must see every edge.** SubD puts a vertex at the average of the corners, so a half ring wrapped round a hole has that vertex inside the hole and folds across the opening, leaving about 0.44 of surface across an opening of 0.64, on each side. Cut it into quarter rings or smaller: four 8-gons and eight 5-gons had no fold.
   - Four 8-gons with rows use 160 faces against 224 for the all-quad cage, with the same hole spread (0.006 %), softening (0.01) and near-rim spread (0.80 %). The flat reads a little worse beside the rows: 2.39 degrees against 1.69, dip 0.0017 against 0.0008.
-- **Caps.** 8: one centre vertex with four edges. 16: a 4 x 4 grid with its corners on the 45 degree rim vertices. Respace a flat cap grid after a support row goes in (23 degree corners became 35.9).
+  - **Passing both doesn't make it safe.** A flat 8-gon 5.8 x 43 mm closing the gap between two ribs passes both and folds, 168 edges at level 2; three quads in that gap read 0. 111 isolated n-gons of the same proportions never fold, so its surroundings cause it, not its size, and no size rule catches it. Read the fold count (section 9).
+- **Caps.** 8: one centre vertex with four edges. 16: a 4 x 4 grid with its corners on the 45 degree rim vertices, on a flat or circular cap; on a dome over a non-circular seam it read 2.08 degrees against 0.79 for a pole (section 10). Respace a flat cap grid after a support row goes in (23 degree corners became 35.9).
 - **Two circles close together:** a new centre vertex between them with a cross of edges. Four 6-poles on the flat plate were fine. Two parallel diagonals were worse on the centre hole and can't be mirrored.
 - **Border corners.** A diagonal into a border corner gives it three edges, so it pulls in by L x 1.41 / 6 under SubD. Fix: three quads round one new vertex, which leaves a 3-pole on the plate. If the diagonal stops past the line between the two side vertices, that folds; use vertex crease 1.0.
+- **Plan corners of a box.** Long outline edges round a corner in plan, however well the top edge is held. Give every vertical corner a guard vertex each side, with one quad at the corner. Two agents found this separately: 12.7 mm and 84 degrees off, 2.86 mm and 79.8 degrees off, the second with a p95 of 0.06 degrees (section 9).
 - **Next edge out.** An unsupported rim rounds with the length of the next edge, not its valence: 21 % spread on a rim of valence 4. Support loops take every rim to the limit of its own curve: 0.12 % at 8 segments, 0.01 % at 16.
 
 ## 6. Support loops
@@ -122,7 +126,8 @@ A ring of radius r ends at r x (4 + 2 cos(360 / n)) / 6, whatever the loops or t
 - **The face goes flat past the loop,** at (5w + L) / 6 from the edge, where L is the next edge in. On a 2 x 2 x 2 box at width 0.18 that is 0.4233: it dips 0.0018 at 0.2 from the edge, 0.0001 at 0.3 and nothing at 0.4. To end the soft band sooner, add a row to shorten L.
 - **Width only sets softness.** Having the loops at all sets roundness, and neither brings back the radius (section 4).
 - **Limit.** Keep the width under the next edge and about 0.4 R on a rounded corner. That's one shape: 0.42 R is clean, 0.52 R starts to go wrong, 0.83 R folds.
-- **Topology first, loops last.** A live Bevel modifier keeps the cage simple and the width adjustable. In a tight spot leave that edge out of the modifier, or let the loops overlap and Merge by Distance (Frank Polygon, not measured here).
+- **Topology first, loops last.** A live Bevel modifier keeps the cage simple and the width adjustable. In a tight spot leave that edge out of the modifier, or set w to half the width. Letting the loops overlap and then Merge by Distance gains nothing: on a rib 1 mm wide it loses 0.083 to 0.089 mm at the top centre against 0.083 for half the width, and it only comes clean when the merge is wider than the crossing and under w. Otherwise one flipped face stays.
+- **Merge distance goes under the shortest edge.** Below it a merge touches nothing: 0.9 w was clean at seven widths from 2 to 0.02 mm. At w it starts to take the rows, and at 1.5 w a 54-face box falls to 13 to 17 faces with non-manifold edges. A 2-segment Bevel's shortest edge is w, but on a small ring it's the ring edge, about 2 pi r / n: radius 1 mm at 64 segments loses 209 of 384 vertices at the default 0.1 mm, while radius 2 mm or more up to 64 segments loses none. `validate_mesh.py --merge-dist` has the same limit, so lower it on a part with edges at or under 0.1 mm, or it reports real rows as duplicates. Not tested: a merge on curved or sheared ribs, or a live Bevel's own merge.
 - A support loop beside a reduction: see the table in section 2.
 - Not tested: unequal widths.
 
@@ -170,3 +175,56 @@ Open pipe radius 3 and 32 segments, branch radius 1 and 8 segments, sharp joint 
 - **Result:** 336 quads, the floor 16-gon and two end caps, all 242 far wall vertices kept. Wall within 0.20 %, normal 1.47 degrees, or 0.97 well away from the pocket. Pocket 0.7995 to 0.8003. Floor within 0.0009.
 - **Width 0.10 gave a floor edge gap of 0.023 but a rim gap of 0.015.** I didn't trace why. The fit moves the outer ring, which is the likely cause, so measure the rim after fit.
 - **Not tested:** a true repair that keeps the solver's rim, a prepared base with matched segments, and subdividing and shrinkwrapping onto an uncut copy.
+
+## 9. Folds, and reading the numbers
+
+- **A fold can pass every other check.** Four files with up to 528 folded edges at level 4 passed `validate_mesh.py` and every p95. A fold in a flat face reads 0 mm off the target, and it didn't show in a reflection close-up. Only the wire shows it, as a dense strip. `topology.folded_edges` now counts edges of the level 2 surface that turn back past 100 degrees and names the places. All four flagged, and 30 clean models read 0.
+- **It can flag real form.** A slab about 10 % thick or less with no support rows flags, because its rim really is that sharp at level 2. One whole part reads 38 that haven't been sorted. So it's a warning: look at each place in the wire.
+- **Reductions on a flat can fold,** so "flat 0.00" in section 2 says nothing about folds. A three-quad 8 to 4 and a 3 to 1 both folded on a flat plate, up to 0.69 mm2 per patch. The same 8 to 4 didn't fold on a round dish, and did on an oval with a 0.3 mm row beside it. Read the fold count after any reduction.
+- **Read max beside p95.** p95 read 0.06 degrees over a 79.8 degree corner, and clean over points at 180 degrees. A pass on p95 alone says nothing about a local fault.
+- **1 degree at p95 isn't a clean-reflection target.** A flat at 0.40 degrees shows faint waves out to about 10 mm past a dish's rim; one at 0.06 is clean. Whether that matters depends on the material, so judge it in `--modes reflect`.
+
+## 10. Whole shapes
+
+From measured tests with one exact target per shape, aim 0.05 to 0.1 mm and 1 degree at p95, one agent per shape, re-measured at level 4. Most counts below rest on a solve (section 4), so use them to rank layouts, not as budgets. A cage you place by hand needs more.
+
+### A plate with a T-junction
+
+Three arms, crowned top of about 337 mm radius, nearly flat.
+
+- **Count rim vertices first.** Five rows per rim vertex (top support, three wall rows, bottom support) are 73 to 80 % of the faces, and the lattice inside only 7 to 13 %. Study the rim before any cage: a straight wall depends only on the rim polygon.
+- **Let few lattice lines reach the rim.** One grid, 379 faces. A core of three quads round a 3-pole at the T, so the arms stop there, 366. That core with fans to each fillet and a sparser lattice, 326, with a worst point of 3.05 degrees at the junction.
+- **Guards on an inner fillet.** A guard vertex just past each tangent, linked to the existing lattice line, took five even arc points from 1.53 to 0.71 degrees.
+- **Don't read this as licence on a tight curve.** Poles on the fillet cost nothing here and the arc rule's fold didn't show, but this top is nearly flat, so keep two clear rows and the arc rule.
+- **Long rim spans sag along the top edge.** The agent read softening up to 0.81 mm where 0.33 was asked. No check sampled it, and fitting the rim's height is untested.
+
+### A dome on a non-circular seam
+
+- **Rings to a pole.** A superellipse seam at 12 segments, rings at 0.8, 0.5 and 0.2 of the seam, closing on one centre vertex: 147 faces. 24 segments on a 6 x 6 grid cap: 213. 16 to 8 with a reduction and a 2 x 2 cap, which is the same mesh as a pole: 169. Reductions didn't pay at these counts. 8 segments, 125 faces, missed by 0.02 degrees.
+- **Seam spacing.** Space seam vertices by the root of curvature, with vertices on the axes and diagonals. By the agent's look, reflection stripes stay calmer than on a grid cap, where they kink towards its corners.
+
+### A soft dish in a plate
+
+- **A placed grid pays for shrink everywhere.** Its error is cell squared / 6 x the Laplacian: 0.0477 mm by that sum at a 3.09 mm cell and 30 per metre, 0.0473 measured. That cell then covers the whole plate.
+- **Rings let rows bunch where the form turns.** Placed on the surface with no solve, 32 columns and 14 rings pass at 705 faces, against 2237 for the grid. 16 columns read 0.135 mm, and 8 columns 1.16 mm, so keep 8, 16, 32 for a placed cage.
+- **With an exact target and a solve,** 8 columns and 5 rings pass at 117 faces. Ring spacing at the rim counted more than column count, and too wide a cap sets the centre's error: a 22 mm cap read 0.1145 mm against 0.0268 at 16 mm.
+- **Keep the flat regular for about 10 mm past the rim** if it will reflect. Cutting the perimeter to 95 faces passes, but brings waves there, a two-fold swirl in the wire and two 6-poles, so take the 117.
+
+### A stepped seam across a dish
+
+Two parts with a 0.5 mm gap, the seam running along lattice lines. One shape, and only one of four layouts passes, at 418 faces against 117 with no seam.
+
+- **Leave the next rows alone.** At the same 412 faces, stepping them read 1.34 degrees far from the seam and leaving them 0.72, because stepping pulls a round ring off its circle.
+- **Run one local row beside the support row,** following the seam and the step, ended on the flat by a mirrored 2 to 1 pair. Keep (5w + L) / 6 inside the seam's band (section 6): with w 1.2 mm, L 2.8 mm passed and 3.5 mm didn't.
+- **A vertex on the step's mirror line and even columns** gave the biggest gain, from 0.0700 mm and 1.86 degrees beside the seam to 0.0513 and 1.01.
+- **Flat n-gons on straight walls** passed, with wall rows only at corners, about 16 % fewer faces by sum. The passing layout has 14.
+- **Reflex corners:** a support vertex each side with an inward edge. A corner quad there makes an arrowhead.
+
+### Ribs on a block
+
+Five ribs, flat and curved tops.
+
+- **One mesh when the foot must soften, separate parts when a hard crease is right.** Separate parts are cheapest, 14 % under the best one-mesh on flat and 17 % on curved, and they have a hard crease at the foot that nothing here scored. That's a look decision, not a cost one.
+- **Close a gap between ribs with three quads,** not one long n-gon (section 5).
+- **All quads against n-gons is 10 faces,** 386 against 376, once the folds are gone. Choose by what's easiest to edit.
+- **On a flat, layout hardly changes the shape.** A full grid spends 594 faces to improve a number that already passed at 324. On a curve the grid is most accurate and isn't needed: 349 faces pass with 43 % fewer than 616, with the least margin at 0.87 degrees.

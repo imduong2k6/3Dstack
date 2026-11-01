@@ -2,11 +2,14 @@
 
     python .claude/skills/modeling/scripts/selftest_blueprint.py
 
-Rectifies a synthetic photo of a tilted checker plate and measures that its squares come out square and true to scale. Draws a blueprint
-and checks the mirror plane, the shaded half, the view boxes and the marked circle by pixel. Refuses a spec with a bad form block.
+Rectifies a synthetic photo of a tilted checker plate and measures that its squares come out square and true to scale. Rectifies from two
+pairs of parallel edges and a circle at several lenses, tilts and crops, exactly and with pick noise. Draws a blueprint and checks the
+mirror plane, the shaded half, the view boxes and the marked circle by pixel. Refuses a spec with a bad form block.
 """
 import json
+import math
 import os
+import random
 import sys
 import tempfile
 
@@ -83,6 +86,82 @@ def test_rectify(tmp):
         check(True, "corners on one line are refused")
 
 
+def camera(focal_mm, tilt, turn, shift=0):
+    """World plane z = 0 to pixels: a 1200 x 1000 image on a 36 mm sensor, tilted and turned, the 200 mm panel filling about 60 % of the frame."""
+    f = focal_mm / 36 * 1200
+    dist = 0.2 * f / (0.6 * 1200)
+    ct, st, cu, su = math.cos(tilt), math.sin(tilt), math.cos(turn), math.sin(turn)
+    r = [[cu, -su], [ct * su, ct * cu], [st * su, st * cu]]
+    def project(x, y):
+        X, Y, Z = (r[i][0] * x + r[i][1] * y + (dist if i == 2 else 0) for i in range(3))
+        return f * X / Z + 600 + shift, f * Y / Z + 500 - shift
+    return project
+
+
+def ratio_error_pct(h, project):
+    """Worst error of the ratios between known distances on the panel, after the map, in %."""
+    pts = [(-0.1, -0.06), (0.1, -0.06), (0.1, 0.06), (-0.1, 0.06), (-0.04, 0.0), (0.05, 0.03), (0.07, -0.04), (-0.07, 0.04)]
+    pairs = [(0, 1), (1, 2), (0, 2), (4, 5), (5, 6), (6, 7), (4, 7), (2, 7)]
+    got = [bp._apply(h, project(*p)) for p in pts]
+    ratios = sorted(math.dist(got[i], got[j]) / math.dist(pts[i], pts[j]) for i, j in pairs)
+    k = ratios[len(ratios) // 2]
+    return max(abs(r / k - 1) * 100 for r in ratios)
+
+
+def test_rectify_pairs(tmp):
+    corners = [(-0.1, -0.06), (0.1, -0.06), (0.1, 0.06), (-0.1, 0.06)]
+    ring = [(-0.04 + 0.02 * math.cos(2 * math.pi * i / 16), 0.02 * math.sin(2 * math.pi * i / 16)) for i in range(16)]
+    def picks(project, jitter=lambda: (0, 0)):
+        def at(p):
+            x, y = project(*p)
+            dx, dy = jitter()
+            return x + dx, y + dy
+        c = [at(p) for p in corners]
+        # at the same picks a rectangle's corners serve both pairs: each edge is one pair member
+        return [c[0], c[1], c[3], c[2]], [c[0], c[3], c[1], c[2]], [at(p) for p in ring]
+    for focal, tilt, shift in ((24, 40, 0), (50, 60, 0), (300, 60, 0), (300, 40, 150), (24, 40, 150), (135, 20, 150)):
+        project = camera(focal, math.radians(tilt), math.radians(30), shift)
+        h, _ = bp.pairs_homography(*picks(project))
+        err = ratio_error_pct(h, project)
+        check(err < 0.5, f"exact picks at {focal} mm, tilt {tilt}, crop {shift}: within {err:.3f} %")
+    rng = random.Random(7)
+    worst = []
+    for focal, tilt, shift in ((24, 40, 0), (300, 60, 0), (50, 40, 150)):
+        project = camera(focal, math.radians(tilt), math.radians(30), shift)
+        errs = sorted(ratio_error_pct(bp.pairs_homography(*picks(project, lambda: (rng.gauss(0, 1), rng.gauss(0, 1))))[0], project) for _ in range(200))
+        worst.append(errs[int(len(errs) * 0.95)])
+    check(max(worst) < 8, f"1 px of pick noise: worst ratio p95 {max(worst):.2f} % at three cameras")
+
+    # a real image: a tilted panel with a black disc; it should come out round
+    project = camera(50, math.radians(40), math.radians(30))
+    src = Image.new("RGB", (1200, 1000), (255, 255, 255))
+    d = ImageDraw.Draw(src)
+    d.polygon([project(*p) for p in corners], fill=(230, 230, 230))
+    d.polygon([project(*p) for p in [(-0.04 + 0.02 * math.cos(2 * math.pi * i / 90), 0.02 * math.sin(2 * math.pi * i / 90)) for i in range(90)]], fill=(0, 0, 0))
+    photo = os.path.join(tmp, "pairs.png")
+    src.save(photo)
+    out = os.path.join(tmp, "pairs_rect.png")
+    a, b, c = picks(project)
+    meta = bp.rectify_pairs(photo, a, b, c, out)
+    im = Image.open(out).convert("L")
+    rim = [bp._apply(meta["photo_to_image"], p) for p in c]     # look round the disc only: what lies off the photo comes out black too
+    cx, cy = sum(p[0] for p in rim) / len(rim), sum(p[1] for p in rim) / len(rim)
+    r = int(max(math.dist(p, (cx, cy)) for p in rim) * 1.4)
+    dark = [(x, y) for y in range(int(cy) - r, int(cy) + r) for x in range(int(cx) - r, int(cx) + r) if im.getpixel((x, y)) < 80]
+    w, h = max(p[0] for p in dark) - min(p[0] for p in dark) + 1, max(p[1] for p in dark) - min(p[1] for p in dark) + 1
+    check(abs(w - h) <= 3, f"the disc comes out round ({w} x {h} px)")
+    check(meta["circle_spread_pct"] < 1, "and the report says the picks agree")
+    panel = [bp._apply(meta["photo_to_image"], p) for p in a[:2]]
+    check(abs(panel[0][1] - panel[1][1]) < 0.5 and panel[1][0] > panel[0][0], "pair A runs level, first point to second")
+    check(bp.main(["rectify-pairs", photo, "--pair-a", *[f"{x},{y}" for x, y in a], "--pair-b", *[f"{x},{y}" for x, y in b], "--circle", *[f"{x},{y}" for x, y in c], "--out", os.path.join(tmp, "p.png")]) == 0, "it runs from the command line")
+    for why, args in (("the same pair twice", (a, a, c)), ("too few circle points", (a, b, c[:4])), ("a pair with three points", (a[:3], b, c)), ("a circle in a line", (a, b, [(i * 10.0, i * 10.0) for i in range(8)]))):
+        try:
+            bp.pairs_homography(*args)
+            check(False, f"{why} is refused")
+        except ValueError:
+            check(True, f"{why} is refused")
+
+
 def test_draw(tmp):
     spec = os.path.join(tmp, "SM_Test.md")
     with open(spec, "w", encoding="utf-8") as f:
@@ -131,6 +210,7 @@ def test_draw(tmp):
 def main():
     with tempfile.TemporaryDirectory() as tmp:
         test_rectify(tmp)
+        test_rectify_pairs(tmp)
         test_draw(tmp)
     print("PASS")
 

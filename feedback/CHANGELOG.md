@@ -2,6 +2,26 @@
 
 Every skill change, with the evidence and the user's approval.
 
+## 2026-11-01: Fold warning, whole-shape recipes and pairs rectify from measured tests 10 to 14
+
+Three fresh agents built plates, domes, dishes, seams and ribs against exact targets, and two tests ran by script. Every final file was re-measured at level 4 with separate tools. The user approved all eleven edits on 1 Nov 2026. Reports are outside the repo, in the test bench.
+
+| # | Change | Evidence | Where |
+| --- | --- | --- | --- |
+| 1 | `topology.folded_edges` and `fold_places`: edges of the level 2 surface past 100 degrees, a warning | 4 folded files flag, up to 528 edges at level 4, all passing every old check. 30 clean models read 0. An unsupported slab about 10 % thick also flags | `validate_mesh.py`, `subd-recipes.md` section 9 |
+| 2 | Read max beside p95; 1 degree at p95 isn't a clean-reflection target | p95 0.06 degrees over a 79.8 degree corner | `subd-recipes.md` section 9 |
+| 3 | A guard vertex each side of every vertical corner | Off by 12.7 mm and 2.86 mm without. Two agents | `subd-recipes.md` section 5 |
+| 4 | Plate with a T-junction: rim first, few lines reach it, a core at the T | The rim's rows are 73 to 80 % of faces. 379 to 326 faces. One agent | `subd-recipes.md` section 10 |
+| 5 | Dome on a non-circular seam: rings to a pole. The 4 x 4 cap holds on flat or circular caps | 147 faces against 213; 2.08 degrees against 0.79. One agent | `subd-recipes.md` sections 5, 10 |
+| 6 | Soft dish: rings, with the grid's shrink formula | Placed, 705 faces against 2237; formula 0.0477 mm against 0.0473 | `subd-recipes.md` section 10 |
+| 7 | Stepped seam: leave the next rows, add one local row | 0.72 against 1.34 degrees at the same faces. One agent, one shape | `subd-recipes.md` section 10 |
+| 8 | Ribs: one mesh or separate by the foot's look; three quads in a gap, not one long n-gon | Separate saves 14 to 17 %. The long n-gon folds; 111 isolated ones don't, so no size rule | `subd-recipes.md` sections 5, 10 |
+| 9 | Merge distance under the shortest edge; half width in a tight spot; replaces "overlap and merge" | 0.9 w clean at seven widths, breaks at w. Same 0.083 mm without the flipped-face risk | `subd-recipes.md` section 6, `validate_mesh.py` help |
+| 10 | `blueprint.py rectify-pairs`: true proportions from two pairs of parallel edges and a circle | 1.3 to 2 % at every lens and crop, in simulation only. Self-test 2.66 % at worst at 1 px | `blueprint.py`, `selftest_blueprint.py`, `modeling/SKILL.md` |
+| 11 | One z-only solve on an exact height field, with its price | 2237 faces to 509; rim 2.57 to 0.71 degrees; cage up to 1.43 mm off. Two agents | `subd-recipes.md` section 4, `quad-subd.md` |
+
+Left out on purpose: a third n-gon size rule, dropping 8, 16, 32 (it holds for a placed cage), and relaxing two clear rows or the arc rule (no cost shown, on a nearly flat top only).
+
 ## 2026-11-01: Validator and hidden-face rule from blind test 09
 
 A fresh agent built a whole 11-part product from one image on the SubD route. The validator passed faults it couldn't see or drowned them in flags. The user approved these three edits on 1 Nov 2026. The five recipes the test also asked for wait for a measured test.

@@ -19,7 +19,7 @@ so a decal 0.1 mm proud of a 0.37 m asset is not z-fighting. `pass` is also fals
 `--stage mesh` says this is the mesh waiting for approval, before UVs exist.
 
 `topology` measures the evaluated mesh: quad share, n-gons and the ones that don't lie flat, thin triangles, high poles, vertices inside flat
-areas that shape nothing, and Bevel modifiers with an odd segment count. Warnings only; it never fails `pass`. Read it with the wire captures.
+areas that shape nothing, Bevel modifiers with an odd segment count, and folds in the SubD surface at level 2. Warnings only; it never fails `pass`. Read it with the wire captures.
 
 With a spec (a path to the `kit/*.md`, or its parsed front matter as a dict) it also checks:
   - dims: the bounding box of the object and its mesh children (UCX_, UBX_, UCP_, USP_ and SOCKET_ parts left out) against
@@ -39,6 +39,7 @@ import math
 import os
 import re
 import sys
+from collections import Counter
 
 import bmesh
 import bpy
@@ -72,6 +73,10 @@ _MAX_BEND = 1.0         # radians: a sharper turn between two edges of a loop is
 _SUPPORT_RATIO = 0.25   # a narrow edge under this share of the wide one is holding something
 _SUPPORT_TURN = 60      # degrees: or the loop turns this hard at the vertex or just past the narrow edge
 _SUPPORT_REACH = 3      # vertices looked along the narrow side
+# a real corner turns in small steps once subdivided: 4 folded files all flag at these, 30 clean ones read 0 (tests 01, 06 to 08, 10 to 12)
+_FOLD_LEVEL = 2
+_FOLD_DEG = 100
+_FOLDS_LISTED = 5       # places named in the report, most edges first
 
 
 def _find_check_spec(spec_path=None, repo=None):
@@ -468,13 +473,44 @@ def _spacing_error(v):
     return free, held
 
 
+def _surface_folds(o, dg):
+    """Where the SubD surface turns back on itself: edges at level 2 whose faces turn past _FOLD_DEG. A fold in a flat face reads 0 mm off the target, so only this finds it."""
+    subd = [m for m in o.modifiers if m.type == "SUBSURF" and m.show_viewport]
+    if not subd:
+        return Counter()
+    levels = [m.levels for m in subd]
+    for m in subd:
+        m.levels = _FOLD_LEVEL
+    try:
+        dg.update()
+        ev = o.evaluated_get(dg)
+        bm = bmesh.new()
+        bm.from_mesh(ev.to_mesh())
+        ev.to_mesh_clear()
+    finally:
+        for m, n in zip(subd, levels):
+            m.levels = n
+        dg.update()
+    bm.normal_update()
+    limit = math.cos(math.radians(_FOLD_DEG))
+    where = Counter()
+    for e in bm.edges:
+        if e.is_manifold and e.link_faces[0].normal.dot(e.link_faces[1].normal) < limit:
+            mid = o.matrix_world @ ((e.verts[0].co + e.verts[1].co) / 2)
+            where[(o.name, round(mid.x, 2), round(mid.y, 2), round(mid.z, 2))] += 1
+    bm.free()
+    return where
+
+
 def _topology(ob):
     """Counts on the evaluated mesh with SubD off, so live Mirror and Bevel modifiers count and the cage is what gets read. Warnings only."""
     dg = bpy.context.evaluated_depsgraph_get()
     t = {"faces": 0, "quads": 0, "tris": 0, "ngons": 0, "ngons_not_flat": 0, "thin_tris": 0, "high_poles": 0, "max_valence": 0,
          "verts": 0, "idle_flat_verts": 0, "odd_border_islands": 0, "uneven_on_curves": 0, "max_spacing_deg": 0.0, "worst_spacing_at_m": None, "support_row_verts": 0, "odd_bevels": []}
+    folds = Counter()
     for o in _meshes(ob):
         t["odd_bevels"] += [f"{o.name}: {m.name} ({m.segments})" for m in o.modifiers if m.type == "BEVEL" and m.segments % 2]
+        folds.update(_surface_folds(o, dg))
         subd = [m for m in o.modifiers if m.type == "SUBSURF" and m.show_viewport]
         for m in subd:
             m.show_viewport = False
@@ -547,6 +583,10 @@ def _topology(ob):
         w.append(f"a vertex with {t['max_valence']} edges")
     if t["odd_bevels"]:
         w.append("Bevel modifiers with odd segments: " + ", ".join(t["odd_bevels"]))
+    t["folded_edges"] = sum(folds.values())
+    t["fold_places"] = [{"object": k[0], "at_m": list(k[1:]), "edges": n} for k, n in folds.most_common(_FOLDS_LISTED)]
+    if t["folded_edges"]:
+        w.append(f"{t['folded_edges']} edges of the SubD surface at level {_FOLD_LEVEL} turn back past {_FOLD_DEG} degrees, most in {t['fold_places'][0]['object']} at {t['fold_places'][0]['at_m']}: a fold, or a real corner that sharp. A fold in a flat face doesn't show in reflections, so look at these places in the wire")
     t["warnings"] = w
     return t
 
@@ -681,7 +721,7 @@ def main(argv):
     ap.add_argument("name", help="the mesh object to validate, or the empty a multi-part product is parented to")
     ap.add_argument("--spec", help="the asset spec, kit/<asset>.md")
     ap.add_argument("--budget-tris", type=int)
-    ap.add_argument("--merge-dist", type=float, default=0.0001)
+    ap.add_argument("--merge-dist", type=float, default=0.0001, help="keep it under the shortest edge, or real rows read as duplicates")
     ap.add_argument("--tol-mm", type=float, help="size and pivot tolerance; the default is the spec's done_when, else 10 mm")
     ap.add_argument("--repo", help="the repo folder, when check_spec.py cannot be found from here")
     ap.add_argument("--stage", choices=("mesh", "final"), default="final", help="mesh: waiting for approval, UVs not made yet")

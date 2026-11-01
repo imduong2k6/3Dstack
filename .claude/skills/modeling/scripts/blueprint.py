@@ -7,6 +7,13 @@ result is true to scale on that plane only; parts standing off it keep some para
 
 Corners run top left, top right, bottom right, bottom left, in photo pixels.
 
+With no rectangle of known size, use two pairs of edges parallel on the object and points round one true circle, all on one plane:
+
+    python blueprint.py rectify-pairs <photo> --pair-a x,y x,y x,y x,y --pair-b x,y x,y x,y x,y --circle x,y x,y x,y x,y x,y [...] --out ref/front_rect.png
+
+Each pair is four points, two along each edge. Pair A comes out level, running from its first point to its second. The result gives true
+proportions on that plane and no scale, so size it from dims_m. It stays true at any lens and on a crop cut from a bigger picture.
+
 Draw the blueprint from the spec's `form` block: front, side and top at one real scale, with the outline, sections, features, circles and
 their sectors, mirror planes, the half to model shaded, repeat counts and hatched true asymmetries. --mark also rings each circle that has
 `photo_px` on the reference photo:
@@ -79,6 +86,112 @@ def rectify(photo, corners, size_m, out, px_per_m=None):
     with open(out + ".json", "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=1)
     return meta
+
+
+def _cross(a, b):
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+
+
+def _apply(h, p):
+    x, y, w = (h[i][0] * p[0] + h[i][1] * p[1] + h[i][2] for i in range(3))
+    return x / w, y / w
+
+
+def _matmul(a, b):
+    return [[sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
+
+
+def _circle_stretch(pts):
+    """The 2 x 2 map that turns the ellipse through pts into a circle, and major / minor. Least squares on a x^2 + b xy + c y^2 + d x + e y = 1, about the points' centre."""
+    n = len(pts)
+    cx, cy = sum(p[0] for p in pts) / n, sum(p[1] for p in pts) / n
+    s = max(math.hypot(p[0] - cx, p[1] - cy) for p in pts) or 1.0
+    rows = [[x * x, x * y, y * y, x, y] for x, y in (((p[0] - cx) / s, (p[1] - cy) / s) for p in pts)]
+    ata = [[sum(r[i] * r[j] for r in rows) for j in range(5)] for i in range(5)]
+    atb = [sum(r[i] for r in rows) for i in range(5)]
+    try:
+        a, b, c = _solve(ata, atb)[:3]
+    except ValueError:
+        raise ValueError("the circle points don't fix an ellipse: pick them spread round it") from None
+    if a * c - b * b / 4 <= 0 or a <= 0:
+        raise ValueError("the circle points don't make an ellipse: check them")
+    mid, diff = (a + c) / 2, math.hypot((a - c) / 2, b / 2)
+    lo, hi = mid - diff, mid + diff
+    k = math.sqrt(hi / lo)      # stretch by k along the eigenvector of hi, the ellipse's minor axis
+    t = 0.5 * math.atan2(b, a - c)
+    ux, uy = math.cos(t), math.sin(t)
+    return [[1 + (k - 1) * ux * ux, (k - 1) * ux * uy], [(k - 1) * ux * uy, 1 + (k - 1) * uy * uy]], k
+
+
+def pairs_homography(pair_a, pair_b, circle):
+    """Photo pixels to a true-shape plane, from two pairs of parallel edges and a circle. The plane's rotation is set so pair A runs along +x."""
+    if len(pair_a) != 4 or len(pair_b) != 4:
+        raise ValueError("each pair is four points, two along each edge")
+    if len(circle) < 5:
+        raise ValueError("the circle needs at least 5 points; 8 or more spread round it is better")
+    def vanish(q):
+        return _cross(_cross([*q[0], 1], [*q[1], 1]), _cross([*q[2], 1], [*q[3], 1]))
+    picks = [*pair_a, *pair_b, *circle]
+    mx, my = sum(p[0] for p in picks) / len(picks), sum(p[1] for p in picks) / len(picks)
+    span = max(math.hypot(p[0] - mx, p[1] - my) for p in picks) or 1.0
+    norm = lambda q: [((p[0] - mx) / span, (p[1] - my) / span) for p in q]      # centred, so the numbers stay well scaled at any lens
+    na, nb, nc = norm(pair_a), norm(pair_b), norm(circle)
+    va, vb = vanish(na), vanish(nb)
+    va, vb = [v / (math.hypot(*va) or 1.0) for v in va], [v / (math.hypot(*vb) or 1.0) for v in vb]
+    line = _cross(va, vb)
+    if math.hypot(*line) < 1e-9 or abs(line[2]) < 1e-9:
+        raise ValueError("the two pairs must run in different directions on the object, and the vanishing line must miss your picks")
+    line = [v / line[2] for v in line]      # w = 1 at the picks' centre
+    hp = [[1, 0, 0], [0, 1, 0], line]
+    if any(line[0] * x + line[1] * y + 1 <= 0 for x, y in na + nb + nc):
+        raise ValueError("the vanishing line runs through your picks: check the pairs are parallel on the object")
+    stretch, ratio = _circle_stretch([_apply(hp, p) for p in nc])
+    affine = [[*stretch[0], 0], [*stretch[1], 0], [0, 0, 1]]
+    h = _matmul(affine, hp)
+    (x0, y0), (x1, y1) = _apply(h, na[0]), _apply(h, na[1])
+    t = -math.atan2(y1 - y0, x1 - x0)
+    h = _matmul([[math.cos(t), -math.sin(t), 0], [math.sin(t), math.cos(t), 0], [0, 0, 1]], h)
+    to_norm = [[1 / span, 0, -mx / span], [0, 1 / span, -my / span], [0, 0, 1]]
+    return _matmul(h, to_norm), ratio
+
+
+def rectify_pairs(photo, pair_a, pair_b, circle, out, margin=0.25):
+    """Warp a photo to true proportions on one plane. No size is known, so the long side keeps the photo's long side in pixels."""
+    h, ratio = pairs_homography(pair_a, pair_b, circle)
+    im = Image.open(photo).convert("RGB")
+    picks = [_apply(h, p) for p in [*pair_a, *pair_b, *circle]]
+    xs, ys = [p[0] for p in picks], [p[1] for p in picks]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    mx, my = (x1 - x0) * margin, (y1 - y0) * margin
+    x0, x1, y0, y1 = x0 - mx, x1 + mx, y0 - my, y1 + my
+    k = max(im.size) / max(x1 - x0, y1 - y0)
+    to_px = [[k, 0, -x0 * k], [0, k, -y0 * k], [0, 0, 1]]
+    full = _matmul(to_px, h)
+    W, H = max(int(round((x1 - x0) * k)), 2), max(int(round((y1 - y0) * k)), 2)
+    # PIL maps output pixels to input pixels, so solve full's inverse from four output corners
+    a, b = [], []
+    corners = [(0, 0), (W, 0), (W, H), (0, H)]
+    inv = _invert3(full)
+    for x, y in corners:
+        u, v = _apply(inv, (x, y))
+        a += [[x, y, 1, 0, 0, 0, -u * x, -u * y], [0, 0, 0, x, y, 1, -v * x, -v * y]]
+        b += [u, v]
+    im.transform((W, H), Image.PERSPECTIVE, _solve(a, b), Image.BICUBIC).save(out)
+    ring = [_apply(full, p) for p in circle]
+    cx, cy = sum(p[0] for p in ring) / len(ring), sum(p[1] for p in ring) / len(ring)
+    rs = [math.hypot(p[0] - cx, p[1] - cy) for p in ring]
+    meta = {"from": os.path.abspath(photo), "pair_a_px": pair_a, "pair_b_px": pair_b, "circle_px": circle, "image_px": [W, H], "photo_to_image": full,
+            "circle_major_over_minor": round(ratio, 4), "circle_spread_pct": round((max(rs) - min(rs)) / (sum(rs) / len(rs)) * 100, 2),
+            "note": "true proportions on that plane only, no scale: size it from dims_m. A large circle_spread_pct means the picks disagree"}
+    with open(out + ".json", "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=1)
+    return meta
+
+
+def _invert3(m):
+    c = [_cross(m[1], m[2]), _cross(m[2], m[0]), _cross(m[0], m[1])]
+    det = sum(m[0][i] * c[0][i] for i in range(3))
+    return [[c[j][i] / det for j in range(3)] for i in range(3)]
 
 
 class Panel:
@@ -263,6 +376,12 @@ def main(argv=None):
     r.add_argument("--size-m", nargs=2, type=float, required=True, metavar=("W", "H"))
     r.add_argument("--px-per-m", type=float)
     r.add_argument("--out", required=True)
+    q = sub.add_parser("rectify-pairs")
+    q.add_argument("photo")
+    q.add_argument("--pair-a", nargs=4, required=True, metavar="X,Y", help="two along one edge, two along an edge parallel to it on the object")
+    q.add_argument("--pair-b", nargs=4, required=True, metavar="X,Y", help="the same, for edges running another way")
+    q.add_argument("--circle", nargs="+", required=True, metavar="X,Y", help="points round one true circle on the same plane")
+    q.add_argument("--out", required=True)
     b = sub.add_parser("draw")
     b.add_argument("spec")
     b.add_argument("--out", required=True)
@@ -277,6 +396,9 @@ def main(argv=None):
             if any(len(c) != 2 for c in corners):
                 raise ValueError("each corner is x,y")
             print(json.dumps(rectify(a.photo, corners, a.size_m, a.out, a.px_per_m)))
+        elif a.cmd == "rectify-pairs":
+            pts = lambda items: [tuple(float(v) for v in c.split(",")) for c in items]
+            print(json.dumps(rectify_pairs(a.photo, pts(a.pair_a), pts(a.pair_b), pts(a.circle), a.out)))
         else:
             rep = draw(a.spec, a.out, a.underlay, a.width)
             if a.mark:
