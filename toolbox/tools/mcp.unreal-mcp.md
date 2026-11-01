@@ -67,11 +67,32 @@ The adapter scripts run through a project toolset instead. `.claude/skills/unrea
 
 Each call re-reads the script, so script fixes apply without a restart. A change to `pipeline_toolset.py` needs an editor restart.
 
+### Plain HTTP client (tested 2026-11-01)
+
+When the MCP client won't connect but the server answers: POST JSON-RPC to `/mcp` with `Content-Type: application/json` and `Accept: application/json, text/event-stream`. Send `initialize`, keep the `Mcp-Session-Id` response header on every later request, send `notifications/initialized`, then `tools/call` with `name` `call_tool` and `arguments` `{toolset_name, tool_name, arguments}`. A response may be an event stream; the JSON is on the last `data:` line. About 40 lines of standard-library Python.
+
+### Without PipelineTools (tested 2026-11-01)
+
+A project without the `init_unreal.py` hook has no `PipelineTools`, and no way to run editor Python over MCP. `list_toolsets` also shows fewer toolsets without `AllToolsets` (about 26). Everything below worked with `EditorToolset` alone:
+
+- **New level:** `AssetTools.duplicate` from `/Engine/Maps/Templates/Template_Default`, `save_assets`, `load_level`. The template brings a floor, sky sphere, clouds, fog and a PlayerStart. Its DirectionalLight and SkyLight are already Movable, with real-time capture on.
+- **Spawning:** `add_to_scene_from_asset` with `xform`; `name` becomes the label. Batch it with `set_actor_folder` and `add_tag` through `execute_tool_script`.
+- **Rotations:** work out the rotator on the client (`FQuat::Rotator`); read-back matched the request.
+- **Captures:** `EditorAppToolset.CaptureViewport` with `captureTransform` renders that pose without moving the user's viewport or spawning an actor. The image is at the viewport's size and the result reports `cameraFOV` (90 on a default viewport). No tool sets the FOV, so a longer lens is a centre crop, and anything wider than the viewport, a portrait frame or a lens shift can't be matched. No tool exports a render target or runs a SceneCapture. Light and brush gizmos and the engine's red warning text draw into the image even with `bShowUI` false, so park those actors away from the frame. A capture uses the viewport's current view mode, and no tool reads or sets it: a viewport left in Unlit gives flat colours whatever the lights and exposure are, so read the mode with `CaptureEditorImage` first. Behind other windows the editor ticks at 3 fps, and Lumen barely converged over 5 minutes, so an exposure read there isn't a settled one.
+- **Exposure:** with `AEM_Manual` and `autoExposureApplyPhysicalCameraExposure` false, EV100 is minus the bias. Outside the safe range -8 to 12 the engine warns (`r.EyeAdaptation.CachedLightingPreExposure`) and prints the warning into captures.
+- **A capture can stop the editor.** On 2026-11-01 a `CaptureViewport`, one every 15 s or so on a level of about 7,500 Nanite actors with Lumen, failed with D3D12 `E_OUTOFMEMORY` in `D3D12TransientResourceAllocator`. The log ended in a render-target pool dump, the frame counter stopped, MCP stopped answering `initialize`, and no crash dialog appeared. `dwm.exe` died with `0xc00001ad` in the same second and restarted 10 s later. GPU memory read 7.4 of 32 GB afterwards, so the cause isn't proven. Save before a run of captures, and check that a hung editor's level and assets are on disk before anyone ends the process.
+- **Stats:** no console tool, so `stat unit` can't be read. The log's `[frame]` field gives real frame rate between two log lines, modulo 1000.
+
 ## Gotchas
 
+- Inputs marked as defaults can still be required: `find_assets` needs `name`, `find_actors` needs `name`, `tag` and `collision_channels`, and `CaptureViewport` needs `captureTransform` and `annotations` with all its fields (`classFilter` may be null). The error prints the schema.
+- `ObjectTools` property names are the camelCase ones from `list_properties` (`overrideMaterials`, `staticMaterials`). `get_properties` fails the whole call if one name is unknown.
+- A failing tool inside `execute_tool_script` ended the script even inside `try`/`except`, with the error as the result. Filter inputs first: `find_assets` also returns `__ExternalObjects__` paths, which `is_dirty` rejects.
+- Each tool call inside a script takes about one editor tick or more. An editor in the background runs about 3 frames a second, so speed swung from about 60 calls a second to about 5 in the same run. Keep batches small, because the editor is held between them.
+- Spawning raises "Cannot create actors while PIE is active" if the user presses Play. Check `IsPIERunning` before each batch, and make long runs resumable.
 - Results report failure with `isError: true` and a message (for example `load_level` on an unsaved level: "the level has unsaved changes"). Check every result.
 - `load_level` refuses a dirty level. A level made with `AssetTools.duplicate` is dirty until `save_assets` saves it.
-- `StaticMeshTools.import_file` goes through Interchange with defaults: Nanite off, no materials. Turn Nanite on afterwards with `set_nanite_enabled`.
+- `StaticMeshTools.import_file` uses the legacy FBX importer with defaults: Nanite off, no materials. Turn Nanite on afterwards with `set_nanite_enabled`. Tested results are in `transfer.blender-unreal.md`.
 - No console-command tool and no high-res screenshot tool. Review captures go through `PipelineTools.capture_set`.
 - Epic warns against several agents writing at once. Keep one writer (the Unreal worker).
 
