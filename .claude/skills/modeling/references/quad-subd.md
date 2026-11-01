@@ -21,7 +21,7 @@ Catmull-Clark subdivision smooths every corner, so anything that should stay sha
 | Crease | Vertex crease 1.0 only on a border corner that can't take the three-quad fix. No edge crease: it may not survive export and it still needs support nearby. The game route uses bevel plus weighted normals instead (see game-models.md) |
 
 - **Support only the edges that are sharp in the reference:** base edge, lip, a ring edge, both edges of a groove, a foot. Rounded areas such as a bottle shoulder or a rounded cap edge stay soft.
-- **Every sharp edge gets a bevel of 2 or 4 segments, chosen from the reference.** Use 2 on a tight edge and on a hidden face, and 4 where the reference shows a visible radius. In a tight spot use half the width, and if that doesn't fit, report the edge.
+- **Every sharp edge gets a bevel of 2 or 4 segments, chosen from the reference.** Use 2 on a tight edge and on a hidden face, and 4 where the reference shows a visible radius. In a tight spot use 0.45 of the room across, with a floor of 0.1 mm, and report the edge.
 - **Inner faces need support too.** Anything with thickness (cap, cup, bowl) needs holding loops at the inner corners as well, or the inside bows.
 - **Round objects: avoid extra vertical cuts.** Uneven point spacing on a circle makes the subdivided edge kink. If a cut is unavoidable, re-space the ring straight after it and make it round again (`space_edge_loops_evenly`, `circularize`). In scripts, space smooth rings evenly by angle, cluster points only on ribbed rings, and blend between the two over one or two rings.
 

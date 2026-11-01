@@ -2,6 +2,24 @@
 
 Every skill change, with the evidence and the user's approval.
 
+## 2026-11-01: Nine fixes to the blockout route, from the bracket
+
+The user approved the nine fixes listed on the workflow page after the bracket (test 15) failed the validator. Three how-to facts went in with them because the fixes can't run without them, and they're marked below. The evidence is one agent on one part, except fix 5, which I derived from the three-row limit, and fix 6, which I computed.
+
+| # | Change | Evidence | Where |
+| --- | --- | --- | --- |
+| 1 | Boolean order: Difference, Union, Difference when a boss or tab stands in a pocket, replacing "Union first" | The bracket's boss and tab stand in pockets, and that order worked in 0.43 s | `subd-blockout.md` section 2 |
+| 2 | Check before building: corner radius beats the floor fillet by a margin, filleted cutters don't overlap or meet at a floor, shortest ring edge about 0.2 mm or more | The first Boolean broke these: 73 n-gons, 3 tris, a 0.024 mm edge. Fixed, 0.207 mm | `subd-blockout.md` section 2 |
+| 3 | Split lines: radial on and between rings, a quad each side of a narrow wall, no long wedges. Replaces "continue a feature's own edge" and "one added line per vertex". How-to: a line ending mid-rim cuts its wall in a column | Slivers and folding wedges on the old rules. Radial lines fixed them. Valence reached 6 | `subd-blockout.md` step 3 |
+| 4 | Check n-gons again after each bevel step | 28 passed at the split and went blind later | `subd-blockout.md` step 7 |
+| 5 | Softening formula w / 3 x sin(turn / 2), which equals the old one at 90 degrees | From the limit of three rows, (a + 4b + c) / 6 | `subd-blockout.md` step 8, `subd-recipes.md` section 6 |
+| 6 | Sharp edges come from the list only. The 70 degree check is gone, reversing row 4 of the entry below | A pushed 2-step arc turns 64 degrees at its middle on a 90-degree fillet and 82 on a 120-degree one | `subd-blockout.md` step 5 |
+| 7 | Tight spots: 0.45 of the room across with a 0.1 mm floor, replacing "half the width" | Exactly half landed rows from facing rims on one line. Seven edges at the floor read worst, so they're reported | `subd-blockout.md` Counts, `quad-subd.md`, `subd-recipes.md` section 6 |
+| 8 | 4-segment bevels: a custom profile with the rows inside, 4 faces across against 6, and where 2 and 4 meet the 4 runs first. How-to: a width per edge goes through the modifier's weight limit; a chain end's two tris join into a quad | 111 edges on the bracket | `subd-blockout.md` step 4, `subd-recipes.md` section 6 |
+| 9 | Solver bridge edges: `dissolve_limit` doesn't remove them, so strip the flats and rebuild them, with a source attribute carried through the Exact Boolean | The back stayed a 134-gon after the dissolve. The rebuild's areas added up | `subd-blockout.md` section 2, steps 1 and 2 |
+
+Left open: the validator's n-gon rule against bevel chain ends, which failed 55 n-gons on that alone. It isn't changed until it's measured.
+
 ## 2026-11-01: Blockout route and bevel counts for flat SubD parts
 
 The user proposed the order (blockout, Boolean or union, clean the new edges, SubD) and the count rules, and asked to model their reference with the updated skill, so these went in without a report first. The evidence is one scripted run on a drawn plate, not a blind test, and `subd-blockout.md` says so.
