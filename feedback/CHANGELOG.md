@@ -2,6 +2,17 @@
 
 Every skill change, with the evidence and the user's approval.
 
+## 2026-11-01: Validator and hidden-face rule from blind test 09
+
+A fresh agent built a whole 11-part product from one image on the SubD route. The validator passed faults it couldn't see or drowned them in flags. The user approved these three edits on 1 Nov 2026. The five recipes the test also asked for wait for a measured test.
+
+| # | Change | Evidence | Where |
+| --- | --- | --- | --- |
+| 1 | `uneven_on_curves` leaves out support rows, counted as `support_row_verts`, and names the worst place | One part fell from 1,351 flags to 418. All 454 on the ring faults of tests 04 and 05 stay, all 15 on tests 07 and 08 clear. Of the four worst spots left, two kink in reflections and two don't | `validate_mesh.py`, `selftest_validate_mesh.py`, `subd-recipes.md` |
+| 2 | `parts.crossing` lists parts whose surfaces cross, with how deep. A warning, since a seated part may mean it. Flat contact doesn't count | On test 09: four pairs, 0.1 to 1.29 mm. It also showed my count of 64 pairs on one screw was mostly flat contact | `validate_mesh.py`, `selftest_validate_mesh.py`, `modeling/SKILL.md`, `blender-adapter/SKILL.md` |
+| 3 | `validate_mesh.py` takes the empty of a multi-part product: each part, then all of them together | Each part's own run can't see another object, so nothing could catch a crossing between parts. The first run also found a part floating 1.5 mm clear | `validate_mesh.py`, `selftest_validate_mesh.py`, `modeling/SKILL.md`, `blender-adapter/SKILL.md` |
+| 4 | Rule: a face nobody sees gets the least that closes it, and a support loop stops where its job ends | 652 of one part's 3,818 faces sat on a back that doesn't show. The agent also found the old line unclear on backs. Its idle share read 9.4 %, under the 10 % warning, which stays as it is until the M6 limits are set | `hard-surface-topology.md` |
+
 ## 2026-11-01: SubD edits from blind tests 06 to 08
 
 Three fresh agents built a T-junction, outer bevels and a Boolean pocket on a curved wall from the merged markdown alone. I measured each result against the exact shape at level 4. The user approved these seven edits on 1 Nov 2026, and with edit 6 the patch replacement as the Boolean rule on a curved wall.

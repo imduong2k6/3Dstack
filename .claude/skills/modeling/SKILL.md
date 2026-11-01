@@ -72,7 +72,7 @@ Read [hard-surface-topology.md](references/hard-surface-topology.md) first. Buil
 
 The rest of the build, at the level each belongs to:
 
-1. **Contact and placement.** Nothing floats and nothing intersects by accident. For CG, leave a tiny gap so the contact shadow reads. For games, snap kit pieces exactly and sink organic objects such as rocks slightly into the ground.
+1. **Contact and placement.** Nothing floats and nothing intersects by accident (`validate_mesh.py` lists both under `parts`). For CG, leave a tiny gap so the contact shadow reads. For games, snap kit pieces exactly and sink organic objects such as rocks slightly into the ground.
 2. **Pivot and parent.** The pivot goes at the bottom centre, or at the kit grid origin for kit pieces. For a multi-part product, parent all parts to an empty at the bottom centre so the whole thing can be snapped onto a surface. Cameras and lights are never parented to it.
 3. **Tubes and round parts** (conduit, pipes, poles, cylindrical fittings): scale uniformly to the measured diameter, never per axis to a box that includes clips or lips. The straight section stays round within 2 mm (width against depth).
 4. **No wear.** See `house-rules` rule 1. List wear in `handoff/wear-notes.md` and keep the surface clean.
@@ -86,7 +86,7 @@ Run `blender-adapter/scripts/validate_mesh.py` with the spec. Besides the mesh c
 bash bin/blender-bg <asset>.blend --python .claude/skills/blender-adapter/scripts/validate_mesh.py -- <asset> --spec kit/<asset>.md --stage mesh [--tol-mm 1] --out validation.json
 ```
 
-The size tolerance is 1 cm unless a `done_when` line on the size says otherwise (`--tol-mm 1` for products). Exit 1 means a check failed.
+For a multi-part product, name the empty the parts are parented to: it validates each part, then all of them together, because a part's own run can't see another object. The size tolerance is 1 cm unless a `done_when` line on the size says otherwise (`--tol-mm 1` for products). Exit 1 means a check failed.
 
 - [ ] Every mirror in `form` within `tol_mm`, or the difference listed as an asymmetry with its evidence
 - [ ] `topology` warnings read and either fixed or explained in the report, with the `wire` captures looked at from every side

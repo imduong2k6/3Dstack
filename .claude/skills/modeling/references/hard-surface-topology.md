@@ -7,6 +7,7 @@ Applies to every modelled hard-surface asset, SubD or game. Not to Tripo stand-i
 - **Mostly quads in the source.** Triangulate at export, on the delivery copy, never in the source. A triangle on a flat or hidden face is fine for a game asset. A triangulated source can't be edited or reviewed.
 - **N-gons only where they lie flat.** An n-gon on a curve shades however the engine splits it. Under SubD it also needs a support row all round and a centre that sees every edge ([subd-recipes.md](subd-recipes.md), section 5).
 - **Every edge has a job.** It describes a curve, supports a bevel or leads to a detail. If removing it changes neither shape nor shading, remove it. Flat faces carry no grid, except the rows with a job: the two rows beside a curve keep poles off it, and flat rows keep a rim regular.
+- **A face nobody sees gets the least that closes it.** Close a back, or a face seated against another part, with a flat n-gon or sparse rows, not the front's grid (one full part put 652 of its 3,818 faces on a back that doesn't show). Stop a support loop where its job ends, on a pole or at a flat n-gon, instead of running it across the whole part. Hidden comes from the spec or the cameras: an object that can be picked up or turned has no hidden side.
 - **Loops run straight along the form.** A loop that kinks on a flat face or a straight run means something was traced from the photo. Fix the source of it, not the loop.
 - **Spend loops where the form bends and where the eye lands**, not evenly over the whole object.
 

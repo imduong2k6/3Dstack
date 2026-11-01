@@ -227,6 +227,34 @@ def test_parts(tmp):
     col.name = "SM_PKids_Copy"
     r = validate("SM_PKids")
     assert not r["pass"] and r["parts"]["count"] == 2 and r["parts"]["z_fighting"]["count"] == 6, r["parts"]["z_fighting"]
+    # crossing: a box poking out of the body warns with how deep it goes, 27 mm to the body's front. Sitting flat on it doesn't
+    r = validate(parts_asset("SM_PCross", [BODY, ((-0.03, -0.02, 0.1), (0.03, 0.07, 0.2))]).name)
+    c = r["parts"]["crossing"]
+    assert r["pass"] and c["count"] == 1 and c["examples"][0]["objects"] == ["SM_PCross", "SM_PCross"] and abs(c["examples"][0]["depth_mm"] - 27) < 0.01, c
+    assert any("surfaces cross" in w for w in r["parts"]["warnings"]), r["parts"]
+    assert validate("SM_PBack")["parts"]["crossing"]["count"] == 0
+    # a multi-part product: its empty sees what no part's own run can, and it passes only if every part does
+    root = bpy.data.objects.new("SM_PRoot", None)
+    bpy.context.scene.collection.objects.link(root)
+    body = parts_asset("SM_PRootBody", [BODY])
+    pin = parts_asset("SM_PRootPin", [((-0.03, -0.02, 0.1), (0.03, 0.07, 0.2))])
+    body.parent = pin.parent = root
+    bpy.context.view_layer.update()
+    assert validate("SM_PRootPin")["parts"]["crossing"]["count"] == 0
+    r = validate("SM_PRoot")
+    c = r["parts"]["crossing"]
+    assert r["pass"] and sorted(r["members"]) == ["SM_PRootBody", "SM_PRootPin"] and c["count"] == 1 and sorted(c["examples"][0]["objects"]) == ["SM_PRootBody", "SM_PRootPin"], r["parts"]
+    assert r["tris_evaluated"] == 24, r["tris_evaluated"]
+    pin.scale = (2, 1, 1)
+    bpy.context.view_layer.update()
+    assert not validate("SM_PRoot")["pass"], "a part that fails fails the product"
+    empty = bpy.data.objects.new("SM_PNoMesh", None)
+    bpy.context.scene.collection.objects.link(empty)
+    try:
+        validate("SM_PNoMesh")
+        raise AssertionError("an empty with nothing under it must be refused")
+    except ValueError:
+        pass
     # 30,000 triangles with a hundred loose pieces stay fast
     bm = bmesh.new()
     bmesh.ops.create_uvsphere(bm, u_segments=170, v_segments=90, radius=0.2)
@@ -451,6 +479,43 @@ def test_topology(tmp):
     bpy.context.view_layer.update()
     t = NS["_topology"](wide)
     assert 12 < t["max_spacing_deg"] < 17 and t["uneven_on_curves"] == 4 and any("uneven edges" in w for w in t["warnings"]), t
+    # the same ring with a tight row beside each wide edge is a support row: no warning, and it still counts them
+    bm = bmesh.new()
+    steps = [1.0, 0.1] * 7
+    angles = [sum(steps[:k]) / 2.546 for k in range(14)]
+    rings = [[bm.verts.new((2.546 * __import__("math").cos(a), 2.546 * __import__("math").sin(a), z)) for a in angles] for z in range(4)]
+    for a, b in zip(rings, rings[1:]):
+        for k in range(14):
+            bm.faces.new((a[k], a[(k + 1) % 14], b[(k + 1) % 14], b[k]))
+    me = bpy.data.meshes.new("Topo_tight")
+    bm.to_mesh(me)
+    bm.free()
+    tight = bpy.data.objects.new("Topo_tight", me)
+    bpy.context.scene.collection.objects.link(tight)
+    bpy.context.view_layer.update()
+    t = NS["_topology"](tight)
+    assert t["uneven_on_curves"] == 0 and t["support_row_verts"] > 0 and not any("uneven edges" in w for w in t["warnings"]), t
+    # 3 to 1 is not tight, but the loop turns 80 degrees just past the narrow edge, so that vertex is a support row too
+    bm = bmesh.new()
+    path, heading = [(0.0, 0.0)], 0.0
+    for length, turn in ((3, 0), (3, 0), (3, 0), (1, 20), (1, 80), (1, 0)):
+        heading += __import__("math").radians(turn)
+        path.append((path[-1][0] + length * __import__("math").cos(heading), path[-1][1] + length * __import__("math").sin(heading)))
+    rows = [[bm.verts.new((x, y, z)) for x, y in path] for z in range(4)]
+    for a, b in zip(rows, rows[1:]):
+        for k in range(len(path) - 1):
+            bm.faces.new((a[k], a[k + 1], b[k + 1], b[k]))
+    me = bpy.data.meshes.new("Topo_turn")
+    bm.to_mesh(me)
+    bm.free()
+    turn_ob = bpy.data.objects.new("Topo_turn", me)
+    bpy.context.scene.collection.objects.link(turn_ob)
+    bpy.context.view_layer.update()
+    t = NS["_topology"](turn_ob)
+    assert t["uneven_on_curves"] == 0 and t["support_row_verts"] == 2, t
+    # the worst fault says where it is
+    t = NS["_topology"](wide)
+    assert t["worst_spacing_at_m"] and any(str(t["worst_spacing_at_m"]) in w for w in t["warnings"]), t
     # parity: a five-sided patch can't be all quads, whichever face it is split into
     assert ng.data and NS["_topology"](ng)["odd_border_islands"] == 1 and any("odd number of border" in w for w in NS["_topology"](ng)["warnings"])
     # a mesh waiting for approval needs no UVs; the final one does

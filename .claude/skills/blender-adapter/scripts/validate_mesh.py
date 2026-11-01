@@ -13,7 +13,8 @@ Headless, on the asset's file (exit 0 when everything passes, 1 otherwise or on 
 
 It also splits the object (and its mesh children, UCX_ and the other helper parts left out) into connected parts and reports, under `parts`:
 coplanar overlapping faces of two parts (z-fighting: makes `pass` false), back-to-back touching faces, parts fully inside another closed part,
-and small floating fragments (the last three are warnings). Tolerances are shares of the bounding diagonal (coplanar 0.01 %, touching 0.2 %),
+small floating fragments, and parts whose surfaces cross, at the viewport SubD level, with how deep (the last four are warnings).
+Name the empty a multi-part product is parented to and it validates each mesh, then all of them together as parts; a part's own run can't see another object. Tolerances are shares of the bounding diagonal (coplanar 0.01 %, touching 0.2 %),
 so a decal 0.1 mm proud of a 0.37 m asset is not z-fighting. `pass` is also false when the UV map has no area on most faces, unless
 `--stage mesh` says this is the mesh waiting for approval, before UVs exist.
 
@@ -52,7 +53,9 @@ _COPLANAR = 1e-4        # two faces this close and parallel sit in one plane (a 
 _TOUCH = 2e-3           # parts this close count as touching
 _WELD = 1e-6            # vertices this close are one vertex
 _FRAGMENT_AREA = 0.05   # a detached piece with at most this share of the surface is a floating fragment
-_MAX_PARTS = 2000       # more parts than this: the enclosed and floating checks are skipped
+_MAX_PARTS = 2000       # more parts than this: the enclosed, floating and crossing checks are skipped
+_CROSS_SAMPLES = 200    # vertices tested per part for how deep a crossing goes
+_CROSS_LISTED = 20      # crossing pairs listed, deepest first
 _MIRROR_TOL_MM = 1.0    # default for a form section
 _MIRROR_SAMPLES = 20000 # vertices tested per section and axis
 # topology warnings, provisional: set from the first rerun of the benchmark meter, one asset, so read them with the wire captures
@@ -65,6 +68,10 @@ _CLEAR_ROWS = 2         # flat rows beside a curve or edge have a job: they keep
 _MAX_VALENCE = 8
 _MAX_SPACING_DEG = 5.0  # a wide edge left beside a narrow one on a curve reads 8 to 17; a ring evened after a reduction reads under 5
 _MAX_BEND = 1.0         # radians: a sharper turn between two edges of a loop is a held edge, not a curve
+# a support row: all 454 flags on the ring faults of tests 04 and 05 stay flagged by these three (narrow edge 0.27 of the wide one and up), all 15 on tests 07 and 08 clear
+_SUPPORT_RATIO = 0.25   # a narrow edge under this share of the wide one is holding something
+_SUPPORT_TURN = 60      # degrees: or the loop turns this hard at the vertex or just past the narrow edge
+_SUPPORT_REACH = 3      # vertices looked along the narrow side
 
 
 def _find_check_spec(spec_path=None, repo=None):
@@ -231,23 +238,25 @@ def _parts(ob):
     objs = [o for o in [ob] + list(ob.children_recursive) if o.type == "MESH" and not o.name.startswith(_HELPER_PREFIX)]
     dg = bpy.context.evaluated_depsgraph_get()
     raw = [_world_tris(o, dg) for o in objs]
+    names = [o.name for o, r in zip(objs, raw) if len(r[1])]
     raw = [r for r in raw if len(r[1])]
     if not raw:
         return {"count": 0, "ok": True, "skipped": "no faces to check", "warnings": []}
     allv = np.vstack([r[0] for r in raw])
     diag = float(np.linalg.norm(allv.max(axis=0) - allv.min(axis=0))) or 1.0
     eps, tol, weld = diag * _COPLANAR, diag * _TOUCH, diag * _WELD
-    V, T, F, voff, foff = [], [], [], 0, 0
+    V, T, F, O, voff, foff = [], [], [], [], 0, 0
     PM = np.concatenate([r[3] for r in raw])
-    for co, tr, tp, pm in raw:                                # weld per object, so the seams of one mesh do not cut it into parts
+    for k, (co, tr, tp, pm) in enumerate(raw):                # weld per object, so the seams of one mesh do not cut it into parts
         _, first, inv = np.unique(np.round(co / weld).astype(np.int64), axis=0, return_index=True, return_inverse=True)
         t = inv.ravel()[tr]
         keep = (t[:, 0] != t[:, 1]) & (t[:, 1] != t[:, 2]) & (t[:, 0] != t[:, 2])
         V.append(co[first])
         T.append(t[keep] + voff)
         F.append(tp[keep] + foff)
+        O.append(np.full(len(first), k))
         voff, foff = voff + len(first), foff + len(pm)
-    V, T, F = np.vstack(V), np.vstack(T), np.concatenate(F)
+    V, T, F, O = np.vstack(V), np.vstack(T), np.concatenate(F), np.concatenate(O)
     nv = len(V)
     lab = _components(nv, np.r_[T[:, 0], T[:, 1]], np.r_[T[:, 1], T[:, 2]])
     uniq, part = np.unique(lab[T[:, 0]], return_inverse=True)
@@ -287,10 +296,10 @@ def _parts(ob):
                 "examples": [{"parts": [a, b], "at_m": at, "same_material": sm} for a, b, at, sm in sorted(d.values(), key=lambda v: v[3])[:5]]}
     rep = {"count": P, "diagonal_m": round(diag, 4), "coplanar_tol_mm": round(eps * 1000, 4), "touch_tol_mm": round(tol * 1000, 4),
            "z_fighting": listing(same), "back_to_back": listing(opp), "enclosed": {"count": 0, "examples": []},
-           "floating": {"count": 0, "examples": []}, "detached_large": 0}
+           "floating": {"count": 0, "examples": []}, "crossing": {"count": 0, "examples": []}, "detached_large": 0}
     warnings = []
     if P > _MAX_PARTS:
-        warnings.append(f"{P} parts: the enclosed and floating checks were skipped")
+        warnings.append(f"{P} parts: the enclosed, floating and crossing checks were skipped")
     elif P > 1:
         trees = {}
 
@@ -298,6 +307,20 @@ def _parts(ob):
             if k not in trees:
                 trees[k] = BVHTree.FromPolygons(Vl, ptris[k].tolist())
             return trees[k]
+
+        def through(p, q):
+            """Triangle p has corners clear of triangle q's plane on both sides."""
+            n = np.cross(V[q[1]] - V[q[0]], V[q[2]] - V[q[0]])
+            d = (V[p] - V[q[0]]) @ (n / max(np.linalg.norm(n), 1e-30))
+            return d.min() < -eps and d.max() > eps
+
+        def sunk(a, b):
+            """How far the vertices of part a lie inside closed part b, from a sample of them. 0 when no sampled vertex is inside, though the surfaces still cross."""
+            if not closed[b]:
+                return 0.0
+            vs = np.unique(ptris[a])
+            vs = vs[::max(1, len(vs) // _CROSS_SAMPLES)]
+            return max((ptree(b).find_nearest(Vl[v])[3] for v in vs if _is_inside(ptree(b), Vector(V[v]), weld)), default=0.0)
         link = []
         within = np.all(lo[:, None] >= lo[None] - tol, axis=2) & np.all(hi[:, None] <= hi[None] + tol, axis=2)    # [a, b]: a lies in b's box
         within &= closed[None, :] & (area[:, None] < area[None, :])
@@ -310,8 +333,15 @@ def _parts(ob):
                 link.append((a, b))
         near = np.all((lo[:, None] <= hi[None] + tol) & (lo[None] <= hi[:, None] + tol), axis=2)
         for a, b in zip(*np.nonzero(np.triu(near, 1))):
-            if ptree(a).overlap(ptree(b)) or any(ptree(y).find_nearest(Vl[v], tol)[0] is not None
-                                                 for x, y in ((a, b), (b, a)) for v in np.unique(ptris[x])):
+            hits = ptree(a).overlap(ptree(b))
+            cross = [h for h in hits if through(ptris[a][h[0]], ptris[b][h[1]]) and through(ptris[b][h[1]], ptris[a][h[0]])]     # a part sitting flat only touches
+            if cross:
+                first = ptris[a][cross[0][0]]
+                rep["crossing"]["count"] += 1
+                rep["crossing"]["examples"].append({"parts": [int(a), int(b)], "objects": [names[O[ptris[k][0][0]]] for k in (a, b)], "triangle_pairs": len(cross),
+                                                    "depth_mm": round(max(sunk(a, b), sunk(b, a)) * 1000, 2), "at_m": [round(float(x), 4) for x in V[first].mean(axis=0)]})
+            if hits or any(ptree(y).find_nearest(Vl[v], tol)[0] is not None
+                           for x, y in ((a, b), (b, a)) for v in np.unique(ptris[x])):
                 link.append((a, b))
         link = np.array(link, dtype=int).reshape(-1, 2)
         grp = _components(P, link[:, 0], link[:, 1])
@@ -332,8 +362,10 @@ def _parts(ob):
                                                 "share_of_surface": round(s, 5), "gap_mm": round(float(gap) * 1000, 3)})
         rep["floating"]["examples"] = rep["floating"]["examples"][:5]
         rep["enclosed"]["examples"] = rep["enclosed"]["examples"][:5]
+        rep["crossing"]["examples"] = sorted(rep["crossing"]["examples"], key=lambda c: -c["depth_mm"])[:_CROSS_LISTED]
     for key, text in (("back_to_back", "pairs of back-to-back touching faces"), ("enclosed", "parts inside another part"),
-                      ("floating", "small floating fragments")):
+                      ("floating", "small floating fragments"),
+                      ("crossing", "pairs of parts whose surfaces cross: a seated part may mean it, so check each one in parts.crossing")):
         if rep[key]["count"]:
             warnings.append(f"{rep[key]['count']} {text}")
     rep["warnings"] = warnings
@@ -394,9 +426,33 @@ def _flipped_faces(bm):
     return total
 
 
+def _holds_edge(v, narrow, wide):
+    """True when the uneven edges at v are a support row, there on purpose: the narrow edge is tight, or the loop turns hard at v or soon past it, or reaches a border."""
+    if narrow.calc_length() < wide.calc_length() * _SUPPORT_RATIO:
+        return True
+
+    def hard(a, w, b):
+        return math.degrees((w.co - a.co).normalized().angle((b.co - w.co).normalized(), 0.0)) >= _SUPPORT_TURN
+    if hard(wide.other_vert(v), v, narrow.other_vert(v)):
+        return True
+    u, e = v, narrow
+    for _ in range(_SUPPORT_REACH):
+        w = e.other_vert(u)
+        if any(k.is_boundary for k in w.link_edges):
+            return True
+        if len(w.link_edges) != 4:      # a pole: the loop has no straight way on
+            return False
+        n = next(x for x in w.link_edges if not set(x.link_faces) & set(e.link_faces))
+        if hard(u, w, n.other_vert(w)):
+            return True
+        u, e = w, n
+    return False
+
+
 def _spacing_error(v):
-    """Degrees of normal error from uneven edges along a loop through v: difference / (3 x radius), the radius read from how far the loop bends out of the surface."""
-    worst = 0.0
+    """Degrees of normal error from uneven edges along a loop through v: difference / (3 x radius), the radius read from how far the loop bends out of the surface.
+    Returns (free, held): held is the worst one over the limit on a support row, free the worst of the rest."""
+    free = held = 0.0
     for e in v.link_edges:
         for x in v.link_edges:
             if x.index > e.index and not set(x.link_faces) & set(e.link_faces):
@@ -404,15 +460,19 @@ def _spacing_error(v):
                 d1, d2 = (v.co - e.other_vert(v).co).normalized(), (x.other_vert(v).co - v.co).normalized()
                 bend = abs((d2 - d1).dot(v.normal))
                 if bend < _MAX_BEND:
-                    worst = max(worst, math.degrees(abs(a - b) * 2 * bend / (3 * max(a + b, 1e-9))))
-    return worst
+                    err = math.degrees(abs(a - b) * 2 * bend / (3 * max(a + b, 1e-9)))
+                    if err > _MAX_SPACING_DEG and _holds_edge(v, *((e, x) if a < b else (x, e))):
+                        held = max(held, err)
+                    else:
+                        free = max(free, err)
+    return free, held
 
 
 def _topology(ob):
     """Counts on the evaluated mesh with SubD off, so live Mirror and Bevel modifiers count and the cage is what gets read. Warnings only."""
     dg = bpy.context.evaluated_depsgraph_get()
     t = {"faces": 0, "quads": 0, "tris": 0, "ngons": 0, "ngons_not_flat": 0, "thin_tris": 0, "high_poles": 0, "max_valence": 0,
-         "verts": 0, "idle_flat_verts": 0, "odd_border_islands": 0, "uneven_on_curves": 0, "max_spacing_deg": 0.0, "odd_bevels": []}
+         "verts": 0, "idle_flat_verts": 0, "odd_border_islands": 0, "uneven_on_curves": 0, "max_spacing_deg": 0.0, "worst_spacing_at_m": None, "support_row_verts": 0, "odd_bevels": []}
     for o in _meshes(ob):
         t["odd_bevels"] += [f"{o.name}: {m.name} ({m.segments})" for m in o.modifiers if m.type == "BEVEL" and m.segments % 2]
         subd = [m for m in o.modifiers if m.type == "SUBSURF" and m.show_viewport]
@@ -453,9 +513,12 @@ def _topology(ob):
             n = len(v.link_edges)
             t["high_poles"] += n >= 6
             t["max_valence"] = max(t["max_valence"], n)
-            spacing = _spacing_error(v) if n == 4 else 0.0     # a pole has no straight loop through it
-            t["max_spacing_deg"] = round(max(t["max_spacing_deg"], spacing), 2)
+            spacing, held = _spacing_error(v) if n == 4 else (0.0, 0.0)     # a pole has no straight loop through it
+            if spacing > t["max_spacing_deg"]:
+                t["max_spacing_deg"] = round(spacing, 2)
+                t["worst_spacing_at_m"] = [round(c, 4) for c in o.matrix_world @ v.co]
             t["uneven_on_curves"] += spacing > _MAX_SPACING_DEG
+            t["support_row_verts"] += held > 0 and spacing <= _MAX_SPACING_DEG
             if len({f.material_index for f in fs}) == 1 and all(f.normal.dot(fs[0].normal) > 0.9998 for f in fs):      # within about 1 degree
                 flat.append(v)
             else:
@@ -479,7 +542,7 @@ def _topology(ob):
     if t["odd_border_islands"]:
         w.append(f"{t['odd_border_islands']} islands have an odd number of border edges: they can't be all quads until one border vertex is added or removed")
     if t["uneven_on_curves"]:
-        w.append(f"{t['uneven_on_curves']} vertices on a curve have uneven edges along a loop, an estimate of up to {t['max_spacing_deg']:.0f} degrees of normal error from edge lengths alone. A support row beside a hard edge sets this off on purpose. Check it in --modes reflect, and even the ring straight after a reduction if the stripes kink")
+        w.append(f"{t['uneven_on_curves']} vertices on a curve have uneven edges along a loop and don't sit on a support row, an estimate of up to {t['max_spacing_deg']:.0f} degrees of normal error from edge lengths alone, the worst at {t['worst_spacing_at_m']}. Check it in --modes reflect, and even the ring straight after a reduction if the stripes kink")
     if t["max_valence"] > _MAX_VALENCE:
         w.append(f"a vertex with {t['max_valence']} edges")
     if t["odd_bevels"]:
@@ -553,8 +616,8 @@ def validate(name, budget_tris=None, merge_dist=0.0001, spec=None, repo=None, to
     if stage not in ("mesh", "final"):
         raise ValueError(f"stage is mesh or final, not {stage}")
     ob = bpy.data.objects[name]
-    if ob.type != "MESH":
-        raise ValueError(f"{name} is a {ob.type}: validate a mesh object")
+    if ob.type not in ("MESH", "EMPTY"):
+        raise ValueError(f"{name} is a {ob.type}: validate a mesh object, or the empty a multi-part product is parented to")
     if isinstance(spec, str):
         spec_file, spec = spec, _find_check_spec(spec, repo).load_spec(spec)
     else:
@@ -562,33 +625,43 @@ def validate(name, budget_tris=None, merge_dist=0.0001, spec=None, repo=None, to
     if spec and budget_tris is None and isinstance(spec.get("budget_tris"), int):
         budget_tris = spec["budget_tris"]
     out = {"object": name, "stage": stage}
-    out["transforms_applied"] = (all(abs(s - 1) < 1e-6 for s in ob.scale)
-                                 and all(abs(a) < 1e-6 for a in ob.rotation_euler))
-    out["dimensions_m"] = [round(d, 4) for d in ob.dimensions]
-    bm = bmesh.new()
-    bm.from_mesh(ob.data)
-    out["non_manifold_edges"] = sum(1 for e in bm.edges if not e.is_manifold and not e.is_boundary)
-    out["boundary_edges"] = sum(1 for e in bm.edges if e.is_boundary)
-    out["duplicate_verts"] = len(bmesh.ops.find_doubles(bm, verts=bm.verts, dist=merge_dist)["targetmap"])
-    has_subd = any(m.type == "SUBSURF" for m in ob.modifiers)
-    out["ngons"] = sum(1 for f in bm.faces if len(f.verts) > 4)
-    out["ngons_under_subd"] = _bad_subd_ngons(bm) if has_subd else 0
-    out["flipped_faces"] = _flipped_faces(bm)
-    bm.free()
-    dg = bpy.context.evaluated_depsgraph_get()
-    ev = ob.evaluated_get(dg).to_mesh()
-    ev.calc_loop_triangles()
-    out["tris_evaluated"] = len(ev.loop_triangles)
-    out["uv_zero_area_share"] = _uv_zero_share(ev)
-    ob.evaluated_get(dg).to_mesh_clear()
-    out["uv_layers"] = [uv.name for uv in ob.data.uv_layers]
-    out["materials"] = [s.material.name if s.material else None for s in ob.material_slots]
-    out["parts"] = _parts(ob)
-    out["topology"] = _topology(ob)
-    # a UV map must exist and most faces must have area in it, once the mesh is past approval
-    uv_ok = stage == "mesh" or (bool(out["uv_layers"]) and (out["uv_zero_area_share"] or 0.0) <= 0.5)
-    checks = [out["transforms_applied"], out["non_manifold_edges"] == 0, out["duplicate_verts"] == 0,
-              out["ngons_under_subd"] == 0, out["flipped_faces"] == 0, uv_ok, out["parts"]["ok"]]
+    if ob.type == "EMPTY":      # each mesh on its own, then what only shows between them: parts that cross, overlap or float
+        members = _meshes(ob)
+        if not members:
+            raise ValueError(f"{name} is an empty with no mesh under it")
+        out["members"] = {m.name: validate(m.name, merge_dist=merge_dist, stage=stage) for m in members}
+        out["tris_evaluated"] = sum(m["tris_evaluated"] for m in out["members"].values())
+        out["parts"] = _parts(ob)
+        out["topology"] = _topology(ob)
+        checks = [m["pass"] for m in out["members"].values()] + [out["parts"]["ok"]]
+    else:
+        out["transforms_applied"] = (all(abs(s - 1) < 1e-6 for s in ob.scale)
+                                     and all(abs(a) < 1e-6 for a in ob.rotation_euler))
+        out["dimensions_m"] = [round(d, 4) for d in ob.dimensions]
+        bm = bmesh.new()
+        bm.from_mesh(ob.data)
+        out["non_manifold_edges"] = sum(1 for e in bm.edges if not e.is_manifold and not e.is_boundary)
+        out["boundary_edges"] = sum(1 for e in bm.edges if e.is_boundary)
+        out["duplicate_verts"] = len(bmesh.ops.find_doubles(bm, verts=bm.verts, dist=merge_dist)["targetmap"])
+        has_subd = any(m.type == "SUBSURF" for m in ob.modifiers)
+        out["ngons"] = sum(1 for f in bm.faces if len(f.verts) > 4)
+        out["ngons_under_subd"] = _bad_subd_ngons(bm) if has_subd else 0
+        out["flipped_faces"] = _flipped_faces(bm)
+        bm.free()
+        dg = bpy.context.evaluated_depsgraph_get()
+        ev = ob.evaluated_get(dg).to_mesh()
+        ev.calc_loop_triangles()
+        out["tris_evaluated"] = len(ev.loop_triangles)
+        out["uv_zero_area_share"] = _uv_zero_share(ev)
+        ob.evaluated_get(dg).to_mesh_clear()
+        out["uv_layers"] = [uv.name for uv in ob.data.uv_layers]
+        out["materials"] = [s.material.name if s.material else None for s in ob.material_slots]
+        out["parts"] = _parts(ob)
+        out["topology"] = _topology(ob)
+        # a UV map must exist and most faces must have area in it, once the mesh is past approval
+        uv_ok = stage == "mesh" or (bool(out["uv_layers"]) and (out["uv_zero_area_share"] or 0.0) <= 0.5)
+        checks = [out["transforms_applied"], out["non_manifold_edges"] == 0, out["duplicate_verts"] == 0,
+                  out["ngons_under_subd"] == 0, out["flipped_faces"] == 0, uv_ok, out["parts"]["ok"]]
     if spec and isinstance(spec.get("form"), dict):
         out["form"] = _form(ob, spec["form"])
         checks.append(out["form"]["ok"])
@@ -605,7 +678,7 @@ def validate(name, budget_tris=None, merge_dist=0.0001, spec=None, repo=None, to
 
 def main(argv):
     ap = argparse.ArgumentParser(prog="validate_mesh.py")
-    ap.add_argument("name", help="the mesh object to validate")
+    ap.add_argument("name", help="the mesh object to validate, or the empty a multi-part product is parented to")
     ap.add_argument("--spec", help="the asset spec, kit/<asset>.md")
     ap.add_argument("--budget-tris", type=int)
     ap.add_argument("--merge-dist", type=float, default=0.0001)
