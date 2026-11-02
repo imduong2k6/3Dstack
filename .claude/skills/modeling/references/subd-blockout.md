@@ -1,6 +1,6 @@
 # SubD from a blockout
 
-The route for flat and prismatic SubD parts: plates, brackets, housings with straight walls. Block the part out from simple shapes, Boolean or union them, clean the new edges, then add SubD. This is the user's own order. It has run on one drawn plate of 11 shapes, by script, and on one bracket from a photo. The bracket held its shape and sizes and failed the validator, so this route hasn't yet given a part that passes. Take the numbers as a start and measure yours.
+The route for flat and prismatic SubD parts: plates, brackets, housings with straight walls. Block the part out from simple shapes, Boolean or union them, clean the new edges, then add SubD. This is the user's own order. It has run on one drawn plate of 11 shapes, by script, and twice on one bracket from a photo. The second bracket passed the validator only at a 0.015 mm merge distance and with 33 folded edges, so this route hasn't yet given a finished part. Take the numbers as a start and measure yours.
 
 A cut into a curved face stays on the loop flow or a replaced patch ([subd-recipes.md](subd-recipes.md) section 8). One part can use both.
 
@@ -86,7 +86,21 @@ Outer corners 4 segments, pocket and slot corners and floors 2, hole and boss 12
 
 ## What the bracket measured
 
-One agent, one front photo, at the rules before this file's Boolean order, split lines and bevel recipes. Every depth was guessed from shading and the 180 mm height was assumed. It took about 77 minutes: 29 up to the Boolean shape, nearly all of it reading the part and planning lines, and 48 on the clean-up, mostly folds falling 193, 67, 34, 21, 9.
+The second run, by a new agent on this file's rules and with the first run's reading of the part, compared with the first:
+
+| | First | Second |
+| --- | --- | --- |
+| Failed n-gons | 68 of 159 | 0 of 70 |
+| Folded edges | 9 | 33, 20 of them where a hold ends at an L in a wall |
+| Cage faces | 2,589 | 2,414 |
+| Tris in the cage | 0 | 24 |
+| Softening over target, p5 to p95 | 0.42 to 1.51 | 0.39 to 1.71 |
+| Boss radius against 15.145 mm | 15.13 to 15.16 | 15.13 to 15.49 |
+| Minutes | 77 | 71, with the part already read |
+
+These rows were read at level 4 by a separate script, except the minutes. Inside the first run's failed n-gons the surface normal turned 13 degrees at the median, against 0.03 in the passing ones, so the n-gon rule stands. A hold ending at an L in a wall has no recipe yet: six tries gave 51 to 471 folds.
+
+The first run: one agent, one front photo, at the rules before this file's Boolean order, split lines and bevel recipes. Every depth was guessed from shading and the 180 mm height was assumed. It took about 77 minutes: 29 up to the Boolean shape, nearly all of it reading the part and planning lines, and 48 on the clean-up, mostly folds falling 193, 67, 34, 21, 9.
 
 | Step | Faces | N-gons | Shortest edge |
 | --- | --- | --- | --- |
@@ -96,7 +110,7 @@ One agent, one front photo, at the rules before this file's Boolean order, split
 | Hold, 2 segments | 2,352 | 145 | 0.040 mm |
 | Rows on floors | 2,589 | 159 | 0.040 mm |
 
-- **Fails the validator:** 68 of 159 n-gons, with 9 folded edges where the tab meets the plate. A bevel's chain end puts a T on the next face, so a quad becomes a 5-gon that touches an off-plane point: 55 failed on that alone. Whether that rule or the route should change hasn't been measured.
+- **Fails the validator:** 68 of 159 n-gons, with 9 folded edges where the tab meets the plate. A bevel's chain end puts a T on the next face, so a quad becomes a 5-gon that touches an off-plane point: 55 failed on that alone.
 - **Sizes held:** at level 4, 132.57 x 14 x 179.98 mm against 132.79 x 14 x 180, holes 2.82 to 2.832 against 2.825, bore 10.093 to 10.099 against 10.095.
 - **Bevelling every sharp edge costs the most faces:** the 2-segment holds on 518 edges added 1,091 of the 2,589.
 

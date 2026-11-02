@@ -18,7 +18,7 @@ The user approved the nine fixes listed on the workflow page after the bracket (
 | 8 | 4-segment bevels: a custom profile with the rows inside, 4 faces across against 6, and where 2 and 4 meet the 4 runs first. How-to: a width per edge goes through the modifier's weight limit; a chain end's two tris join into a quad | 111 edges on the bracket | `subd-blockout.md` step 4, `subd-recipes.md` section 6 |
 | 9 | Solver bridge edges: `dissolve_limit` doesn't remove them, so strip the flats and rebuild them, with a source attribute carried through the Exact Boolean | The back stayed a 134-gon after the dissolve. The rebuild's areas added up | `subd-blockout.md` section 2, steps 1 and 2 |
 
-Left open: the validator's n-gon rule against bevel chain ends, which failed 55 n-gons on that alone. It isn't changed until it's measured.
+The re-run with these fixes is in `subd-blockout.md`: failed n-gons 68 to 0, folded edges 9 to 33, cage faces 2,589 to 2,414, and a passing validator only at a 0.015 mm merge distance. Only the file's evidence changed after the re-run. The n-gon rule stays, because the first run's failed n-gons turned their surface normals 13 degrees at the median against 0.03 in the passing ones. The rules the re-run points to wait for the user's approval.
 
 ## 2026-11-01: Blockout route and bevel counts for flat SubD parts
 
